@@ -5,7 +5,7 @@
 #include <vector>
 #include <GLFW/glfw3.h>
 
-#include "VulkanValidationLayersManager.h"
+#include "VulkanDebugManager.h"
 
 namespace tessera::vulkan
 {
@@ -16,8 +16,8 @@ namespace tessera::vulkan
 
 		std::vector extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
 
-		if (VulkanValidationLayersManager::isEnabled()) {
-			extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+		if (VulkanDebugManager::validationLayersAreEnabled()) {
+			extensions.emplace_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 		}
 
 		return extensions;
