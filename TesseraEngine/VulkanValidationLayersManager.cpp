@@ -49,7 +49,7 @@ namespace tessera::vulkan
 
 	void VulkanValidationLayersManager::includeValidationLayerNamesIfNeeded(VkInstanceCreateInfo& createInfo) const
 	{
-        if (validationLayersEnabled) {
+        if (isEnabled()) {
             createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
             createInfo.ppEnabledLayerNames = validationLayers.data();
         }
