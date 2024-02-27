@@ -12,7 +12,8 @@ int main()
     }
     catch(const std::exception& exception)
     {
-        std::cerr << exception.what() << std::endl;
+        // TODO: Create custom exception with title.
+        tessera::TesseraLog::send(tessera::LogType::FATAL, "Exception", exception.what());
         return EXIT_FAILURE;
     }
 

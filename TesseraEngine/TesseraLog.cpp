@@ -3,25 +3,35 @@
 #include <iostream>
 #include <ostream>
 
-void TesseraLog::send(const LogType logType, const std::string& title, const std::string& message)
+namespace tessera
 {
-    std::cout << "[" << toString(logType) << "] " + title + ": " << message << std::endl;
-
-}
-
-std::string TesseraLog::toString(const LogType logType)
-{
-	switch (logType)
+	void TesseraLog::send(const LogType logType, const std::string& title, const std::string& message)
 	{
-	case LogType::INFO:
-		return "INFO";
-	case LogType::DEBUG:
-		return "DEBUG";
-	case LogType::WARNING:
-		return "WARNING";
-	case LogType::ERROR:
-		return "ERROR";
+		if (!isLogTypeEnabled(logType))
+		{
+			return;
+		}
+
+	    std::cout << "[" << toString(logType) << "] " + title + ": " << message << std::endl;
 	}
 
-	return "INFO";
+	std::string TesseraLog::toString(const LogType logType)
+	{
+		switch (logType)
+		{
+		case LogType::INFO:
+			return "INFO";
+		case LogType::DEBUG:
+			return "DEBUG";
+		case LogType::WARNING:
+			return "WARNING";
+		case LogType::ERROR:
+			return "ERROR";
+		case LogType::FATAL:
+			return "FATAL";
+		case LogType::ALL: break;
+		}
+
+		return "INFO";
+	}
 }
