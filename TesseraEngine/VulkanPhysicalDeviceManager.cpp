@@ -3,6 +3,8 @@
 #include <stdexcept>
 #include <vector>
 
+#include "VulkanQueueFamiliesManager.h"
+
 namespace tessera::vulkan
 {
 	
@@ -44,8 +46,10 @@ namespace tessera::vulkan
 		VkPhysicalDeviceFeatures deviceFeatures;
 		vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
 
-		// Now we don't need any specific requirements, and any GPU can be used.
-		return true;
+		// Check if device can process the commands we want to use.
+		const QueueFamilyIndices indices = VulkanQueueFamiliesManager::findQueueFamilies(device);
+
+		return indices.isComplete();
 	}
 
 }
