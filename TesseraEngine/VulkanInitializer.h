@@ -2,6 +2,7 @@
 #include <vulkan/vulkan_core.h>
 
 #include "VulkanDebugManager.h"
+#include "VulkanLogicalDeviceManager.h"
 #include "VulkanPhysicalDeviceManager.h"
 
 namespace tessera::vulkan
@@ -19,7 +20,7 @@ namespace tessera::vulkan
 
 		VkInstance instance = VK_NULL_HANDLE;
 		VulkanDebugManager debugManager;
-		VulkanPhysicalDeviceManager physicalDeviceManager;
+		VulkanLogicalDeviceManager logicalDeviceManager;
 	};
 
 }

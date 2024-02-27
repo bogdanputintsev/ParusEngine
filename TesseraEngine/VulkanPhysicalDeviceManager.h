@@ -1,4 +1,5 @@
 #pragma once
+#include <memory>
 #include <vulkan/vulkan_core.h>
 
 namespace tessera::vulkan
@@ -7,12 +8,10 @@ namespace tessera::vulkan
 	class VulkanPhysicalDeviceManager final
 	{
 	public:
-		void pickAnySuitableDevice(const VkInstance& instance);
-
+		static VkPhysicalDevice pickAnySuitableDevice(const VkInstance& instance);
+		
 	private:
 		static bool isDeviceSuitable(const VkPhysicalDevice& device);
-
-		VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
 	};
 	
 }
