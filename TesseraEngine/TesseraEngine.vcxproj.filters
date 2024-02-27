@@ -11,6 +11,9 @@
     <Filter Include="Source Files\GLFW">
       <UniqueIdentifier>{c79d44c0-8f76-483b-af13-bd082a4e996d}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Logging">
+      <UniqueIdentifier>{16004675-d105-4269-a1c9-df2f6cf7485b}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Main.cpp">
@@ -25,11 +28,14 @@
     <ClCompile Include="GlfwInitializer.cpp">
       <Filter>Source Files\GLFW</Filter>
     </ClCompile>
-    <ClCompile Include="VulkanValidationLayersManager.cpp">
+    <ClCompile Include="VulkanDebugManager.cpp">
       <Filter>Source Files\Vulkan</Filter>
     </ClCompile>
     <ClCompile Include="VulkanExtensionManager.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="TesseraLog.cpp">
+      <Filter>Source Files\Logging</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -42,9 +48,14 @@
     <ClInclude Include="GlfwInitializer.h">
       <Filter>Source Files\GLFW</Filter>
     </ClInclude>
-    <ClInclude Include="VulkanValidationLayersManager.h">
+    <ClInclude Include="VulkanDebugManager.h">
       <Filter>Source Files\Vulkan</Filter>
     </ClInclude>
-    <ClInclude Include="VulkanExtensionManager.h" />
+    <ClInclude Include="VulkanExtensionManager.h">
+      <Filter>Source Files\Vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="TesseraLog.h">
+      <Filter>Source Files\Logging</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
