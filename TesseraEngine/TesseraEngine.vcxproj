@@ -166,22 +166,24 @@
     </ClCompile>
     <ClCompile Include="TesseraLog.cpp" />
     <ClCompile Include="VulkanExtensionManager.cpp" />
-    <ClCompile Include="VulkanInitializer.cpp" />
+    <ClCompile Include="VulkanInstanceManager.cpp" />
     <ClCompile Include="VulkanDebugManager.cpp" />
     <ClCompile Include="VulkanLogicalDeviceManager.cpp" />
     <ClCompile Include="VulkanPhysicalDeviceManager.cpp" />
     <ClCompile Include="VulkanQueueFamiliesManager.cpp" />
+    <ClCompile Include="VulkanSurfaceManager.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h" />
     <ClInclude Include="GlfwInitializer.h" />
     <ClInclude Include="TesseraLog.h" />
     <ClInclude Include="VulkanExtensionManager.h" />
-    <ClInclude Include="VulkanInitializer.h" />
+    <ClInclude Include="VulkanInstanceManager.h" />
     <ClInclude Include="VulkanDebugManager.h" />
     <ClInclude Include="VulkanLogicalDeviceManager.h" />
     <ClInclude Include="VulkanPhysicalDeviceManager.h" />
     <ClInclude Include="VulkanQueueFamiliesManager.h" />
+    <ClInclude Include="VulkanSurfaceManager.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

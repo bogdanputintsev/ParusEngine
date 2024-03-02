@@ -9,9 +9,9 @@
 namespace tessera::vulkan
 {
 
-	void VulkanLogicalDeviceManager::init(const VkInstance& instance)
+	void VulkanLogicalDeviceManager::init(const std::shared_ptr<VkInstance>& instance)
 	{
-		const VkPhysicalDevice physicalDevice = VulkanPhysicalDeviceManager::pickAnySuitableDevice(instance);
+		const VkPhysicalDevice physicalDevice = VulkanPhysicalDeviceManager::pickAnySuitableDevice(*instance);
 		assert(physicalDevice);
 
 		const auto [graphicsFamily] = VulkanQueueFamiliesManager::findQueueFamilies(physicalDevice);

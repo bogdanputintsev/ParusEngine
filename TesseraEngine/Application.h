@@ -1,7 +1,8 @@
 #pragma once
 
 #include "GlfwInitializer.h"
-#include "VulkanInitializer.h"
+#include "VulkanDebugManager.h"
+#include "VulkanInstanceManager.h"
 
 namespace tessera
 {
@@ -9,14 +10,17 @@ namespace tessera
 	{
 	public:
 		Application() = default;
-
-		void run();
+		void init();
 
 	private:
 		void clean() const;
 
-		vulkan::VulkanInitializer vulkanInitializer;
+		std::shared_ptr<VkInstance> instance;
+
 		glfw::GlfwInitializer glfwInitializer;
+		vulkan::VulkanInstanceManager vulkanInstanceManager;
+		vulkan::VulkanDebugManager debugManager;
+		vulkan::VulkanLogicalDeviceManager logicalDeviceManager;
 	};
 
 }

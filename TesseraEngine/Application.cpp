@@ -1,18 +1,28 @@
 #include "Application.h"
 
+#include <cassert>
+
 namespace tessera
 {
-
-	void Application::run()
+	
+	void Application::init()
 	{
 		glfwInitializer.init();
-		vulkanInitializer.init();
+		vulkanInstanceManager.init();
+
+		instance = vulkanInstanceManager.getInstance();
+		assert(instance);
+
+		debugManager.init(instance);
+		logicalDeviceManager.init(instance);
 		clean();
 	}
 
 	void Application::clean() const
 	{
-		vulkanInitializer.clean();
+		logicalDeviceManager.clean();
+		debugManager.clean(instance);
+		vulkanInstanceManager.clean();
 		glfwInitializer.clean();
 	}
 

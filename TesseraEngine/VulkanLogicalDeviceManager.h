@@ -7,7 +7,7 @@ namespace tessera::vulkan
 	class VulkanLogicalDeviceManager final
 	{
 	public:
-		void init(const VkInstance& instance);
+		void init(const std::shared_ptr<VkInstance>& instance);
 		void clean() const;
 
 	private:

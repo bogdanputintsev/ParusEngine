@@ -37,7 +37,7 @@ namespace tessera
 #endif
 
 		static bool isLogTypeEnabled(const LogType logType) { return static_cast<int>(logType) & logTypeMask; }
-		static std::string toString(LogType logType);
+		static std::string_view toString(LogType logType);
 	};
 
 }
