@@ -1,5 +1,7 @@
 #include "GlfwInitializer.h"
 
+#include <stdexcept>
+
 namespace tessera::glfw
 {
 
@@ -8,12 +10,22 @@ namespace tessera::glfw
 		glfwInit();
 		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 		glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-		window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Tessera Engine", nullptr, nullptr);
+		GLFWwindow* windowObject = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_TITLE.c_str(), nullptr, nullptr);
+		if (!windowObject)
+		{
+			throw std::runtime_error("GlfwInitializer: failed to initialize window.");
+		}
+
+		window = std::shared_ptr<GLFWwindow>(windowObject, [](GLFWwindow* ptr)
+		{
+			// TODO: rewrite init/clean methods with constructor and destructor.
+			// Empty destructor.
+		});
 	}
 
 	void GlfwInitializer::mainLoop() const
 	{
-		while (!glfwWindowShouldClose(window))
+		while (!glfwWindowShouldClose(window.get()))
 		{
 			glfwPollEvents();
 		}
@@ -21,7 +33,7 @@ namespace tessera::glfw
 
 	void GlfwInitializer::clean() const
 	{
-		glfwDestroyWindow(window);
+		glfwDestroyWindow(window.get());
 		glfwTerminate();
 	}
 
