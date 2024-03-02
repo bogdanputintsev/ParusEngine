@@ -8,10 +8,10 @@ namespace tessera::vulkan
 	class VulkanPhysicalDeviceManager final
 	{
 	public:
-		static VkPhysicalDevice pickAnySuitableDevice(const VkInstance& instance);
+		static VkPhysicalDevice pickAnySuitableDevice(const VkInstance& instance, const std::shared_ptr<const VkSurfaceKHR>& surface);
 		
 	private:
-		static bool isDeviceSuitable(const VkPhysicalDevice& device);
+		static bool isDeviceSuitable(const VkPhysicalDevice& device, const std::shared_ptr<const VkSurfaceKHR>& surface);
 	};
 	
 }
