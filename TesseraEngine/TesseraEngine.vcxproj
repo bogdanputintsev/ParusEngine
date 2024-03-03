@@ -152,46 +152,41 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Application.cpp" />
-    <ClCompile Include="GlfwInitializer.cpp" />
-    <ClCompile Include="Main.cpp">
-      <WarningLevel Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Level4</WarningLevel>
-      <TreatWarningAsError Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</TreatWarningAsError>
-      <MultiProcessorCompilation Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</MultiProcessorCompilation>
-      <WarningLevel Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Level4</WarningLevel>
-      <TreatWarningAsError Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</TreatWarningAsError>
-      <MultiProcessorCompilation Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</MultiProcessorCompilation>
-      <WarningLevel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Level4</WarningLevel>
-      <TreatWarningAsError Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</TreatWarningAsError>
-      <MultiProcessorCompilation Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</MultiProcessorCompilation>
-      <WarningLevel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Level4</WarningLevel>
-      <TreatWarningAsError Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</TreatWarningAsError>
-      <MultiProcessorCompilation Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</MultiProcessorCompilation>
-    </ClCompile>
-    <ClCompile Include="TesseraLog.cpp" />
-    <ClCompile Include="VulkanExtensionManager.cpp" />
-    <ClCompile Include="VulkanImageViewManager.cpp" />
-    <ClCompile Include="VulkanInstanceManager.cpp" />
-    <ClCompile Include="VulkanDebugManager.cpp" />
-    <ClCompile Include="VulkanDeviceManager.cpp" />
-    <ClCompile Include="VulkanPhysicalDeviceManager.cpp" />
-    <ClCompile Include="VulkanQueueFamiliesManager.cpp" />
-    <ClCompile Include="VulkanSurfaceManager.cpp" />
-    <ClCompile Include="VulkanSwapChainManager.cpp" />
+    <ClCompile Include="source\ShaderLoader.cpp" />
+    <ClCompile Include="source\Application.cpp" />
+    <ClCompile Include="source\GlfwInitializer.cpp" />
+    <ClCompile Include="source\Main.cpp" />
+    <ClCompile Include="source\TesseraLog.cpp" />
+    <ClCompile Include="source\VulkanDebugManager.cpp" />
+    <ClCompile Include="source\VulkanDeviceManager.cpp" />
+    <ClCompile Include="source\VulkanExtensionManager.cpp" />
+    <ClCompile Include="source\VulkanGraphicsPipelineManager.cpp" />
+    <ClCompile Include="source\VulkanImageViewManager.cpp" />
+    <ClCompile Include="source\VulkanInstanceManager.cpp" />
+    <ClCompile Include="source\VulkanPhysicalDeviceManager.cpp" />
+    <ClCompile Include="source\VulkanQueueFamiliesManager.cpp" />
+    <ClCompile Include="source\VulkanSurfaceManager.cpp" />
+    <ClCompile Include="source\VulkanSwapChainManager.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Application.h" />
-    <ClInclude Include="GlfwInitializer.h" />
-    <ClInclude Include="TesseraLog.h" />
-    <ClInclude Include="VulkanExtensionManager.h" />
-    <ClInclude Include="VulkanImageViewManager.h" />
-    <ClInclude Include="VulkanInstanceManager.h" />
-    <ClInclude Include="VulkanDebugManager.h" />
-    <ClInclude Include="VulkanDeviceManager.h" />
-    <ClInclude Include="VulkanPhysicalDeviceManager.h" />
-    <ClInclude Include="VulkanQueueFamiliesManager.h" />
-    <ClInclude Include="VulkanSurfaceManager.h" />
-    <ClInclude Include="VulkanSwapChainManager.h" />
+    <ClInclude Include="source\ShaderLoader.h" />
+    <ClInclude Include="source\Application.h" />
+    <ClInclude Include="source\GlfwInitializer.h" />
+    <ClInclude Include="source\TesseraLog.h" />
+    <ClInclude Include="source\VulkanDebugManager.h" />
+    <ClInclude Include="source\VulkanDeviceManager.h" />
+    <ClInclude Include="source\VulkanExtensionManager.h" />
+    <ClInclude Include="source\VulkanGraphicsPipelineManager.h" />
+    <ClInclude Include="source\VulkanImageViewManager.h" />
+    <ClInclude Include="source\VulkanInstanceManager.h" />
+    <ClInclude Include="source\VulkanPhysicalDeviceManager.h" />
+    <ClInclude Include="source\VulkanQueueFamiliesManager.h" />
+    <ClInclude Include="source\VulkanSurfaceManager.h" />
+    <ClInclude Include="source\VulkanSwapChainManager.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="shaders\shader.frag" />
+    <None Include="shaders\shader.vert" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

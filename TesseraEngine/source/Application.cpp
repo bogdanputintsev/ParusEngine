@@ -4,7 +4,8 @@
 
 namespace tessera
 {
-	
+	// TODO: One idea how to avoid these dependencies, is to create VulkanTransferObject and pass it in every init by reference.
+
 	void Application::init()
 	{
 		glfwInitializer.init();
@@ -25,11 +26,13 @@ namespace tessera
 		swapChainManager.init(deviceManager, surface, window);
 		imageViewManager.init(swapChainManager.getSwapChainImageDetails(), deviceManager.getLogicalDevice());
 
+		graphicsPipelineManager.init(deviceManager.getLogicalDevice());
 		clean();
 	}
 
 	void Application::clean() const
 	{
+		graphicsPipelineManager.clean(deviceManager.getLogicalDevice());
 		imageViewManager.clean(deviceManager.getLogicalDevice());
 		swapChainManager.clean(deviceManager.getLogicalDevice());
 		deviceManager.clean();
