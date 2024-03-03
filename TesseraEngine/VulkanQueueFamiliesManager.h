@@ -21,7 +21,6 @@ namespace tessera::vulkan
 	{
 	public:
 		static QueueFamilyIndices findQueueFamilies(const VkPhysicalDevice& physicalDevice, const std::shared_ptr<const VkSurfaceKHR>& surface);
-		
 	};
 
 }
