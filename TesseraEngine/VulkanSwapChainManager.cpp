@@ -65,11 +65,12 @@ namespace tessera::vulkan
 			throw std::runtime_error("VulkanSwapChainManager: failed to create swap chain.");
 		}
 
+		std::vector<VkImage> swapChainImages;
 		vkGetSwapchainImagesKHR(*logicalDevice, swapChain, &imageCount, nullptr);
 		swapChainImages.resize(imageCount);
 		vkGetSwapchainImagesKHR(*logicalDevice, swapChain, &imageCount, swapChainImages.data());
 
-		swapChainDetails = { format, extent };
+		swapChainDetails = { format, extent, swapChainImages };
 	}
 
 	void VulkanSwapChainManager::clean(const std::shared_ptr<const VkDevice>& device) const

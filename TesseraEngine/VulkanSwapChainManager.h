@@ -22,7 +22,8 @@ namespace tessera::vulkan
 	{
 		VkFormat swapChainImageFormat;
 		VkExtent2D swapChainExtent;
-	} ;
+		std::vector<VkImage> swapChainImages;
+	};
 
 	class VulkanSwapChainManager final
 	{
@@ -30,6 +31,8 @@ namespace tessera::vulkan
 		void init(const VulkanDeviceManager& deviceManager, const std::shared_ptr<const VkSurfaceKHR>& surface, const std::shared_ptr<GLFWwindow>& window);
 		void clean(const std::shared_ptr<const VkDevice>& device) const;
 		static SwapChainSupportDetails querySwapChainSupport(const VkPhysicalDevice& device, const std::shared_ptr<const VkSurfaceKHR>& surface);
+
+		[[nodiscard]] SwapChainImageDetails getSwapChainImageDetails() const { return swapChainDetails; }
 	private:
 		static VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
 		static VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
@@ -37,7 +40,6 @@ namespace tessera::vulkan
 
 		VkSwapchainKHR swapChain = VK_NULL_HANDLE;
 		SwapChainImageDetails swapChainDetails {};
-		std::vector<VkImage> swapChainImages;
 	};
 	
 }
