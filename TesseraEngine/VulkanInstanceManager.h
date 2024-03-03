@@ -1,7 +1,7 @@
 #pragma once
 #include <vulkan/vulkan_core.h>
 
-#include "VulkanLogicalDeviceManager.h"
+#include "VulkanDeviceManager.h"
 
 namespace tessera::vulkan
 {

@@ -21,13 +21,15 @@ namespace tessera
 		surface = surfaceManager.getSurface();
 		assert(surface);
 
-		logicalDeviceManager.init(instance, surface);
+		deviceManager.init(instance, surface); 
+		swapChainManager.init(deviceManager, surface, window);
 		clean();
 	}
 
 	void Application::clean() const
 	{
-		logicalDeviceManager.clean();
+		swapChainManager.clean(deviceManager.getLogicalDevice());
+		deviceManager.clean();
 		debugManager.clean(instance);
 		surfaceManager.clean(instance);
 		vulkanInstanceManager.clean();

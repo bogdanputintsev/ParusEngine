@@ -37,7 +37,7 @@
     <ClCompile Include="TesseraLog.cpp">
       <Filter>Source Files\Logging</Filter>
     </ClCompile>
-    <ClCompile Include="VulkanLogicalDeviceManager.cpp">
+    <ClCompile Include="VulkanDeviceManager.cpp">
       <Filter>Source Files\Vulkan</Filter>
     </ClCompile>
     <ClCompile Include="VulkanPhysicalDeviceManager.cpp">
@@ -47,6 +47,9 @@
       <Filter>Source Files\Vulkan</Filter>
     </ClCompile>
     <ClCompile Include="VulkanSurfaceManager.cpp">
+      <Filter>Source Files\Vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="VulkanSwapChainManager.cpp">
       <Filter>Source Files\Vulkan</Filter>
     </ClCompile>
   </ItemGroup>
@@ -72,13 +75,16 @@
     <ClInclude Include="VulkanPhysicalDeviceManager.h">
       <Filter>Source Files\Vulkan</Filter>
     </ClInclude>
-    <ClInclude Include="VulkanLogicalDeviceManager.h">
+    <ClInclude Include="VulkanDeviceManager.h">
       <Filter>Source Files\Vulkan</Filter>
     </ClInclude>
     <ClInclude Include="VulkanQueueFamiliesManager.h">
       <Filter>Source Files\Vulkan</Filter>
     </ClInclude>
     <ClInclude Include="VulkanSurfaceManager.h">
+      <Filter>Source Files\Vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="VulkanSwapChainManager.h">
       <Filter>Source Files\Vulkan</Filter>
     </ClInclude>
   </ItemGroup>
