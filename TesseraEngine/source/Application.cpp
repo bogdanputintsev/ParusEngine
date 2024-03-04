@@ -26,7 +26,7 @@ namespace tessera
 		swapChainManager.init(deviceManager, surface, window);
 		imageViewManager.init(swapChainManager.getSwapChainImageDetails(), deviceManager.getLogicalDevice());
 
-		graphicsPipelineManager.init(deviceManager.getLogicalDevice());
+		graphicsPipelineManager.init(deviceManager.getLogicalDevice(), swapChainManager.getSwapChainImageDetails());
 		clean();
 	}
 
