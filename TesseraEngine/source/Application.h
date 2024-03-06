@@ -7,6 +7,7 @@
 #include "VulkanInstanceManager.h"
 #include "VulkanSurfaceManager.h"
 #include "VulkanSwapChainManager.h"
+#include "VulkanFramebufferManager.h"
 
 namespace tessera
 {
@@ -31,6 +32,7 @@ namespace tessera
 		vulkan::VulkanSwapChainManager swapChainManager;
 		vulkan::VulkanImageViewManager imageViewManager;
 		vulkan::VulkanGraphicsPipelineManager graphicsPipelineManager;
+		vulkan::VulkanFramebufferManager framebufferManager;
 	};
 
 }

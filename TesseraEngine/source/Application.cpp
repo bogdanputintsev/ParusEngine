@@ -27,11 +27,13 @@ namespace tessera
 		imageViewManager.init(swapChainManager.getSwapChainImageDetails(), deviceManager.getLogicalDevice());
 
 		graphicsPipelineManager.init(deviceManager.getLogicalDevice(), swapChainManager.getSwapChainImageDetails());
+		framebufferManager.init(imageViewManager.getSwapChainImageViews(), deviceManager.getLogicalDevice(), graphicsPipelineManager.getRenderPath(), swapChainManager.getSwapChainImageDetails());
 		clean();
 	}
 
 	void Application::clean() const
 	{
+		framebufferManager.clean(deviceManager.getLogicalDevice());
 		graphicsPipelineManager.clean(deviceManager.getLogicalDevice());
 		imageViewManager.clean(deviceManager.getLogicalDevice());
 		swapChainManager.clean(deviceManager.getLogicalDevice());
