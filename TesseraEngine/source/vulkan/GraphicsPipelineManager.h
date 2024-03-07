@@ -2,12 +2,12 @@
 #include <memory>
 #include <vector>
 #include <vulkan/vulkan_core.h>
-#include "VulkanSwapChainManager.h"
+#include "SwapChainManager.h"
 
 namespace tessera::vulkan
 {
 
-	class VulkanGraphicsPipelineManager
+	class GraphicsPipelineManager
 	{
 	public:
 		void init(const std::shared_ptr<const VkDevice>& device, const SwapChainImageDetails& swapChainImageDetails);

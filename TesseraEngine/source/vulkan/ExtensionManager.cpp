@@ -1,4 +1,4 @@
-#include "VulkanExtensionManager.h"
+#include "ExtensionManager.h"
 
 #include <set>
 #include <stdexcept>
@@ -6,18 +6,18 @@
 #include <vector>
 #include <GLFW/glfw3.h>
 
-#include "VulkanDebugManager.h"
+#include "DebugManager.h"
 
 namespace tessera::vulkan
 {
-	std::vector<const char*> VulkanExtensionManager::getRequiredInstanceExtensions()
+	std::vector<const char*> ExtensionManager::getRequiredInstanceExtensions()
 	{
 		uint32_t glfwExtensionCount = 0;
 		const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
 
 		std::vector extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
 
-		if (VulkanDebugManager::validationLayersAreEnabled()) 
+		if (DebugManager::validationLayersAreEnabled()) 
 		{
 			extensions.emplace_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 		}
@@ -25,7 +25,7 @@ namespace tessera::vulkan
 		return extensions;
 	}
 
-	void VulkanExtensionManager::checkIfAllGlsfRequiredExtensionsAreSupported()
+	void ExtensionManager::checkIfAllGlsfRequiredExtensionsAreSupported()
 	{
 		const std::vector<const char*> requiredExtensions = getRequiredInstanceExtensions();
 		const std::unordered_set<std::string> requiredExtensionsSet{ requiredExtensions.begin(), requiredExtensions.end() };
@@ -54,13 +54,13 @@ namespace tessera::vulkan
 		}
 	}
 
-	std::vector<const char*> VulkanExtensionManager::getRequiredDeviceExtensions()
+	std::vector<const char*> ExtensionManager::getRequiredDeviceExtensions()
 	{
 		return { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
 	}
 
 	// TODO: Avoid code redundancy.
-	bool VulkanExtensionManager::isDeviceExtensionSupported(const VkPhysicalDevice& device)
+	bool ExtensionManager::isDeviceExtensionSupported(const VkPhysicalDevice& device)
 	{
 		const std::vector<const char*> requiredExtensions = getRequiredDeviceExtensions();
 

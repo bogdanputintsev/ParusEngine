@@ -1,4 +1,4 @@
-#include "VulkanImageViewManager.h"
+#include "ImageViewManager.h"
 
 #include <memory>
 #include <stdexcept>
@@ -6,7 +6,7 @@
 namespace tessera::vulkan
 {
 
-	void VulkanImageViewManager::init(const SwapChainImageDetails& swapChainImageDetails, const std::shared_ptr<const VkDevice>& device)
+	void ImageViewManager::init(const SwapChainImageDetails& swapChainImageDetails, const std::shared_ptr<const VkDevice>& device)
 	{
 		const auto& [swapChainImageFormat, swapChainExtent, swapChainImages] = swapChainImageDetails;
 
@@ -36,7 +36,7 @@ namespace tessera::vulkan
 		}
 	}
 
-	void VulkanImageViewManager::clean(const std::shared_ptr<const VkDevice>& device) const
+	void ImageViewManager::clean(const std::shared_ptr<const VkDevice>& device) const
 	{
 		for (const auto& imageView : swapChainImageViews) 
 		{

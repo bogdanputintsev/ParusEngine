@@ -1,14 +1,14 @@
 #pragma once
 #include <vector>
 
-#include "VulkanPhysicalDeviceManager.h"
+#include "PhysicalDeviceManager.h"
 
 // TODO: Maybe consider using functions instead of methods.
 
 namespace tessera::vulkan
 {
 
-	class VulkanExtensionManager
+	class ExtensionManager
 	{
 	public:
 		// Instance extensions.

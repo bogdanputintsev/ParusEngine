@@ -1,4 +1,4 @@
-#include "VulkanGraphicsPipelineManager.h"
+#include "GraphicsPipelineManager.h"
 
 #include <memory>
 #include <stdexcept>
@@ -8,7 +8,7 @@
 namespace tessera::vulkan
 {
 	
-	void VulkanGraphicsPipelineManager::init(const std::shared_ptr<const VkDevice>& device, const SwapChainImageDetails& swapChainImageDetails)
+	void GraphicsPipelineManager::init(const std::shared_ptr<const VkDevice>& device, const SwapChainImageDetails& swapChainImageDetails)
 	{
 		initRenderPath(device, swapChainImageDetails);
 
@@ -166,7 +166,7 @@ namespace tessera::vulkan
 		}
 	}
 
-	VkShaderModule VulkanGraphicsPipelineManager::createShaderModule(const std::vector<char>& code, const std::shared_ptr<const VkDevice>& device)
+	VkShaderModule GraphicsPipelineManager::createShaderModule(const std::vector<char>& code, const std::shared_ptr<const VkDevice>& device)
 	{
 		VkShaderModuleCreateInfo createInfo{};
 		createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -182,7 +182,7 @@ namespace tessera::vulkan
 		return shaderModule;
 	}
 
-	void VulkanGraphicsPipelineManager::initRenderPath(const std::shared_ptr<const VkDevice>& device, const SwapChainImageDetails& swapChainImageDetails)
+	void GraphicsPipelineManager::initRenderPath(const std::shared_ptr<const VkDevice>& device, const SwapChainImageDetails& swapChainImageDetails)
 	{
 		VkAttachmentDescription colorAttachment{};
 		colorAttachment.format = swapChainImageDetails.swapChainImageFormat;
@@ -219,7 +219,7 @@ namespace tessera::vulkan
 		renderPass = std::make_shared<VkRenderPass>(renderPathInstance);
 	}
 
-	void VulkanGraphicsPipelineManager::clean(const std::shared_ptr<const VkDevice>& device) const
+	void GraphicsPipelineManager::clean(const std::shared_ptr<const VkDevice>& device) const
 	{
 		vkDestroyPipeline(*device, graphicsPipeline, nullptr);
 		vkDestroyPipelineLayout(*device, pipelineLayout, nullptr);

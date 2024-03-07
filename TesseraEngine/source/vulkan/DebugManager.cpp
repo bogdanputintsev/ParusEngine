@@ -1,4 +1,4 @@
-#include "VulkanDebugManager.h"
+#include "DebugManager.h"
 
 #include <iostream>
 #include <stdexcept>
@@ -6,7 +6,7 @@
 
 namespace tessera::vulkan
 {
-	void VulkanDebugManager::init(const std::shared_ptr<const VkInstance>& instance)
+	void DebugManager::init(const std::shared_ptr<const VkInstance>& instance)
 	{
         if (!validationLayersAreEnabled())
         {
@@ -22,7 +22,7 @@ namespace tessera::vulkan
         }
 	}
 
-    void VulkanDebugManager::populate(VkDebugUtilsMessengerCreateInfoEXT& createInfo)
+    void DebugManager::populate(VkDebugUtilsMessengerCreateInfoEXT& createInfo)
     {
         createInfo = {};
         createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
@@ -31,7 +31,7 @@ namespace tessera::vulkan
         createInfo.pfnUserCallback = debugCallback;
     }
 
-	void VulkanDebugManager::clean(const std::shared_ptr<const VkInstance>& instance) const
+	void DebugManager::clean(const std::shared_ptr<const VkInstance>& instance) const
 	{
         if(validationLayersAreEnabled())
         {
@@ -39,7 +39,7 @@ namespace tessera::vulkan
         }
 	}
 
-	VkBool32 VulkanDebugManager::debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+	VkBool32 DebugManager::debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
 	                                           VkDebugUtilsMessageTypeFlagsEXT messageType,
 	                                           const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
 	                                           void* pUserData)
@@ -48,7 +48,7 @@ namespace tessera::vulkan
         return VK_FALSE;
     }
 
-	LogType VulkanDebugManager::getLogType(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity)
+	LogType DebugManager::getLogType(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity)
 	{
 		switch (messageSeverity)
 		{
@@ -67,7 +67,7 @@ namespace tessera::vulkan
 		return LogType::INFO;
 	}
 
-	VkResult VulkanDebugManager::createDebugUtilsMessengerExt(const std::shared_ptr<const VkInstance>& instance,
+	VkResult DebugManager::createDebugUtilsMessengerExt(const std::shared_ptr<const VkInstance>& instance,
 	                                                          const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, 
 	                                                          const VkAllocationCallbacks* pAllocator,
 	                                                          VkDebugUtilsMessengerEXT* pDebugMessenger)
@@ -81,7 +81,7 @@ namespace tessera::vulkan
 		return VK_ERROR_EXTENSION_NOT_PRESENT;
     }
 
-    void VulkanDebugManager::destroyDebugUtilsMessengerExt(const std::shared_ptr<const VkInstance>& instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator)
+    void DebugManager::destroyDebugUtilsMessengerExt(const std::shared_ptr<const VkInstance>& instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator)
     {
 	    const auto func = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(*instance, "vkDestroyDebugUtilsMessengerEXT"));
         if (func != nullptr) 
@@ -90,7 +90,7 @@ namespace tessera::vulkan
         }
     }
 
-    void VulkanDebugManager::checkValidationLayerSupport()
+    void DebugManager::checkValidationLayerSupport()
     {
         if (!validationLayersAreEnabled())
         {
@@ -131,7 +131,7 @@ namespace tessera::vulkan
         }
 	}
 
-	bool VulkanDebugManager::validationLayersAreEnabled()
+	bool DebugManager::validationLayersAreEnabled()
 	{
 #ifdef NDEBUG
         return false;
@@ -140,7 +140,7 @@ namespace tessera::vulkan
 #endif
 	}
 
-	std::vector<const char*> VulkanDebugManager::getValidationLayers()
+	std::vector<const char*> DebugManager::getValidationLayers()
 	{
         return { "VK_LAYER_KHRONOS_validation" };
 	}

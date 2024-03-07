@@ -1,12 +1,13 @@
 #pragma once
 
 #include "glfw/GlfwInitializer.h"
-#include "vulkan/VulkanDebugManager.h"
-#include "vulkan/VulkanFramebufferManager.h"
-#include "vulkan/VulkanGraphicsPipelineManager.h"
-#include "vulkan/VulkanImageViewManager.h"
-#include "vulkan/VulkanInstanceManager.h"
-#include "vulkan/VulkanSurfaceManager.h"
+#include "vulkan/CommandPoolManager.h"
+#include "vulkan/DebugManager.h"
+#include "vulkan/FramebufferManager.h"
+#include "vulkan/GraphicsPipelineManager.h"
+#include "vulkan/ImageViewManager.h"
+#include "vulkan/InstanceManager.h"
+#include "vulkan/SurfaceManager.h"
 
 namespace tessera
 {
@@ -24,14 +25,15 @@ namespace tessera
 		std::shared_ptr<const VkSurfaceKHR> surface;
 
 		glfw::GlfwInitializer glfwInitializer;
-		vulkan::VulkanInstanceManager vulkanInstanceManager;
-		vulkan::VulkanDebugManager debugManager;
-		vulkan::VulkanSurfaceManager surfaceManager;
-		vulkan::VulkanDeviceManager deviceManager;
-		vulkan::VulkanSwapChainManager swapChainManager;
-		vulkan::VulkanImageViewManager imageViewManager;
-		vulkan::VulkanGraphicsPipelineManager graphicsPipelineManager;
-		vulkan::VulkanFramebufferManager framebufferManager;
+		vulkan::InstanceManager instanceManager;
+		vulkan::DebugManager debugManager;
+		vulkan::SurfaceManager surfaceManager;
+		vulkan::DeviceManager deviceManager;
+		vulkan::SwapChainManager swapChainManager;
+		vulkan::ImageViewManager imageViewManager;
+		vulkan::GraphicsPipelineManager graphicsPipelineManager;
+		vulkan::FramebufferManager framebufferManager;
+		vulkan::CommandPoolManager commandPoolManager;
 	};
 
 }

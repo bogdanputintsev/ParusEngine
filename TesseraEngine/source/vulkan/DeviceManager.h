@@ -1,12 +1,12 @@
 #pragma once
 #include <memory>
 
-#include "VulkanPhysicalDeviceManager.h"
+#include "PhysicalDeviceManager.h"
 
 namespace tessera::vulkan
 {
 
-	class VulkanDeviceManager final
+	class DeviceManager final
 	{
 	public:
 		void init(const std::shared_ptr<const VkInstance>& instance, const std::shared_ptr<VkSurfaceKHR_T* const>& surface);
@@ -17,7 +17,7 @@ namespace tessera::vulkan
 	private:
 		std::shared_ptr<VkDevice> logicalDevice = VK_NULL_HANDLE;
 
-		VulkanPhysicalDeviceManager physicalDeviceManager;
+		PhysicalDeviceManager physicalDeviceManager;
 
 		VkQueue graphicsQueue = VK_NULL_HANDLE;
 		VkQueue presentQueue = VK_NULL_HANDLE;

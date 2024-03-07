@@ -4,7 +4,7 @@
 #include <optional>
 #include <GLFW/glfw3.h>
 
-#include "VulkanPhysicalDeviceManager.h"
+#include "PhysicalDeviceManager.h"
 
 namespace tessera::vulkan
 {
@@ -17,7 +17,7 @@ namespace tessera::vulkan
 		[[nodiscard]] inline bool isComplete() const;
 	};
 
-	class VulkanQueueFamiliesManager final
+	class QueueFamiliesManager final
 	{
 	public:
 		static QueueFamilyIndices findQueueFamilies(const VkPhysicalDevice& physicalDevice, const std::shared_ptr<const VkSurfaceKHR>& surface);

@@ -5,7 +5,7 @@
 namespace tessera::vulkan
 {
 
-	class VulkanPhysicalDeviceManager final
+	class PhysicalDeviceManager final
 	{
 	public:
 		void pickAnySuitableDevice(const std::shared_ptr<const VkInstance>& instance, const std::shared_ptr<const VkSurfaceKHR>& surface);

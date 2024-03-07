@@ -5,7 +5,7 @@
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan_core.h>
 
-#include "VulkanDeviceManager.h"
+#include "DeviceManager.h"
 
 namespace tessera::vulkan
 {
@@ -25,10 +25,10 @@ namespace tessera::vulkan
 		std::vector<VkImage> swapChainImages;
 	};
 
-	class VulkanSwapChainManager final
+	class SwapChainManager final
 	{
 	public:
-		void init(const VulkanDeviceManager& deviceManager, const std::shared_ptr<const VkSurfaceKHR>& surface, const std::shared_ptr<GLFWwindow>& window);
+		void init(const DeviceManager& deviceManager, const std::shared_ptr<const VkSurfaceKHR>& surface, const std::shared_ptr<GLFWwindow>& window);
 		void clean(const std::shared_ptr<const VkDevice>& device) const;
 		static SwapChainSupportDetails querySwapChainSupport(const VkPhysicalDevice& device, const std::shared_ptr<const VkSurfaceKHR>& surface);
 

@@ -12,8 +12,8 @@ namespace tessera
 		window = glfwInitializer.getWindow();
 		assert(window);
 
-		vulkanInstanceManager.init();
-		instance = vulkanInstanceManager.getInstance();
+		instanceManager.init();
+		instance = instanceManager.getInstance();
 		assert(instance);
 
 		debugManager.init(instance);
@@ -28,6 +28,7 @@ namespace tessera
 
 		graphicsPipelineManager.init(deviceManager.getLogicalDevice(), swapChainManager.getSwapChainImageDetails());
 		framebufferManager.init(imageViewManager.getSwapChainImageViews(), deviceManager.getLogicalDevice(), graphicsPipelineManager.getRenderPath(), swapChainManager.getSwapChainImageDetails());
+		commandPoolManager.init();
 		clean();
 	}
 
@@ -40,7 +41,7 @@ namespace tessera
 		deviceManager.clean();
 		debugManager.clean(instance);
 		surfaceManager.clean(instance);
-		vulkanInstanceManager.clean();
+		instanceManager.clean();
 		glfwInitializer.clean();
 	}
 
