@@ -14,6 +14,8 @@ namespace tessera::vulkan
 		void clean() override;
 
 		[[nodiscard]] std::shared_ptr<VkRenderPass> getRenderPath() const { return renderPass; }
+		[[nodiscard]] VkPipeline getGraphicsPipeline() const { return graphicsPipeline; }
+
 	private:
 		static VkShaderModule createShaderModule(const std::vector<char>& code, const std::shared_ptr<const VkDevice>& device);
 		void initRenderPath(const std::shared_ptr<const VkDevice>& device, const SwapChainImageDetails& swapChainImageDetails);
