@@ -6,15 +6,17 @@
 #include <memory>
 #include <vulkan/vulkan_core.h>
 
+#include "utils/interfaces/Initializable.h"
+
 namespace tessera::vulkan
 {
 
-	class VulkanSurfaceManager final
+	class SurfaceManager final : public Initializable
 	{
 	public:
-		void init(const std::shared_ptr<const VkInstance>& instance, const std::shared_ptr<GLFWwindow>& window);
-		void clean(const std::shared_ptr<const VkInstance>& instance) const;
-
+		void init() override;
+		void clean() override;
+	
 		[[nodiscard]] std::shared_ptr<const VkSurfaceKHR> getSurface() const { return surface; }
 	private:
 		std::shared_ptr<VkSurfaceKHR> surface;

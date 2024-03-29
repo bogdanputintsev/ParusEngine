@@ -1,14 +1,18 @@
-#include "VulkanImageViewManager.h"
+#include "ImageViewManager.h"
 
 #include <memory>
 #include <stdexcept>
 
+#include "utils/interfaces/ServiceLocator.h"
+
 namespace tessera::vulkan
 {
 
-	void VulkanImageViewManager::init(const SwapChainImageDetails& swapChainImageDetails, const std::shared_ptr<const VkDevice>& device)
+	void ImageViewManager::init()
 	{
-		const auto& [swapChainImageFormat, swapChainExtent, swapChainImages] = swapChainImageDetails;
+		const auto& device = ServiceLocator::getService<DeviceManager>()->getLogicalDevice();
+		const auto& [swapChainImageFormat, swapChainExtent, swapChainImages]
+			= ServiceLocator::getService<SwapChainManager>()->getSwapChainImageDetails();
 
 		swapChainImageViews.resize(swapChainImages.size());
 
@@ -36,8 +40,10 @@ namespace tessera::vulkan
 		}
 	}
 
-	void VulkanImageViewManager::clean(const std::shared_ptr<const VkDevice>& device) const
+	void ImageViewManager::clean()
 	{
+		const auto& device = ServiceLocator::getService<DeviceManager>()->getLogicalDevice();
+
 		for (const auto& imageView : swapChainImageViews) 
 		{
 			vkDestroyImageView(*device, imageView, nullptr);

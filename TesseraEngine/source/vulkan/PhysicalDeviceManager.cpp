@@ -1,15 +1,15 @@
-#include "VulkanPhysicalDeviceManager.h"
+#include "PhysicalDeviceManager.h"
 
 #include <stdexcept>
 #include <vector>
 
-#include "VulkanExtensionManager.h"
-#include "VulkanQueueFamiliesManager.h"
-#include "VulkanSwapChainManager.h"
+#include "ExtensionManager.h"
+#include "QueueFamiliesManager.h"
+#include "SwapChainManager.h"
 
 namespace tessera::vulkan
 {
-	void VulkanPhysicalDeviceManager::pickAnySuitableDevice(const std::shared_ptr<const VkInstance>& instance, const std::shared_ptr<const VkSurfaceKHR>& surface)
+	void PhysicalDeviceManager::pickAnySuitableDevice(const std::shared_ptr<const VkInstance>& instance, const std::shared_ptr<const VkSurfaceKHR>& surface)
 	{
 		uint32_t deviceCount = 0;
 		vkEnumeratePhysicalDevices(*instance, &deviceCount, nullptr);
@@ -34,7 +34,7 @@ namespace tessera::vulkan
 		throw std::runtime_error("VulkanPhysicalDeviceManager: failed to find a suitable GPU!");
 	}
 
-	bool VulkanPhysicalDeviceManager::isDeviceSuitable(const VkPhysicalDevice& device, const std::shared_ptr<const VkSurfaceKHR>& surface)
+	bool PhysicalDeviceManager::isDeviceSuitable(const VkPhysicalDevice& device, const std::shared_ptr<const VkSurfaceKHR>& surface)
 	{
 		// Basic device properties like the name, type and supported Vulkan version.
 		[[maybe_unused]] VkPhysicalDeviceProperties deviceProperties;
@@ -45,13 +45,13 @@ namespace tessera::vulkan
 		vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
 
 		// Check if device can process the commands we want to use.
-		const QueueFamilyIndices indices = VulkanQueueFamiliesManager::findQueueFamilies(device, surface);
+		const QueueFamilyIndices indices = QueueFamiliesManager::findQueueFamilies(device, surface);
 
 		// Check if physical device supports swap chain extension.
-		const bool extensionsSupported = VulkanExtensionManager::isDeviceExtensionSupported(device);
+		const bool extensionsSupported = ExtensionManager::isDeviceExtensionSupported(device);
 
 		// Check if physical device supports swap chain.
-		const SwapChainSupportDetails swapChainSupport = VulkanSwapChainManager::querySwapChainSupport(device, surface);
+		const SwapChainSupportDetails swapChainSupport = SwapChainManager::querySwapChainSupport(device, surface);
 		
 		return indices.isComplete() && extensionsSupported && swapChainSupport.isComplete();
 	}

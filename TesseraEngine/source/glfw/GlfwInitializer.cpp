@@ -31,7 +31,7 @@ namespace tessera::glfw
 		}
 	}
 
-	void GlfwInitializer::clean() const
+	void GlfwInitializer::clean()
 	{
 		glfwDestroyWindow(window.get());
 		glfwTerminate();
