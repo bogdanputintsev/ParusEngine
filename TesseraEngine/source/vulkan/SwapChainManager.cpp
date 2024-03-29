@@ -8,14 +8,21 @@
 
 #include "DeviceManager.h"
 #include "QueueFamiliesManager.h"
+#include "SurfaceManager.h"
+#include "glfw/GlfwInitializer.h"
+#include "utils/interfaces/ServiceLocator.h"
 
 namespace tessera::vulkan
 {
-	void SwapChainManager::init(const DeviceManager& deviceManager, const std::shared_ptr<const VkSurfaceKHR>& surface, const std::shared_ptr<GLFWwindow>& window)
+	void SwapChainManager::init()
 	{
-		const auto physicalDevice = deviceManager.getPhysicalDevice();
+		const auto& deviceManager = ServiceLocator::getService<DeviceManager>();
+		const auto& window = ServiceLocator::getService<glfw::GlfwInitializer>()->getWindow();
+		const auto& surface = ServiceLocator::getService<SurfaceManager>()->getSurface();
+
+		const auto physicalDevice = deviceManager->getPhysicalDevice();
 		assert(physicalDevice);
-		const auto logicalDevice = deviceManager.getLogicalDevice();
+		const auto logicalDevice = deviceManager->getLogicalDevice();
 		assert(logicalDevice);
 
 		const auto [capabilities, formats, presentModes] = querySwapChainSupport(*physicalDevice, surface);
@@ -73,8 +80,10 @@ namespace tessera::vulkan
 		swapChainDetails = { format, extent, swapChainImages };
 	}
 
-	void SwapChainManager::clean(const std::shared_ptr<const VkDevice>& device) const
+	void SwapChainManager::clean()
 	{
+		const auto& device = ServiceLocator::getService<DeviceManager>()->getLogicalDevice();
+
 		vkDestroySwapchainKHR(*device, swapChain, nullptr);
 	}
 

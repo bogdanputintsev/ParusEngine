@@ -1,49 +1,33 @@
 #include "Application.h"
 
-#include <cassert>
+#include <algorithm>
+
+#include "utils/interfaces/ServiceLocator.h"
 
 namespace tessera
 {
-	// TODO: One idea how to avoid these dependencies, is to create VulkanTransferObject and pass it in every init by reference.
-
+	
 	void Application::init()
 	{
-		glfwInitializer.init();
-		window = glfwInitializer.getWindow();
-		assert(window);
-
-		instanceManager.init();
-		instance = instanceManager.getInstance();
-		assert(instance);
-
-		debugManager.init(instance);
-
-		surfaceManager.init(instance, window);
-		surface = surfaceManager.getSurface();
-		assert(surface);
-
-		deviceManager.init(instance, surface); 
-		swapChainManager.init(deviceManager, surface, window);
-		imageViewManager.init(swapChainManager.getSwapChainImageDetails(), deviceManager.getLogicalDevice());
-
-		graphicsPipelineManager.init(deviceManager.getLogicalDevice(), swapChainManager.getSwapChainImageDetails());
-		framebufferManager.init(imageViewManager.getSwapChainImageViews(), deviceManager.getLogicalDevice(), graphicsPipelineManager.getRenderPath(), swapChainManager.getSwapChainImageDetails());
-		commandPoolManager.init(deviceManager.getLogicalDevice(), deviceManager.getPhysicalDevice(), surface);
-		clean();
+		std::ranges::for_each(initializerList.begin(), initializerList.end(), [&](const std::shared_ptr<Initializable>& service)
+			{
+				service->init();
+				registerServiceManager(service.get(), service);
+			});
 	}
 
-	void Application::clean() const
+	template<typename T>
+	void Application::registerServiceManager(const T* servicePointer, const std::shared_ptr<Initializable>& service)
 	{
-		commandPoolManager.clean(deviceManager.getLogicalDevice());
-		framebufferManager.clean(deviceManager.getLogicalDevice());
-		graphicsPipelineManager.clean(deviceManager.getLogicalDevice());
-		imageViewManager.clean(deviceManager.getLogicalDevice());
-		swapChainManager.clean(deviceManager.getLogicalDevice());
-		deviceManager.clean();
-		debugManager.clean(instance);
-		surfaceManager.clean(instance);
-		instanceManager.clean();
-		glfwInitializer.clean();
+		ServiceLocator::registerService<T>(servicePointer, service);
+	}
+
+	void Application::clean()
+	{
+		for (auto it = initializerList.rbegin(); it != initializerList.rend(); ++it)
+		{
+			(*it)->clean();
+		}
 	}
 
 }

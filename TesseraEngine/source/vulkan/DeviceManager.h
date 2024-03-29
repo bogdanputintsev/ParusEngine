@@ -2,15 +2,16 @@
 #include <memory>
 
 #include "PhysicalDeviceManager.h"
+#include "utils/interfaces/Initializable.h"
 
 namespace tessera::vulkan
 {
 
-	class DeviceManager final
+	class DeviceManager final : public Initializable
 	{
 	public:
-		void init(const std::shared_ptr<const VkInstance>& instance, const std::shared_ptr<VkSurfaceKHR_T* const>& surface);
-		void clean() const;
+		void init() override;
+		void clean() override;
 
 		[[nodiscard]] std::shared_ptr<const VkDevice> getLogicalDevice() const { return logicalDevice; }
 		[[nodiscard]] std::shared_ptr<const VkPhysicalDevice> getPhysicalDevice() const { return physicalDeviceManager.getPhysicalDevice(); }

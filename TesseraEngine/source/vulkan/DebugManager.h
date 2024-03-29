@@ -1,21 +1,21 @@
 #pragma once
-#include <memory>
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
 #include "utils/TesseraLog.h"
+#include "utils/interfaces/Initializable.h"
 
 namespace tessera::vulkan
 {
 
-	class DebugManager
+	class DebugManager final : public Initializable
 	{
 	public:
-		void init(const std::shared_ptr<const VkInstance>& instance);
+		void init() override;
 
 		static void populate(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
 
-		void clean(const std::shared_ptr<const VkInstance>& instance) const;
+		void clean() override;
 
 		static void checkValidationLayerSupport();
 
@@ -32,13 +32,11 @@ namespace tessera::vulkan
 
 		static LogType getLogType(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity);
 
-		static VkResult createDebugUtilsMessengerExt(const std::shared_ptr<const VkInstance>& instance,
-		                                             const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
+		static VkResult createDebugUtilsMessengerExt(const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
 		                                             const VkAllocationCallbacks* pAllocator,
 		                                             VkDebugUtilsMessengerEXT* pDebugMessenger);
 
-		static void destroyDebugUtilsMessengerExt(const std::shared_ptr<const VkInstance>& instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks
-		                                          * pAllocator);
+		static void destroyDebugUtilsMessengerExt(VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator);
 
 		VkDebugUtilsMessengerEXT debugMessenger = nullptr;
 

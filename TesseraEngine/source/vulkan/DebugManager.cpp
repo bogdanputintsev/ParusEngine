@@ -4,9 +4,13 @@
 #include <stdexcept>
 #include <vulkan/vulkan_core.h>
 
+#include "InstanceManager.h"
+#include "utils/interfaces/ServiceLocator.h"
+
 namespace tessera::vulkan
 {
-	void DebugManager::init(const std::shared_ptr<const VkInstance>& instance)
+
+	void DebugManager::init()
 	{
         if (!validationLayersAreEnabled())
         {
@@ -16,7 +20,7 @@ namespace tessera::vulkan
         VkDebugUtilsMessengerCreateInfoEXT createInfo{};
         populate(createInfo);
 
-        if (createDebugUtilsMessengerExt(instance, &createInfo, nullptr, &debugMessenger) != VK_SUCCESS) 
+        if (createDebugUtilsMessengerExt(&createInfo, nullptr, &debugMessenger) != VK_SUCCESS) 
         {
             throw std::runtime_error("VulkanDebugManager: failed to set up debug messenger!");
         }
@@ -31,11 +35,11 @@ namespace tessera::vulkan
         createInfo.pfnUserCallback = debugCallback;
     }
 
-	void DebugManager::clean(const std::shared_ptr<const VkInstance>& instance) const
+	void DebugManager::clean()
 	{
         if(validationLayersAreEnabled())
         {
-            destroyDebugUtilsMessengerExt(instance, debugMessenger, nullptr);
+            destroyDebugUtilsMessengerExt(debugMessenger, nullptr);
         }
 	}
 
@@ -67,11 +71,12 @@ namespace tessera::vulkan
 		return LogType::INFO;
 	}
 
-	VkResult DebugManager::createDebugUtilsMessengerExt(const std::shared_ptr<const VkInstance>& instance,
-	                                                          const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, 
+	VkResult DebugManager::createDebugUtilsMessengerExt(const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, 
 	                                                          const VkAllocationCallbacks* pAllocator,
 	                                                          VkDebugUtilsMessengerEXT* pDebugMessenger)
     {
+        const std::shared_ptr<const VkInstance> instance = ServiceLocator::getService<InstanceManager>()->getInstance();
+        
 	    const auto func = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(*instance, "vkCreateDebugUtilsMessengerEXT"));
         if (func != nullptr) 
         {
@@ -81,10 +86,12 @@ namespace tessera::vulkan
 		return VK_ERROR_EXTENSION_NOT_PRESENT;
     }
 
-    void DebugManager::destroyDebugUtilsMessengerExt(const std::shared_ptr<const VkInstance>& instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator)
+    void DebugManager::destroyDebugUtilsMessengerExt(VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator)
     {
+        const std::shared_ptr<const VkInstance> instance = ServiceLocator::getService<InstanceManager>()->getInstance();
+
 	    const auto func = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(*instance, "vkDestroyDebugUtilsMessengerEXT"));
-        if (func != nullptr) 
+        if (func != nullptr)
         {
             func(*instance, debugMessenger, pAllocator);
         }

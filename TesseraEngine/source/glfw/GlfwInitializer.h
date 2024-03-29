@@ -4,16 +4,18 @@
 #include <memory>
 #include <string>
 
+#include "utils/interfaces/Initializable.h"
+
 #define GLFW_INCLUDE_VULKAN
 
 namespace tessera::glfw
 {
-	class GlfwInitializer final
+	class GlfwInitializer final : public Initializable
 	{
 	public:
-		void init();
+		void init() override;
 		void mainLoop() const;
-		void clean() const;
+		void clean() override;
 		[[nodiscard]] std::shared_ptr<GLFWwindow> getWindow() const { return window; }
 	private:
 		std::shared_ptr<GLFWwindow> window;

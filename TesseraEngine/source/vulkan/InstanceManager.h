@@ -2,16 +2,16 @@
 #include <vulkan/vulkan_core.h>
 
 #include "DeviceManager.h"
+#include "utils/interfaces/Initializable.h"
 
 namespace tessera::vulkan
 {
 
-	class InstanceManager final
+	class InstanceManager final : public Initializable
 	{
 	public:
-		InstanceManager() = default;
-		void init();
-		void clean() const;
+		void init() override;
+		void clean() override;
 
 		[[nodiscard]] std::shared_ptr<VkInstance> getInstance() const { return instance; }
 	private:

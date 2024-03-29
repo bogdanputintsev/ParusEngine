@@ -6,12 +6,19 @@
 
 #include "DebugManager.h"
 #include "ExtensionManager.h"
+#include "InstanceManager.h"
 #include "QueueFamiliesManager.h"
+#include "SurfaceManager.h"
+#include "utils/interfaces/ServiceLocator.h"
 
 namespace tessera::vulkan
 {
-	void DeviceManager::init(const std::shared_ptr<const VkInstance>& instance, const std::shared_ptr<const VkSurfaceKHR>& surface)
+
+	void DeviceManager::init()
 	{
+		const std::shared_ptr<VkInstance>& instance = ServiceLocator::getService<InstanceManager>()->getInstance();
+		const std::shared_ptr<const VkSurfaceKHR>& surface = ServiceLocator::getService<SurfaceManager>()->getSurface();
+
 		physicalDeviceManager.pickAnySuitableDevice(instance, surface);
 		const auto physicalDevice = physicalDeviceManager.getPhysicalDevice();
 		assert(physicalDevice);
@@ -69,7 +76,7 @@ namespace tessera::vulkan
 		logicalDevice = std::make_shared<VkDevice>(logicalDeviceInstance);
 	}
 
-	void DeviceManager::clean() const
+	void DeviceManager::clean()
 	{
 		vkDestroyDevice(*logicalDevice, nullptr);
 	}
