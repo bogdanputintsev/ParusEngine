@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include <GLFW/glfw3.h>
 #include <memory>
 #include <string>
@@ -14,7 +15,7 @@ namespace tessera::glfw
 	{
 	public:
 		void init() override;
-		void mainLoop() const;
+		void mainLoop(const std::function<void()>& tickCallback) const;
 		void clean() override;
 		[[nodiscard]] std::shared_ptr<GLFWwindow> getWindow() const { return window; }
 	private:

@@ -10,7 +10,7 @@
 
 namespace tessera::vulkan
 {
-	std::vector<const char*> ExtensionManager::getRequiredInstanceExtensions()
+	std::vector<const char*> getRequiredInstanceExtensions()
 	{
 		uint32_t glfwExtensionCount = 0;
 		const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
@@ -25,7 +25,7 @@ namespace tessera::vulkan
 		return extensions;
 	}
 
-	void ExtensionManager::checkIfAllGlsfRequiredExtensionsAreSupported()
+	void checkIfAllGlsfRequiredExtensionsAreSupported()
 	{
 		const std::vector<const char*> requiredExtensions = getRequiredInstanceExtensions();
 		const std::unordered_set<std::string> requiredExtensionsSet{ requiredExtensions.begin(), requiredExtensions.end() };
@@ -54,13 +54,13 @@ namespace tessera::vulkan
 		}
 	}
 
-	std::vector<const char*> ExtensionManager::getRequiredDeviceExtensions()
+	std::vector<const char*> getRequiredDeviceExtensions()
 	{
 		return { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
 	}
 
 	// TODO: Avoid code redundancy.
-	bool ExtensionManager::isDeviceExtensionSupported(const VkPhysicalDevice& device)
+	bool isDeviceExtensionSupported(const VkPhysicalDevice& device)
 	{
 		const std::vector<const char*> requiredExtensions = getRequiredDeviceExtensions();
 

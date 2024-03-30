@@ -4,15 +4,15 @@
 #include <vector>
 
 #include "ExtensionManager.h"
-#include "QueueFamiliesManager.h"
+#include "QueueManager.h"
 #include "SwapChainManager.h"
 
 namespace tessera::vulkan
 {
-	void PhysicalDeviceManager::pickAnySuitableDevice(const std::shared_ptr<const VkInstance>& instance, const std::shared_ptr<const VkSurfaceKHR>& surface)
+	void PhysicalDeviceManager::pickAnySuitableDevice(const VkInstance& instance, const VkSurfaceKHR& surface)
 	{
 		uint32_t deviceCount = 0;
-		vkEnumeratePhysicalDevices(*instance, &deviceCount, nullptr);
+		vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
 
 		if (deviceCount == 0) 
 		{
@@ -20,13 +20,13 @@ namespace tessera::vulkan
 		}
 
 		std::vector<VkPhysicalDevice> devices(deviceCount);
-		vkEnumeratePhysicalDevices(*instance, &deviceCount, devices.data());
+		vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
 
 		for (const auto& device : devices) 
 		{
 			if (isDeviceSuitable(device, surface)) 
 			{
-				physicalDevice = std::make_shared<VkPhysicalDevice>(device);
+				physicalDevice = device;
 				return;
 			}
 		}
@@ -34,7 +34,7 @@ namespace tessera::vulkan
 		throw std::runtime_error("VulkanPhysicalDeviceManager: failed to find a suitable GPU!");
 	}
 
-	bool PhysicalDeviceManager::isDeviceSuitable(const VkPhysicalDevice& device, const std::shared_ptr<const VkSurfaceKHR>& surface)
+	bool PhysicalDeviceManager::isDeviceSuitable(const VkPhysicalDevice& device, const VkSurfaceKHR& surface)
 	{
 		// Basic device properties like the name, type and supported Vulkan version.
 		[[maybe_unused]] VkPhysicalDeviceProperties deviceProperties;
@@ -45,10 +45,10 @@ namespace tessera::vulkan
 		vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
 
 		// Check if device can process the commands we want to use.
-		const QueueFamilyIndices indices = QueueFamiliesManager::findQueueFamilies(device, surface);
+		const QueueFamilyIndices indices = findQueueFamilies(device, surface);
 
 		// Check if physical device supports swap chain extension.
-		const bool extensionsSupported = ExtensionManager::isDeviceExtensionSupported(device);
+		const bool extensionsSupported = isDeviceExtensionSupported(device);
 
 		// Check if physical device supports swap chain.
 		const SwapChainSupportDetails swapChainSupport = SwapChainManager::querySwapChainSupport(device, surface);

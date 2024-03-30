@@ -1,5 +1,4 @@
 #pragma once
-#include <memory>
 #include <vulkan/vulkan_core.h>
 
 namespace tessera::vulkan
@@ -8,14 +7,14 @@ namespace tessera::vulkan
 	class PhysicalDeviceManager final
 	{
 	public:
-		void pickAnySuitableDevice(const std::shared_ptr<const VkInstance>& instance, const std::shared_ptr<const VkSurfaceKHR>& surface);
+		void pickAnySuitableDevice(const VkInstance& instance, const VkSurfaceKHR& surface);
 
-		[[nodiscard]] std::shared_ptr<const VkPhysicalDevice> getPhysicalDevice() const { return physicalDevice; }
+		[[nodiscard]] VkPhysicalDevice getPhysicalDevice() const { return physicalDevice; }
 
 	private:
-		static bool isDeviceSuitable(const VkPhysicalDevice& device, const std::shared_ptr<const VkSurfaceKHR>& surface);
+		static bool isDeviceSuitable(const VkPhysicalDevice& device, const VkSurfaceKHR& surface);
 
-		std::shared_ptr<VkPhysicalDevice> physicalDevice;
+		VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
 	};
 	
 }

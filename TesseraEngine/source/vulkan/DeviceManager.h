@@ -1,5 +1,4 @@
 #pragma once
-#include <memory>
 
 #include "PhysicalDeviceManager.h"
 #include "utils/interfaces/Initializable.h"
@@ -13,15 +12,13 @@ namespace tessera::vulkan
 		void init() override;
 		void clean() override;
 
-		[[nodiscard]] std::shared_ptr<const VkDevice> getLogicalDevice() const { return logicalDevice; }
-		[[nodiscard]] std::shared_ptr<const VkPhysicalDevice> getPhysicalDevice() const { return physicalDeviceManager.getPhysicalDevice(); }
+		void deviceWaitIdle() const;
+
+		[[nodiscard]] VkDevice getLogicalDevice() const { return logicalDevice; }
+		[[nodiscard]] VkPhysicalDevice getPhysicalDevice() const { return physicalDeviceManager.getPhysicalDevice(); }
 	private:
-		std::shared_ptr<VkDevice> logicalDevice = VK_NULL_HANDLE;
-
+		VkDevice logicalDevice = VK_NULL_HANDLE;
 		PhysicalDeviceManager physicalDeviceManager;
-
-		VkQueue graphicsQueue = VK_NULL_HANDLE;
-		VkQueue presentQueue = VK_NULL_HANDLE;
 	};
 	
 }

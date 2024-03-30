@@ -1,6 +1,4 @@
 #pragma once
-#include <memory>
-#include <memory>
 #include <vector>
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan_core.h>
@@ -29,10 +27,13 @@ namespace tessera::vulkan
 	{
 	public:
 		void init() override;
+
+		[[nodiscard]] uint32_t acquireNextImage(const int currentFrame) const;
+
 		void clean() override;
 
-		static SwapChainSupportDetails querySwapChainSupport(const VkPhysicalDevice& device, const std::shared_ptr<const VkSurfaceKHR>& surface);
-
+		static SwapChainSupportDetails querySwapChainSupport(const VkPhysicalDevice& device, const VkSurfaceKHR& surface);
+		[[nodiscard]] VkSwapchainKHR getSwapChain() const { return swapChain; }
 		[[nodiscard]] SwapChainImageDetails getSwapChainImageDetails() const { return swapChainDetails; }
 	private:
 		static VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);

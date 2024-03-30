@@ -1,6 +1,9 @@
 #include "GlfwInitializer.h"
 
+#include <functional>
 #include <stdexcept>
+
+#include "utils/interfaces/ServiceLocator.h"
 
 namespace tessera::glfw
 {
@@ -16,18 +19,19 @@ namespace tessera::glfw
 			throw std::runtime_error("GlfwInitializer: failed to initialize window.");
 		}
 
-		window = std::shared_ptr<GLFWwindow>(windowObject, [](GLFWwindow* ptr)
+		window = std::shared_ptr<GLFWwindow>(windowObject, [](GLFWwindow*)
 		{
 			// TODO: rewrite init/clean methods with constructor and destructor.
 			// Empty destructor.
 		});
 	}
 
-	void GlfwInitializer::mainLoop() const
+	void GlfwInitializer::mainLoop(const std::function<void()>& tickCallback) const
 	{
 		while (!glfwWindowShouldClose(window.get()))
 		{
 			glfwPollEvents();
+			tickCallback();
 		}
 	}
 
@@ -37,4 +41,5 @@ namespace tessera::glfw
 		glfwTerminate();
 	}
 
+	
 }

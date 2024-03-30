@@ -10,8 +10,11 @@
 #include "vulkan/GraphicsPipelineManager.h"
 #include "vulkan/ImageViewManager.h"
 #include "vulkan/InstanceManager.h"
+#include "vulkan/QueueManager.h"
 #include "vulkan/SurfaceManager.h"
 #include "vulkan/SwapChainManager.h"
+#include "vulkan/SyncObjectsManager.h"
+
 
 namespace tessera
 {
@@ -19,6 +22,7 @@ namespace tessera
 	{
 	public:
 		void init() override;
+		void loop() const;
 		void clean() override;
 
 	private:
@@ -31,11 +35,13 @@ namespace tessera
 			std::make_shared<vulkan::DebugManager>(),
 			std::make_shared<vulkan::SurfaceManager>(),
 			std::make_shared<vulkan::DeviceManager>(),
+			std::make_shared<vulkan::QueueManager>(),
 			std::make_shared<vulkan::SwapChainManager>(),
 			std::make_shared<vulkan::ImageViewManager>(),
 			std::make_shared<vulkan::GraphicsPipelineManager>(),
 			std::make_shared<vulkan::FramebufferManager>(),
-			std::make_shared<vulkan::CommandBufferManager>()
+			std::make_shared<vulkan::CommandBufferManager>(),
+			std::make_shared<vulkan::SyncObjectsManager>()
 		};
 	};
 
