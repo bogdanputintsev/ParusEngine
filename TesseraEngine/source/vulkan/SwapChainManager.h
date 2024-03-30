@@ -28,8 +28,8 @@ namespace tessera::vulkan
 	public:
 		void init() override;
 
-		[[nodiscard]] uint32_t acquireNextImage(const int currentFrame) const;
-
+		[[nodiscard]] std::optional<uint32_t> acquireNextImage(const int currentFrame) const;
+		void recreate();
 		void clean() override;
 
 		static SwapChainSupportDetails querySwapChainSupport(const VkPhysicalDevice& device, const VkSurfaceKHR& surface);

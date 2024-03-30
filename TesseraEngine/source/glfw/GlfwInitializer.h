@@ -17,7 +17,9 @@ namespace tessera::glfw
 		void init() override;
 		void mainLoop(const std::function<void()>& tickCallback) const;
 		void clean() override;
+
 		[[nodiscard]] std::shared_ptr<GLFWwindow> getWindow() const { return window; }
+		void handleMinimization() const;
 	private:
 		std::shared_ptr<GLFWwindow> window;
 
@@ -25,5 +27,8 @@ namespace tessera::glfw
 		static constexpr int WINDOW_HEIGHT = 600;
 		static constexpr std::string WINDOW_TITLE = "Tessera Engine";
 	};
+
+	void framebufferResizeCallback(GLFWwindow* window, const int width, const int height);
+
 }
 
