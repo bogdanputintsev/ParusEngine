@@ -4,7 +4,7 @@
 #include <vector>
 
 #include "ExtensionManager.h"
-#include "QueueFamiliesManager.h"
+#include "QueueManager.h"
 #include "SwapChainManager.h"
 
 namespace tessera::vulkan
@@ -45,7 +45,7 @@ namespace tessera::vulkan
 		vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
 
 		// Check if device can process the commands we want to use.
-		const QueueFamilyIndices indices = QueueFamiliesManager::findQueueFamilies(device, surface);
+		const QueueFamilyIndices indices = findQueueFamilies(device, surface);
 
 		// Check if physical device supports swap chain extension.
 		const bool extensionsSupported = ExtensionManager::isDeviceExtensionSupported(device);

@@ -7,7 +7,7 @@
 #include "DebugManager.h"
 #include "ExtensionManager.h"
 #include "InstanceManager.h"
-#include "QueueFamiliesManager.h"
+#include "QueueManager.h"
 #include "SurfaceManager.h"
 #include "utils/interfaces/ServiceLocator.h"
 
@@ -23,7 +23,7 @@ namespace tessera::vulkan
 		const auto physicalDevice = physicalDeviceManager.getPhysicalDevice();
 		assert(physicalDevice);
 
-		const auto [graphicsFamily, presentFamily] = QueueFamiliesManager::findQueueFamilies(*physicalDevice, surface);
+		const auto [graphicsFamily, presentFamily] = findQueueFamilies(*physicalDevice, surface);
 		std::set uniqueQueueFamilies = { graphicsFamily.value(), presentFamily.value() };
 
 		constexpr float queuePriority = 1.0f;
@@ -69,9 +69,6 @@ namespace tessera::vulkan
 		{
 			throw std::runtime_error("VulkanLogicalDeviceManager: failed to create logical device.");
 		}
-
-		vkGetDeviceQueue(logicalDeviceInstance, graphicsFamily.value(), 0, &graphicsQueue);
-		vkGetDeviceQueue(logicalDeviceInstance, presentFamily.value(), 0, &presentQueue);
 
 		logicalDevice = std::make_shared<VkDevice>(logicalDeviceInstance);
 	}

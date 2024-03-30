@@ -7,8 +7,9 @@
 #include <GLFW/glfw3.h>
 
 #include "DeviceManager.h"
-#include "QueueFamiliesManager.h"
+#include "QueueManager.h"
 #include "SurfaceManager.h"
+#include "SyncObjectsManager.h"
 #include "glfw/GlfwInitializer.h"
 #include "utils/interfaces/ServiceLocator.h"
 
@@ -47,7 +48,7 @@ namespace tessera::vulkan
 		createInfo.imageArrayLayers = 1;
 		createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-		const auto [graphicsFamily, presentFamily] = QueueFamiliesManager::findQueueFamilies(*physicalDevice, surface);
+		const auto [graphicsFamily, presentFamily] = findQueueFamilies(*physicalDevice, surface);
 		const uint32_t queueFamilyIndices[] = { graphicsFamily.value(), presentFamily.value() };
 
 		if (graphicsFamily != presentFamily) {
@@ -78,6 +79,17 @@ namespace tessera::vulkan
 		vkGetSwapchainImagesKHR(*logicalDevice, swapChain, &imageCount, swapChainImages.data());
 
 		swapChainDetails = { format, extent, swapChainImages };
+	}
+
+	uint32_t SwapChainManager::acquireNextImage() const
+	{
+		const auto& device = ServiceLocator::getService<DeviceManager>()->getLogicalDevice();
+		const auto& imageAvailableSemaphore = ServiceLocator::getService<SyncObjectsManager>()->getImageAvailableSemaphore()	;
+
+		uint32_t imageIndex;
+		vkAcquireNextImageKHR(*device, swapChain, UINT64_MAX, *imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
+
+		return imageIndex;
 	}
 
 	void SwapChainManager::clean()

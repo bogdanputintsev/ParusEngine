@@ -29,10 +29,13 @@ namespace tessera::vulkan
 	{
 	public:
 		void init() override;
+
+		uint32_t acquireNextImage() const;
+
 		void clean() override;
 
 		static SwapChainSupportDetails querySwapChainSupport(const VkPhysicalDevice& device, const std::shared_ptr<const VkSurfaceKHR>& surface);
-
+		[[nodiscard]] VkSwapchainKHR getSwapChain() const { return swapChain; }
 		[[nodiscard]] SwapChainImageDetails getSwapChainImageDetails() const { return swapChainDetails; }
 	private:
 		static VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);

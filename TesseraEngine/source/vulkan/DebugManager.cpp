@@ -1,6 +1,5 @@
 #include "DebugManager.h"
 
-#include <iostream>
 #include <stdexcept>
 #include <vulkan/vulkan_core.h>
 

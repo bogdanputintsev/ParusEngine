@@ -1,6 +1,9 @@
 #include "GlfwInitializer.h"
 
+#include <functional>
 #include <stdexcept>
+
+#include "utils/interfaces/ServiceLocator.h"
 
 namespace tessera::glfw
 {
@@ -23,11 +26,12 @@ namespace tessera::glfw
 		});
 	}
 
-	void GlfwInitializer::mainLoop() const
+	void GlfwInitializer::mainLoop(const std::function<void()>& tickCallback) const
 	{
 		while (!glfwWindowShouldClose(window.get()))
 		{
 			glfwPollEvents();
+			tickCallback();
 		}
 	}
 
@@ -37,4 +41,5 @@ namespace tessera::glfw
 		glfwTerminate();
 	}
 
+	
 }
