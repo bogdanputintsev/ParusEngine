@@ -43,9 +43,9 @@ namespace tessera::vulkan
 	}
 
 	VkBool32 DebugManager::debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-	                                           VkDebugUtilsMessageTypeFlagsEXT messageType,
+												[[maybe_unused]] VkDebugUtilsMessageTypeFlagsEXT messageType,
 	                                           const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
-	                                           void* pUserData)
+	                                           [[maybe_unused]] void* pUserData)
     {
         TesseraLog::send(getLogType(messageSeverity), "Vulkan", pCallbackData->pMessage);
         return VK_FALSE;

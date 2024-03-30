@@ -19,7 +19,7 @@ namespace tessera::glfw
 			throw std::runtime_error("GlfwInitializer: failed to initialize window.");
 		}
 
-		window = std::shared_ptr<GLFWwindow>(windowObject, [](GLFWwindow* ptr)
+		window = std::shared_ptr<GLFWwindow>(windowObject, [](GLFWwindow*)
 		{
 			// TODO: rewrite init/clean methods with constructor and destructor.
 			// Empty destructor.
