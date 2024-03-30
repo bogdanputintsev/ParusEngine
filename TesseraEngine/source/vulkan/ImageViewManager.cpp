@@ -1,6 +1,5 @@
 #include "ImageViewManager.h"
 
-#include <memory>
 #include <stdexcept>
 
 #include "utils/interfaces/ServiceLocator.h"
@@ -33,7 +32,7 @@ namespace tessera::vulkan
 			createInfo.subresourceRange.baseArrayLayer = 0;
 			createInfo.subresourceRange.layerCount = 1;
 
-			if (vkCreateImageView(*device, &createInfo, nullptr, &swapChainImageViews[i]) != VK_SUCCESS) 
+			if (vkCreateImageView(device, &createInfo, nullptr, &swapChainImageViews[i]) != VK_SUCCESS) 
 			{
 				throw std::runtime_error("VulkanImageViewManager: failed to create image views.");
 			}
@@ -46,7 +45,7 @@ namespace tessera::vulkan
 
 		for (const auto& imageView : swapChainImageViews) 
 		{
-			vkDestroyImageView(*device, imageView, nullptr);
+			vkDestroyImageView(device, imageView, nullptr);
 		}
 	}
 

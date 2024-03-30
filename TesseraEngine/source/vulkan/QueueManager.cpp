@@ -17,51 +17,46 @@ namespace tessera::vulkan
 		Initializable::init();
 		const auto& logicalDevice = ServiceLocator::getService<DeviceManager>()->getLogicalDevice();
 		const auto& physicalDevice = ServiceLocator::getService<DeviceManager>()->getPhysicalDevice();
-		const std::shared_ptr<const VkSurfaceKHR>& surface = ServiceLocator::getService<SurfaceManager>()->getSurface();
+		const auto& surface = ServiceLocator::getService<SurfaceManager>()->getSurface();
 
-		const auto [graphicsFamily, presentFamily] = findQueueFamilies(*physicalDevice, surface);
+		const auto [graphicsFamily, presentFamily] = findQueueFamilies(physicalDevice, surface);
 
-		VkQueue graphicsQueueInstance;
-		VkQueue presentQueueInstance;
-		vkGetDeviceQueue(*logicalDevice, graphicsFamily.value(), 0, &graphicsQueueInstance);
-		vkGetDeviceQueue(*logicalDevice, presentFamily.value(), 0, &presentQueueInstance);
-
-		graphicsQueue = std::make_shared<VkQueue>(graphicsQueueInstance);
-		presentQueue = std::make_shared<VkQueue>(presentQueueInstance);
+		vkGetDeviceQueue(logicalDevice, graphicsFamily.value(), 0, &graphicsQueue);
+		vkGetDeviceQueue(logicalDevice, presentFamily.value(), 0, &presentQueue);
 	}
 
 	void QueueManager::drawFrame() const
 	{
-		const auto& syncObjectsManager = ServiceLocator::getService<vulkan::SyncObjectsManager>();
+		const auto& syncObjectsManager = ServiceLocator::getService<SyncObjectsManager>();
 		const auto& imageAvailableSemaphore = syncObjectsManager->getImageAvailableSemaphore();
 		const auto& renderFinishedSemaphore = syncObjectsManager->getRenderFinishedSemaphore();
 		const auto& inFlightFence = syncObjectsManager->getInFlightFence();
-		const auto& swapChainManager = ServiceLocator::getService<vulkan::SwapChainManager>();
+		const auto& swapChainManager = ServiceLocator::getService<SwapChainManager>();
 		const auto& swapChain = swapChainManager->getSwapChain();
-		const auto& commandBufferManager = ServiceLocator::getService<vulkan::CommandBufferManager>();
+		const auto& commandBufferManager = ServiceLocator::getService<CommandBufferManager>();
 		const auto& commandBuffer = commandBufferManager->getCommandBuffer();
 
 		syncObjectsManager->waitForFences();
 		const uint32_t imageIndex = swapChainManager->acquireNextImage();
 		commandBufferManager->resetCommandBuffer();
-		commandBufferManager->recordCommandBuffer(*commandBuffer, imageIndex);
+		commandBufferManager->recordCommandBuffer(commandBuffer, imageIndex);
 
 		VkSubmitInfo submitInfo{};
 		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-		const VkSemaphore waitSemaphores[] = { *imageAvailableSemaphore };
+		const VkSemaphore waitSemaphores[] = { imageAvailableSemaphore };
 		constexpr VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
 		submitInfo.waitSemaphoreCount = 1;
 		submitInfo.pWaitSemaphores = waitSemaphores;
 		submitInfo.pWaitDstStageMask = waitStages;
 		submitInfo.commandBufferCount = 1;
-		submitInfo.pCommandBuffers = &*commandBuffer;
+		submitInfo.pCommandBuffers = &commandBuffer;
 
-		const VkSemaphore signalSemaphores[] = { *renderFinishedSemaphore };
+		const VkSemaphore signalSemaphores[] = { renderFinishedSemaphore };
 		submitInfo.signalSemaphoreCount = 1;
 		submitInfo.pSignalSemaphores = signalSemaphores;
 
-		if (vkQueueSubmit(*graphicsQueue, 1, &submitInfo, *inFlightFence) != VK_SUCCESS)
+		if (vkQueueSubmit(graphicsQueue, 1, &submitInfo, inFlightFence) != VK_SUCCESS)
 		{
 			throw std::runtime_error("GlfwInitializer: failed to submit draw command buffer.");
 		}
@@ -78,10 +73,10 @@ namespace tessera::vulkan
 		presentInfo.pSwapchains = swapChains;
 		presentInfo.pImageIndices = &imageIndex;
 		presentInfo.pResults = nullptr;
-		vkQueuePresentKHR(*presentQueue, &presentInfo);
+		vkQueuePresentKHR(presentQueue, &presentInfo);
 	}
 
-	QueueFamilyIndices findQueueFamilies(const VkPhysicalDevice& physicalDevice, const std::shared_ptr<const VkSurfaceKHR>& surface)
+	QueueFamilyIndices findQueueFamilies(const VkPhysicalDevice& physicalDevice, const VkSurfaceKHR& surface)
 	{
 		QueueFamilyIndices indices;
 
@@ -99,7 +94,7 @@ namespace tessera::vulkan
 			}
 
 			VkBool32 presentSupport = false;
-			vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, i, *surface, &presentSupport);
+			vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, i, surface, &presentSupport);
 			if (presentSupport)
 			{
 				indices.presentFamily = i;

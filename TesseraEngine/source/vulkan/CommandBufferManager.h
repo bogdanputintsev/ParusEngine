@@ -1,5 +1,4 @@
 #pragma once
-#include <memory>
 #include <vulkan/vulkan_core.h>
 
 #include "utils/interfaces/Initializable.h"
@@ -17,13 +16,16 @@ namespace tessera::vulkan
 		void resetCommandBuffer() const;
 		void clean() override;
 
-		[[nodiscard]] std::shared_ptr<VkCommandBuffer> getCommandBuffer() const { return commandBuffer; }
+		[[nodiscard]] VkCommandBuffer getCommandBuffer() const { return commandBuffer; }
+		static constexpr int getNumberOfBuffers() { return MAX_FRAMES_IN_FLIGHT; }
 	private:
 		void initCommandPool();
-		void initCommandBuffer();
+		void initCommandBuffers();
 
-		std::shared_ptr<VkCommandPool> commandPool = VK_NULL_HANDLE;
-		std::shared_ptr<VkCommandBuffer> commandBuffer = VK_NULL_HANDLE;
+		VkCommandPool commandPool = VK_NULL_HANDLE;
+		VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
+
+		static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 	};
 
 }

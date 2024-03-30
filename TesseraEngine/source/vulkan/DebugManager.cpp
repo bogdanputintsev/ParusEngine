@@ -74,12 +74,12 @@ namespace tessera::vulkan
 	                                                          const VkAllocationCallbacks* pAllocator,
 	                                                          VkDebugUtilsMessengerEXT* pDebugMessenger)
     {
-        const std::shared_ptr<const VkInstance> instance = ServiceLocator::getService<InstanceManager>()->getInstance();
+        const auto& instance = ServiceLocator::getService<InstanceManager>()->getInstance();
         
-	    const auto func = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(*instance, "vkCreateDebugUtilsMessengerEXT"));
+	    const auto func = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT"));
         if (func != nullptr) 
         {
-            return func(*instance, pCreateInfo, pAllocator, pDebugMessenger);
+            return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
         }
 
 		return VK_ERROR_EXTENSION_NOT_PRESENT;
@@ -87,12 +87,12 @@ namespace tessera::vulkan
 
     void DebugManager::destroyDebugUtilsMessengerExt(VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator)
     {
-        const std::shared_ptr<const VkInstance> instance = ServiceLocator::getService<InstanceManager>()->getInstance();
+        const auto& instance = ServiceLocator::getService<InstanceManager>()->getInstance();
 
-	    const auto func = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(*instance, "vkDestroyDebugUtilsMessengerEXT"));
+	    const auto func = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT"));
         if (func != nullptr)
         {
-            func(*instance, debugMessenger, pAllocator);
+            func(instance, debugMessenger, pAllocator);
         }
     }
 
