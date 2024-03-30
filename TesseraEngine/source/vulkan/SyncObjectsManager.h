@@ -12,14 +12,14 @@ namespace tessera::vulkan
 		void init() override;
 		void clean() override;
 
-		void waitForFences() const;
-		[[nodiscard]] VkSemaphore getImageAvailableSemaphore() const { return imageAvailableSemaphore; }
-		[[nodiscard]] VkSemaphore getRenderFinishedSemaphore() const { return renderFinishedSemaphore; }
-		[[nodiscard]] VkFence getInFlightFence() const { return inFlightFence; }
+		void waitForFences(const int currentFrame) const;
+		[[nodiscard]] std::vector<VkSemaphore> getImageAvailableSemaphores() const { return imageAvailableSemaphores; }
+		[[nodiscard]] std::vector<VkSemaphore> getRenderFinishedSemaphores() const { return renderFinishedSemaphores; }
+		[[nodiscard]] std::vector<VkFence> getInFlightFences() const { return inFlightFences; }
 	private:
-		VkSemaphore imageAvailableSemaphore = VK_NULL_HANDLE;
-		VkSemaphore renderFinishedSemaphore = VK_NULL_HANDLE;
-		VkFence inFlightFence = VK_NULL_HANDLE;
+		std::vector<VkSemaphore> imageAvailableSemaphores;
+		std::vector<VkSemaphore> renderFinishedSemaphores;
+		std::vector<VkFence> inFlightFences;
 	};
 
 }

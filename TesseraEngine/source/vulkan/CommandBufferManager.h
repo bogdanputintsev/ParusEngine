@@ -10,23 +10,20 @@ namespace tessera::vulkan
 	{
 	public:
 		void init() override;
-
-		static void recordCommandBuffer(const VkCommandBuffer commandBufferToRecord, const uint32_t imageIndex);
-
-		void resetCommandBuffer() const;
+		void resetCommandBuffer(const int bufferId) const;
 		void clean() override;
 
-		[[nodiscard]] VkCommandBuffer getCommandBuffer() const { return commandBuffer; }
-		static constexpr int getNumberOfBuffers() { return MAX_FRAMES_IN_FLIGHT; }
+		[[nodiscard]] VkCommandBuffer getCommandBuffer(const int bufferId) const;
+		static int getNumberOfBuffers() { return MAX_FRAMES_IN_FLIGHT; }
 	private:
 		void initCommandPool();
 		void initCommandBuffers();
 
 		VkCommandPool commandPool = VK_NULL_HANDLE;
-		VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
-
+		std::vector<VkCommandBuffer> commandBuffers;
 		static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 	};
 
+	void recordCommandBuffer(const VkCommandBuffer commandBufferToRecord, const uint32_t imageIndex);
 }
 

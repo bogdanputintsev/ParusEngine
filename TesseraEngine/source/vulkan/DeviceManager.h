@@ -12,6 +12,8 @@ namespace tessera::vulkan
 		void init() override;
 		void clean() override;
 
+		void deviceWaitIdle() const;
+
 		[[nodiscard]] VkDevice getLogicalDevice() const { return logicalDevice; }
 		[[nodiscard]] VkPhysicalDevice getPhysicalDevice() const { return physicalDeviceManager.getPhysicalDevice(); }
 	private:

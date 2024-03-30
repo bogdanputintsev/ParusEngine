@@ -41,22 +41,46 @@ namespace tessera::vulkan
 	{
 		const auto& device = ServiceLocator::getService<DeviceManager>()->getLogicalDevice();
 
-		//commandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+		commandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
 
 		VkCommandBufferAllocateInfo allocInfo{};
 		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 		allocInfo.commandPool = commandPool;
 		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-		allocInfo.commandBufferCount = 1;
-		//allocInfo.commandBufferCount = static_cast<uint32_t>(commandBuffers.size());
+		allocInfo.commandBufferCount = static_cast<uint32_t>(commandBuffers.size());
 
-		if (vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer) != VK_SUCCESS)
+		if (vkAllocateCommandBuffers(device, &allocInfo, commandBuffers.data()) != VK_SUCCESS)
 		{
 			throw std::runtime_error("CommandPoolManager: failed to allocate command buffers.");
 		}
 	}
 
-	void CommandBufferManager::recordCommandBuffer(const VkCommandBuffer commandBufferToRecord, const uint32_t imageIndex)
+	void CommandBufferManager::resetCommandBuffer(const int bufferId) const
+	{
+		if (static_cast<size_t>(bufferId) >= commandBuffers.size() || bufferId < 0)
+		{
+			throw std::out_of_range("VkCommandBuffer: current frame number is larger than number of fences.");
+		}
+		vkResetCommandBuffer(commandBuffers[bufferId], 0);
+	}
+
+	void CommandBufferManager::clean()
+	{
+		const auto& device = ServiceLocator::getService<DeviceManager>()->getLogicalDevice();
+
+		vkDestroyCommandPool(device, commandPool, nullptr);
+	}
+
+	VkCommandBuffer CommandBufferManager::getCommandBuffer(const int bufferId) const
+	{
+		if (static_cast<size_t>(bufferId) >= commandBuffers.size() || bufferId < 0)
+		{
+			throw std::out_of_range("VkCommandBuffer: current frame number is larger than number of fences.");
+		}
+		return commandBuffers[bufferId];
+	}
+
+	void recordCommandBuffer(const VkCommandBuffer commandBufferToRecord, const uint32_t imageIndex)
 	{
 		const auto& swapChainFramebuffers = ServiceLocator::getService<FramebufferManager>()->getSwapChainFramebuffers();
 		const auto& [swapChainImageFormat, swapChainExtent, swapChainImages]
@@ -112,18 +136,6 @@ namespace tessera::vulkan
 		{
 			throw std::runtime_error("CommandPoolManager: failed to record command buffer");
 		}
-	}
-
-	void CommandBufferManager::resetCommandBuffer() const
-	{
-		vkResetCommandBuffer(commandBuffer, 0);
-	}
-
-	void CommandBufferManager::clean()
-	{
-		const auto& device = ServiceLocator::getService<DeviceManager>()->getLogicalDevice();
-
-		vkDestroyCommandPool(device, commandPool, nullptr);
 	}
 
 }

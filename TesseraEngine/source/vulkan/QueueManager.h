@@ -23,13 +23,15 @@ namespace tessera::vulkan
 	{
 	public:
 		void init() override;
-		void drawFrame() const;
+		void drawFrame();
 		void clean() override {}
 		[[nodiscard]] VkQueue getGraphicsQueue() const { return graphicsQueue; }
 		[[nodiscard]] VkQueue getPresentQueue() const { return presentQueue; }
 	private:
 		VkQueue graphicsQueue = VK_NULL_HANDLE;
 		VkQueue presentQueue = VK_NULL_HANDLE;
+
+		int currentFrame = 0;
 	};
 
 }
