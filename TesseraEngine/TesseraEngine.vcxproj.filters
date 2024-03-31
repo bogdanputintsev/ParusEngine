@@ -96,6 +96,7 @@
     <ClInclude Include="source\utils\interfaces\Initializable.h" />
     <ClInclude Include="source\utils\Utils.h" />
     <ClInclude Include="source\vulkan\SyncObjectsManager.h" />
+    <ClInclude Include="source\entities\Vertex.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\shader.frag" />
