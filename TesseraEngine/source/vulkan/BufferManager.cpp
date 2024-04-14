@@ -1,4 +1,4 @@
-#include "VertexBufferManager.h"
+#include "BufferManager.h"
 
 #include "CommandBufferManager.h"
 #include "QueueManager.h"
@@ -9,15 +9,16 @@
 namespace tessera::vulkan
 {
 
-	void VertexBufferManager::init()
+	void BufferManager::init()
 	{
 		Initializable::init();
 		const auto& device = ServiceLocator::getService<DeviceManager>()->getLogicalDevice();
 
 		createVertexBuffer(device);
+		createIndexBuffer(device);
 	}
 
-	void VertexBufferManager::createVertexBuffer(const VkDevice& device)
+	void BufferManager::createVertexBuffer(const VkDevice& device)
 	{
 		const VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
 
@@ -37,7 +38,7 @@ namespace tessera::vulkan
 		vkFreeMemory(device, stagingBufferMemory, nullptr);
 	}
 
-	void VertexBufferManager::createBuffer(const VkDeviceSize size, const VkBufferUsageFlags usage, const VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) const
+	void BufferManager::createBuffer(const VkDeviceSize size, const VkBufferUsageFlags usage, const VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) const
 	{
 		const auto& device = ServiceLocator::getService<DeviceManager>()->getLogicalDevice();
 
@@ -71,7 +72,7 @@ namespace tessera::vulkan
 		vkBindBufferMemory(device, buffer, bufferMemory, 0);
 	}
 
-	void VertexBufferManager::copyBuffer(const VkBuffer srcBuffer, const VkBuffer dstBuffer, const VkDeviceSize size) const
+	void BufferManager::copyBuffer(const VkBuffer srcBuffer, const VkBuffer dstBuffer, const VkDeviceSize size) const
 	{
 		const auto& commandPool = ServiceLocator::getService<CommandBufferManager>()->getCommandPool();
 		const auto& device = ServiceLocator::getService<DeviceManager>()->getLogicalDevice();
@@ -108,7 +109,28 @@ namespace tessera::vulkan
 		vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
 	}
 
-	uint32_t VertexBufferManager::findMemoryType(const uint32_t typeFilter, const VkMemoryPropertyFlags properties) const
+	void BufferManager::createIndexBuffer(const VkDevice& device)
+	{
+		const VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
+
+		VkBuffer stagingBuffer;
+		VkDeviceMemory stagingBufferMemory;
+		createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+
+		void* data;
+		vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
+		memcpy(data, indices.data(), (size_t)bufferSize);
+		vkUnmapMemory(device, stagingBufferMemory);
+
+		createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer, indexBufferMemory);
+
+		copyBuffer(stagingBuffer, indexBuffer, bufferSize);
+
+		vkDestroyBuffer(device, stagingBuffer, nullptr);
+		vkFreeMemory(device, stagingBufferMemory, nullptr);
+	}
+
+	uint32_t BufferManager::findMemoryType(const uint32_t typeFilter, const VkMemoryPropertyFlags properties) const
 	{
 		const auto& physicalDevice = ServiceLocator::getService<DeviceManager>()->getPhysicalDevice();
 
@@ -126,9 +148,13 @@ namespace tessera::vulkan
 		throw std::runtime_error("VertexBufferManager: failed to find suitable memory type.");
 	}
 
-	void VertexBufferManager::clean()
+	void BufferManager::clean()
 	{
 		const auto& device = ServiceLocator::getService<DeviceManager>()->getLogicalDevice();
+
+		vkDestroyBuffer(device, indexBuffer, nullptr);
+		vkFreeMemory(device, indexBufferMemory, nullptr);
+
 		vkDestroyBuffer(device, vertexBuffer, nullptr);
 		vkFreeMemory(device, vertexBufferMemory, nullptr);
 	}
