@@ -14,6 +14,7 @@
 #include "vulkan/SurfaceManager.h"
 #include "vulkan/SwapChainManager.h"
 #include "vulkan/SyncObjectsManager.h"
+#include "vulkan/BufferManager.h"
 
 
 namespace tessera
@@ -41,7 +42,8 @@ namespace tessera
 			std::make_shared<vulkan::GraphicsPipelineManager>(),
 			std::make_shared<vulkan::FramebufferManager>(),
 			std::make_shared<vulkan::CommandBufferManager>(),
-			std::make_shared<vulkan::SyncObjectsManager>()
+			std::make_shared<vulkan::BufferManager>(),
+			std::make_shared<vulkan::SyncObjectsManager>(),
 		};
 	};
 

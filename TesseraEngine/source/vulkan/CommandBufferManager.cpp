@@ -7,6 +7,8 @@
 #include "GraphicsPipelineManager.h"
 #include "QueueManager.h"
 #include "SurfaceManager.h"
+#include "BufferManager.h"
+#include "entities/Vertex.h"
 #include "utils/interfaces/ServiceLocator.h"
 
 namespace tessera::vulkan
@@ -83,11 +85,11 @@ namespace tessera::vulkan
 	void recordCommandBuffer(const VkCommandBuffer commandBufferToRecord, const uint32_t imageIndex)
 	{
 		const auto& swapChainFramebuffers = ServiceLocator::getService<FramebufferManager>()->getSwapChainFramebuffers();
-		const auto& [swapChainImageFormat, swapChainExtent, swapChainImages]
-			= ServiceLocator::getService<SwapChainManager>()->getSwapChainImageDetails();
+		const auto& [swapChainImageFormat, swapChainExtent, swapChainImages] = ServiceLocator::getService<SwapChainManager>()->getSwapChainImageDetails();
 		const auto& graphicsPipelineManager = ServiceLocator::getService<GraphicsPipelineManager>();
 		const auto& graphicsPipeline = graphicsPipelineManager->getGraphicsPipeline();
 		const auto& renderPass = graphicsPipelineManager->getRenderPath();
+		const auto& bufferManager = ServiceLocator::getService<BufferManager>();
 
 		VkCommandBufferBeginInfo beginInfo{};
 		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -129,7 +131,13 @@ namespace tessera::vulkan
 			scissor.extent = swapChainExtent;
 			vkCmdSetScissor(commandBufferToRecord, 0, 1, &scissor);
 
-			vkCmdDraw(commandBufferToRecord, 3, 1, 0, 0);
+			const VkBuffer vertexBuffers[] = { bufferManager->getVertexBuffer() };
+			constexpr VkDeviceSize offsets[] = { 0 };
+			vkCmdBindVertexBuffers(commandBufferToRecord, 0, 1, vertexBuffers, offsets);
+			vkCmdBindIndexBuffer(commandBufferToRecord, bufferManager->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT16);
+			const auto numberOfIndices = static_cast<uint32_t>(indices.size());
+
+			vkCmdDrawIndexed(commandBufferToRecord, numberOfIndices, 1, 0, 0, 0);
 		vkCmdEndRenderPass(commandBufferToRecord);
 
 		if (vkEndCommandBuffer(commandBufferToRecord) != VK_SUCCESS)

@@ -173,6 +173,7 @@
     <ClCompile Include="source\vulkan\FramebufferManager.cpp" />
     <ClCompile Include="source\vulkan\CommandBufferManager.cpp" />
     <ClCompile Include="source\vulkan\SyncObjectsManager.cpp" />
+    <ClCompile Include="source\vulkan\BufferManager.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="source\utils\interfaces\Service.h" />
@@ -184,6 +185,7 @@
     <ClInclude Include="source\utils\Utils.h" />
     <ClInclude Include="source\vulkan\DebugManager.h" />
     <ClInclude Include="source\vulkan\DeviceManager.h" />
+    <ClInclude Include="source\entities\Vertex.h" />
     <ClInclude Include="source\vulkan\ExtensionManager.h" />
     <ClInclude Include="source\vulkan\GraphicsPipelineManager.h" />
     <ClInclude Include="source\vulkan\ImageViewManager.h" />
@@ -196,6 +198,7 @@
     <ClInclude Include="source\vulkan\CommandBufferManager.h" />
     <ClInclude Include="source\utils\interfaces\Initializable.h" />
     <ClInclude Include="source\vulkan\SyncObjectsManager.h" />
+    <ClInclude Include="source\vulkan\BufferManager.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\shader.frag" />
