@@ -14,9 +14,8 @@ namespace tessera::vulkan
 		[[nodiscard]] VkBuffer getVertexBuffer() const { return vertexBuffer; }
 
 	private:
-		VkBufferCreateInfo createVertexBuffer(const VkDevice& device);
-		void allocateVertexBufferMemory(const VkDevice& device);
-		void fillVertexBufferData(const VkDevice& device, const VkBufferCreateInfo& bufferInfo) const;
+		void createVertexBuffer(const VkDevice& device);
+		void createBuffer(const VkDeviceSize size, const VkBufferUsageFlags usage, const VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) const;
 
 		[[nodiscard]] uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const;
 
