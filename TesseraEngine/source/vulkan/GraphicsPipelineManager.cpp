@@ -2,6 +2,7 @@
 
 #include <stdexcept>
 
+#include "DescriptorSetLayoutManager.h"
 #include "entities/Vertex.h"
 #include "utils/ShaderLoader.h"
 #include "utils/interfaces/ServiceLocator.h"
@@ -13,6 +14,7 @@ namespace tessera::vulkan
 	{
 		const auto& device = ServiceLocator::getService<DeviceManager>()->getLogicalDevice();
 		const auto& swapChainImageDetails = ServiceLocator::getService<SwapChainManager>()->getSwapChainImageDetails();
+		const auto& descriptorSetLayout = ServiceLocator::getService<DescriptorSetLayoutManager>()->getDescriptorSetLayout();
 		initRenderPath(device, swapChainImageDetails);
 
 		const auto vertexShaderCode = ShaderLoader::readFile("shaders/vert.spv");
@@ -34,17 +36,6 @@ namespace tessera::vulkan
 		fragShaderStageInfo.pName = "main";
 
 		[[maybe_unused]] VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
-
-		// Dynamic state
-		std::vector dynamicStates = {
-			VK_DYNAMIC_STATE_VIEWPORT,
-			VK_DYNAMIC_STATE_SCISSOR
-		};
-
-		VkPipelineDynamicStateCreateInfo dynamicState{};
-		dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-		dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
-		dynamicState.pDynamicStates = dynamicStates.data();
 
 		// Vertex input
 		auto bindingDescription = Vertex::getBindingDescription();
@@ -135,11 +126,22 @@ namespace tessera::vulkan
 		colorBlending.blendConstants[2] = 0.0f;
 		colorBlending.blendConstants[3] = 0.0f;
 
+		// Dynamic state
+		std::vector dynamicStates = {
+			VK_DYNAMIC_STATE_VIEWPORT,
+			VK_DYNAMIC_STATE_SCISSOR
+		};
+
+		VkPipelineDynamicStateCreateInfo dynamicState{};
+		dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+		dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
+		dynamicState.pDynamicStates = dynamicStates.data();
+
 		// Pipeline layout.
 		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-		pipelineLayoutInfo.setLayoutCount = 0;
-		pipelineLayoutInfo.pSetLayouts = nullptr;
+		pipelineLayoutInfo.setLayoutCount = 1;
+		pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout;
 		pipelineLayoutInfo.pushConstantRangeCount = 0;
 		pipelineLayoutInfo.pPushConstantRanges = nullptr;
 

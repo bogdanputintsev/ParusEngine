@@ -2,9 +2,18 @@
 
 #include "CommandBufferManager.h"
 #include "QueueManager.h"
+#include "entities/UniformBufferObject.h"
 #include "entities/Vertex.h"
 #include "utils/interfaces/ServiceLocator.h"
 #include "vulkan/DeviceManager.h"
+
+#define GLM_FORCE_RADIANS
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+
+#include <chrono>
+
+#include "SwapChainManager.h"
 
 namespace tessera::vulkan
 {
@@ -16,6 +25,7 @@ namespace tessera::vulkan
 
 		createVertexBuffer(device);
 		createIndexBuffer(device);
+		createUniformBuffer(device);
 	}
 
 	void BufferManager::createVertexBuffer(const VkDevice& device)
@@ -130,6 +140,22 @@ namespace tessera::vulkan
 		vkFreeMemory(device, stagingBufferMemory, nullptr);
 	}
 
+	void BufferManager::createUniformBuffer(const VkDevice& device)
+	{
+		constexpr VkDeviceSize bufferSize = sizeof(UniformBufferObject);
+
+		uniformBuffers.resize(CommandBufferManager::MAX_FRAMES_IN_FLIGHT);
+		uniformBuffersMemory.resize(CommandBufferManager::MAX_FRAMES_IN_FLIGHT);
+		uniformBuffersMapped.resize(CommandBufferManager::MAX_FRAMES_IN_FLIGHT);
+
+		for (size_t i = 0; i < CommandBufferManager::MAX_FRAMES_IN_FLIGHT; i++) 
+		{
+			createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffers[i], uniformBuffersMemory[i]);
+
+			vkMapMemory(device, uniformBuffersMemory[i], 0, bufferSize, 0, &uniformBuffersMapped[i]);
+		}
+	}
+
 	uint32_t BufferManager::findMemoryType(const uint32_t typeFilter, const VkMemoryPropertyFlags properties) const
 	{
 		const auto& physicalDevice = ServiceLocator::getService<DeviceManager>()->getPhysicalDevice();
@@ -157,5 +183,31 @@ namespace tessera::vulkan
 
 		vkDestroyBuffer(device, vertexBuffer, nullptr);
 		vkFreeMemory(device, vertexBufferMemory, nullptr);
+
+		for (size_t i = 0; i < CommandBufferManager::MAX_FRAMES_IN_FLIGHT; i++)
+		{
+			vkDestroyBuffer(device, uniformBuffers[i], nullptr);
+			vkFreeMemory(device, uniformBuffersMemory[i], nullptr);
+		}
+	}
+
+	void BufferManager::updateUniformBuffer(const uint32_t currentImage) const
+	{
+		const auto& swapChainExtent = ServiceLocator::getService<SwapChainManager>()->getSwapChainImageDetails().swapChainExtent;
+
+		static auto startTime = std::chrono::high_resolution_clock::now();
+
+		const auto currentTime = std::chrono::high_resolution_clock::now();
+		const float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+
+		UniformBufferObject ubo{};
+		ubo.model = rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+		ubo.view = lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+		ubo.proj = glm::perspective(glm::radians(45.0f), 
+			static_cast<float>(swapChainExtent.width) / static_cast<float>(swapChainExtent.height),
+			0.1f, 10.0f);
+		ubo.proj[1][1] *= -1;
+
+		memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
 	}
 }
