@@ -1,0 +1,8 @@
+C:\Projects\Personal\TesseraEngine\TesseraEngine\source\Core.cpp;C:\Projects\Personal\TesseraEngine\intermediate\Core.obj
+C:\Projects\Personal\TesseraEngine\TesseraEngine\source\graphics\glfw\GlfwLibrary.cpp;C:\Projects\Personal\TesseraEngine\intermediate\GlfwLibrary.obj
+C:\Projects\Personal\TesseraEngine\TesseraEngine\source\graphics\GraphicsLibrary.cpp;C:\Projects\Personal\TesseraEngine\intermediate\GraphicsLibrary.obj
+C:\Projects\Personal\TesseraEngine\TesseraEngine\source\renderer\Renderer.cpp;C:\Projects\Personal\TesseraEngine\intermediate\Renderer.obj
+C:\Projects\Personal\TesseraEngine\TesseraEngine\source\Application.cpp;C:\Projects\Personal\TesseraEngine\intermediate\Application.obj
+C:\Projects\Personal\TesseraEngine\TesseraEngine\source\Main.cpp;C:\Projects\Personal\TesseraEngine\intermediate\Main.obj
+C:\Projects\Personal\TesseraEngine\TesseraEngine\source\utils\TesseraLog.cpp;C:\Projects\Personal\TesseraEngine\intermediate\TesseraLog.obj
+C:\Projects\Personal\TesseraEngine\TesseraEngine\source\renderer\vulkan\VulkanRenderer.cpp;C:\Projects\Personal\TesseraEngine\intermediate\VulkanRenderer.obj

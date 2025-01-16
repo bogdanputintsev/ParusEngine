@@ -1,32 +1,47 @@
 #include "TesseraLog.h"
 
+#include <iomanip>
 #include <iostream>
-#include <ostream>
+#include <sstream>
 
 namespace tessera
 {
-	void TesseraLog::send(const LogType logType, const std::string& title, const std::string& message)
+	void TesseraLog::send(const LogType logType, const std::string& filename, const long line, const std::string& message)
 	{
 		if (!isLogTypeEnabled(logType))
 		{
 			return;
 		}
 
-	    std::cout << "[" << toString(logType) << "] " + title + ": " << message << std::endl;
+		const std::string logMessage = getLogMessage(logType, filename, line, message);
+
+		// Print out to the console.
+		std::cout << logMessage << '\n';
 	}
 
-	std::string_view TesseraLog::toString(const LogType logType)
+	std::string TesseraLog::getLogMessage(const LogType logType, const std::string& filename, const long line, const std::string& message)
+	{
+		std::stringstream buffer;
+		buffer << __DATE__ << " " << __TIME__ << " "
+			<< toString(logType) << " "
+			<< "[" << filename << ":" << line << "] - "
+			<< message;
+
+		return buffer.str();
+	}
+
+	std::string TesseraLog::toString(const LogType logType)
 	{
 		switch (logType)
 		{
 			using enum LogType;
-			case INFO:		return "INFO";
-			case DEBUG:		return "DEBUG";
-			case WARNING:	return "WARNING";
-			case ERROR:		return "ERROR";
-			case FATAL:		return "FATAL";
-			case ALL:		break;
-			case DEFAULT:	break;
+		case INFO:		return "INFO";
+		case DEBUG:		return "DEBUG";
+		case WARNING:	return "WARNING";
+		case ERROR:		return "ERROR";
+		case FATAL:		return "FATAL";
+		case ALL:		break;
+		case DEFAULT:	break;
 		}
 
 		return "INFO";
