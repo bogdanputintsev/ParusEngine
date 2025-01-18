@@ -4,6 +4,7 @@
 #include <string>
 #include <fstream>
 
+
 namespace tessera
 {
 
@@ -42,6 +43,9 @@ namespace tessera
 		return buffer;
 	}
 
-
+	inline bool approximatelyEqual(const float a, const float b)
+	{
+		return fabs(a - b) <= ((fabs(a) < fabs(b) ? fabs(b) : fabs(a)) * std::numeric_limits<float>::epsilon());
+	}
 
 }

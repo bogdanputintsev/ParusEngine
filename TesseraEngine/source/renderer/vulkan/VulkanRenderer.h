@@ -1,6 +1,7 @@
 #pragma once
 #include <optional>
 #include <vector>
+#include <vulkan/vulkan_core.h>
 
 #include "entities/Vertex.h"
 #include "renderer/Renderer.h"
@@ -34,6 +35,9 @@ namespace tessera::vulkan
 
 	struct VulkanContext final
 	{
+		// Load model
+		void loadModel();
+
 		// Instance
 		void createInstance();
 		static void checkValidationLayerSupport();
@@ -79,7 +83,7 @@ namespace tessera::vulkan
 
 		// Image View
 		void createImageViews();
-		VkImageView createImageView(const VkImage image, const VkFormat format, VkImageAspectFlags aspectFlags) const;
+		VkImageView createImageView(const VkImage image, const VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels) const;
 
 		// Render Pass
 		void createRenderPass();
@@ -114,8 +118,10 @@ namespace tessera::vulkan
 
 		// Texture image
 		void createTextureImage();
-		void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory) const;
-		void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout) const;
+		void generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipMapLevel);
+		void createImage(uint32_t width, uint32_t height, uint32_t miplevels, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags
+			properties, VkImage& image, VkDeviceMemory& imageMemory) const;
+		void transitionImageLayout(const VkImage image, VkFormat format, const VkImageLayout oldLayout, const VkImageLayout newLayout, uint32_t mipLevels) const;
 		void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height) const;
 
 		void createTextureImageView();
@@ -139,6 +145,10 @@ namespace tessera::vulkan
 		void createSyncObjects();
 		void waitForFences() const;
 		void resetFences() const;
+
+		static VkVertexInputBindingDescription getBindingDescription();
+
+		static std::array<VkVertexInputAttributeDescription, 3> getAttributeDescriptions();
 
 		VkInstance instance = VK_NULL_HANDLE;
 		VkDebugUtilsMessengerEXT debugMessenger = nullptr;
@@ -165,6 +175,7 @@ namespace tessera::vulkan
 		VkDeviceMemory vertexBufferMemory = VK_NULL_HANDLE;
 		VkBuffer indexBuffer = VK_NULL_HANDLE;
 		VkDeviceMemory indexBufferMemory = VK_NULL_HANDLE;
+		uint32_t maxMipLevels;
 		VkImage textureImage;
 		VkDeviceMemory textureImageMemory;
 		VkImageView textureImageView;
@@ -172,6 +183,7 @@ namespace tessera::vulkan
 		VkImage depthImage;
 		VkDeviceMemory depthImageMemory;
 		VkImageView depthImageView;
+
 		std::vector<VkBuffer> uniformBuffers{};
 		std::vector<VkDeviceMemory> uniformBuffersMemory{};
 		std::vector<void*> uniformBuffersMapped{};
@@ -183,6 +195,9 @@ namespace tessera::vulkan
 		bool framebufferResized = false;
 
 		static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
+
+		std::vector<Vertex> vertices;
+		std::vector<uint32_t> indices;
 	};
 
 	class VulkanRenderer final : public Renderer
