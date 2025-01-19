@@ -773,10 +773,10 @@ namespace tessera::vulkan
 	void VulkanContext::createGraphicsPipeline()
 	{
 		const auto vertexShaderCode = readFile("bin/vert.spv");
-		vertexShaderModule = createShaderModule(vertexShaderCode, logicalDevice);
+		VkShaderModule vertexShaderModule = createShaderModule(vertexShaderCode, logicalDevice);
 
 		const auto fragmentShaderCode = readFile("bin/frag.spv");
-		fragmentShaderModule = createShaderModule(fragmentShaderCode, logicalDevice);
+		VkShaderModule fragmentShaderModule = createShaderModule(fragmentShaderCode, logicalDevice);
 
 		VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
 		vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -909,6 +909,8 @@ namespace tessera::vulkan
 		pipelineInfo.basePipelineIndex = -1;
 
 		ASSERT(vkCreateGraphicsPipelines(logicalDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) == VK_SUCCESS, "failed to create graphics pipeline.");
+		vkDestroyShaderModule(logicalDevice, fragmentShaderModule, nullptr);
+		vkDestroyShaderModule(logicalDevice, vertexShaderModule, nullptr);
 	}
 
 	VkShaderModule VulkanContext::createShaderModule(const std::vector<char>& code, const VkDevice& device)
@@ -1721,12 +1723,6 @@ namespace tessera::vulkan
 	{
 		context.cleanupSwapChain();
 
-		vkDestroySampler(context.logicalDevice, context.textureSampler, nullptr);
-		vkDestroyImageView(context.logicalDevice, context.textureImageView, nullptr);
-
-		vkDestroyImage(context.logicalDevice, context.textureImage, nullptr);
-		vkFreeMemory(context.logicalDevice, context.textureImageMemory, nullptr);
-
 		vkDestroyPipeline(context.logicalDevice, context.graphicsPipeline, nullptr);
 		vkDestroyPipelineLayout(context.logicalDevice, context.pipelineLayout, nullptr);
 		vkDestroyRenderPass(context.logicalDevice, context.renderPass, nullptr);
@@ -1738,6 +1734,13 @@ namespace tessera::vulkan
 		}
 
 		vkDestroyDescriptorPool(context.logicalDevice, context.descriptorPool, nullptr);
+
+		vkDestroySampler(context.logicalDevice, context.textureSampler, nullptr);
+		vkDestroyImageView(context.logicalDevice, context.textureImageView, nullptr);
+
+		vkDestroyImage(context.logicalDevice, context.textureImage, nullptr);
+		vkFreeMemory(context.logicalDevice, context.textureImageMemory, nullptr);
+
 		vkDestroyDescriptorSetLayout(context.logicalDevice, context.descriptorSetLayout, nullptr);
 
 		vkDestroyBuffer(context.logicalDevice, context.indexBuffer, nullptr);
@@ -1754,6 +1757,7 @@ namespace tessera::vulkan
 		}
 
 		vkDestroyCommandPool(context.logicalDevice, context.commandPool, nullptr);
+
 		vkDestroyDevice(context.logicalDevice, nullptr);
 
 		if (context.validationLayersAreEnabled())
