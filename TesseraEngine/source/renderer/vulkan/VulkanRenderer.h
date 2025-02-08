@@ -147,6 +147,8 @@ namespace tessera::vulkan
 		void waitForFences() const;
 		void resetFences() const;
 
+		void onResize();
+
 		VkSampleCountFlagBits getMaxUsableSampleCount() const;
 
 		static VkVertexInputBindingDescription getBindingDescription();
@@ -212,7 +214,6 @@ namespace tessera::vulkan
 		void clean() override;
 		void drawFrame() override;
 		void deviceWaitIdle() override;
-		void onResize();
 	private:
 		VulkanContext context;
 	};

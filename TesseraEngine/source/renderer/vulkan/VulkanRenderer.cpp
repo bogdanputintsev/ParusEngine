@@ -1643,6 +1643,11 @@ namespace tessera::vulkan
 		vkResetFences(logicalDevice, 1, &inFlightFences[currentFrame]);
 	}
 
+	void VulkanContext::onResize()
+	{
+		framebufferResized = true;
+	}
+
 	VkSampleCountFlagBits VulkanContext::getMaxUsableSampleCount() const
 	{
 		VkPhysicalDeviceProperties physicalDeviceProperties;
@@ -1694,6 +1699,12 @@ namespace tessera::vulkan
 	// ===========================================================================================]
 	void VulkanRenderer::init()
 	{
+		REGISTER_EVENT(EventType::EVENT_WINDOW_RESIZED, [&](const int newWidth, const int newHeight)
+		{
+			INFO("Vulkan initiated window resize. New dimensions: " + std::to_string(newWidth) + " " + std::to_string(newHeight));
+			context.onResize();
+		});
+		
 		context.loadModel();
 		context.createInstance();
 		context.createDebugManager();
@@ -1835,10 +1846,5 @@ namespace tessera::vulkan
 	void VulkanRenderer::deviceWaitIdle()
 	{
 		vkDeviceWaitIdle(context.logicalDevice);
-	}
-
-	void VulkanRenderer::onResize()
-	{
-		context.framebufferResized = true;
 	}
 }
