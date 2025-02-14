@@ -7,15 +7,17 @@
 
 int main()
 {
+	tessera::Application application;
+	
 	try
 	{
-		tessera::Application::init();
-		tessera::Application::loop();
-		tessera::Application::clean();
+		application.init();
+		application.loop();
+		application.clean();
 	}
 	catch (const std::exception& exception)
 	{
-		FATAL(exception.what());
+		LOG_FATAL(exception.what());
 		return EXIT_FAILURE;
 	}
 

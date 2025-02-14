@@ -70,7 +70,7 @@ namespace tessera::glfw
 	{
 		REGISTER_EVENT(EventType::EVENT_WINDOW_RESIZED, [&](const int newWidth, const int newHeight)
 		{
-			DEBUG("Window resized. New size: (" + std::to_string(newWidth) + ", " + std::to_string(newHeight) + ").");
+			LOG_DEBUG("Window resized. New size: (" + std::to_string(newWidth) + ", " + std::to_string(newHeight) + ").");
 		});
 
 		FIRE_EVENT(EventType::EVENT_WINDOW_RESIZED, width, height);

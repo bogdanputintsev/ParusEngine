@@ -26,8 +26,23 @@ namespace tessera
 		EVENT_MOUSE_WHEEL = 0x07,
 
 		EVENT_WINDOW_RESIZED = 0x08,
-
 	};
+
+	inline const char* toString(const EventType eventType)
+	{
+		switch (eventType)
+		{
+		case EventType::EVENT_APPLICATION_QUIT: return "EVENT_APPLICATION_QUIT";
+		case EventType::EVENT_KEY_PRESSED: return "EVENT_KEY_PRESSED";
+		case EventType::EVENT_KEY_RELEASED: return "EVENT_KEY_RELEASED";
+		case EventType::EVENT_MOUSE_BUTTON_PRESSED: return "EVENT_MOUSE_BUTTON_PRESSED";
+		case EventType::EVENT_MOUSE_BUTTON_RELEASED: return "EVENT_MOUSE_BUTTON_RELEASED";
+		case EventType::EVENT_MOUSE_MOVED: return "EVENT_MOUSE_MOVED";
+		case EventType::EVENT_MOUSE_WHEEL: return "EVENT_MOUSE_WHEEL";
+		case EventType::EVENT_WINDOW_RESIZED: return "EVENT_WINDOW_RESIZED";
+		default: return "unknown";
+		}
+	}
 
 	class EventSystem final
 	{
@@ -84,7 +99,7 @@ namespace tessera
 			if (const auto& eventHandler = handlers.find(eventType); eventHandler != handlers.end())
 			{
 				auto* existingEventHandler = dynamic_cast<EventHandler<Args...>*>(eventHandler->second.get());
-				ASSERT(existingEventHandler, "Type mismatch for event.");
+				ASSERT(existingEventHandler, "Type mismatch for event " + std::string(toString(eventType)));
 				existingEventHandler->addCallback(std::move(callback));
 			}
 			else
@@ -107,7 +122,7 @@ namespace tessera
 			const std::vector<std::type_index> expected = eventHandler->second->getParamTypes();
 			const std::vector<std::type_index> actual = {typeid(args)...};
 
-			ASSERT(expected == actual, "Type mismatch for firing event.");
+			ASSERT(expected == actual, "Type mismatch for firing event " + std::string(toString(eventType)));
 
 			std::vector<std::any> anyArgs;
 			(anyArgs.emplace_back(args), ...);
