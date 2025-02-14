@@ -5,9 +5,12 @@ namespace tessera
 	class Application final
 	{
 	public:
-		static void init();
-		static void loop();
-		static void clean();
+		void init();
+		void loop();
+		void clean();
+
+	private:
+		bool isRunning = false;
 	};
 
 }
