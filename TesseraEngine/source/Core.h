@@ -4,9 +4,9 @@
 #include "core/Defines.h"
 #include "Event.h"
 #include "core/platform/Platform.h"
+#include "graphics/imgui/ImGuiLibrary.h"
 #include "utils/TesseraLog.h"
 #include "utils/Utils.h"
-#include "graphics/glfw/GlfwLibrary.h"
 #include "renderer/vulkan/VulkanRenderer.h"
 
 namespace tessera
@@ -30,7 +30,7 @@ namespace tessera
 		struct CoreContext final
 		{
 			std::shared_ptr<Platform> platform;
-			//std::shared_ptr<glfw::GlfwLibrary> graphicsLibrary;
+			std::shared_ptr<imgui::ImGuiLibrary> graphicsLibrary;
 			std::shared_ptr<vulkan::VulkanRenderer> renderer;
 			std::shared_ptr<EventSystem> eventSystem;
 			std::shared_ptr<Input> inputSystem; 

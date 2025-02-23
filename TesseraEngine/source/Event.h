@@ -9,41 +9,9 @@
 
 namespace tessera
 {
-	enum class EventType : uint8_t
-	{
-		EVENT_APPLICATION_QUIT = 0x01,
-
-		EVENT_KEY_PRESSED = 0x02,
-
-		EVENT_KEY_RELEASED = 0x03,
-
-		EVENT_MOUSE_BUTTON_PRESSED = 0x04,
-
-		EVENT_MOUSE_BUTTON_RELEASED = 0x05,
-
-		EVENT_MOUSE_MOVED = 0x06,
-
-		EVENT_MOUSE_WHEEL = 0x07,
-
-		EVENT_WINDOW_RESIZED = 0x08,
-	};
-
-	inline const char* toString(const EventType eventType)
-	{
-		switch (eventType)
-		{
-		case EventType::EVENT_APPLICATION_QUIT: return "EVENT_APPLICATION_QUIT";
-		case EventType::EVENT_KEY_PRESSED: return "EVENT_KEY_PRESSED";
-		case EventType::EVENT_KEY_RELEASED: return "EVENT_KEY_RELEASED";
-		case EventType::EVENT_MOUSE_BUTTON_PRESSED: return "EVENT_MOUSE_BUTTON_PRESSED";
-		case EventType::EVENT_MOUSE_BUTTON_RELEASED: return "EVENT_MOUSE_BUTTON_RELEASED";
-		case EventType::EVENT_MOUSE_MOVED: return "EVENT_MOUSE_MOVED";
-		case EventType::EVENT_MOUSE_WHEEL: return "EVENT_MOUSE_WHEEL";
-		case EventType::EVENT_WINDOW_RESIZED: return "EVENT_WINDOW_RESIZED";
-		default: return "unknown";
-		}
-	}
-
+	enum class EventType : uint8_t;
+	inline const char* toString(const EventType eventType);
+	
 	class EventSystem final
 	{
 	private:
@@ -144,6 +112,47 @@ namespace tessera
 	{
 		auto func = std::function(std::forward<F>(f));
 		es.registerEvent(type, func);
+	}
+
+	enum class EventType : uint8_t
+	{
+		EVENT_APPLICATION_QUIT = 0x01,
+
+		EVENT_KEY_PRESSED = 0x02,
+
+		EVENT_KEY_RELEASED = 0x03,
+
+		EVENT_CHAR_INPUT = 0x04,
+
+		EVENT_MOUSE_BUTTON_PRESSED = 0x05,
+
+		EVENT_MOUSE_BUTTON_RELEASED = 0x06,
+
+		EVENT_MOUSE_MOVED = 0x07,
+
+		EVENT_MOUSE_WHEEL = 0x08,
+
+		EVENT_WINDOW_RESIZED = 0x09,
+
+		EVENT_WINDOW_MINIMIZED = 0x0A,
+	};
+
+	inline const char* toString(const EventType eventType)
+	{
+		switch (eventType)
+		{
+		case EventType::EVENT_APPLICATION_QUIT: return "EVENT_APPLICATION_QUIT";
+		case EventType::EVENT_KEY_PRESSED: return "EVENT_KEY_PRESSED";
+		case EventType::EVENT_KEY_RELEASED: return "EVENT_KEY_RELEASED";
+		case EventType::EVENT_MOUSE_BUTTON_PRESSED: return "EVENT_MOUSE_BUTTON_PRESSED";
+		case EventType::EVENT_MOUSE_BUTTON_RELEASED: return "EVENT_MOUSE_BUTTON_RELEASED";
+		case EventType::EVENT_MOUSE_MOVED: return "EVENT_MOUSE_MOVED";
+		case EventType::EVENT_MOUSE_WHEEL: return "EVENT_MOUSE_WHEEL";
+		case EventType::EVENT_WINDOW_RESIZED: return "EVENT_WINDOW_RESIZED";
+		case EventType::EVENT_CHAR_INPUT: return "EVENT_CHAR_INPUT";
+		case EventType::EVENT_WINDOW_MINIMIZED: return "EVENT_WINDOW_MINIMIZED";
+		default: return "unknown";
+		}
 	}
 	
 }

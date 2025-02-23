@@ -2,17 +2,23 @@
 
 #include "Core.h"
 #include "core/Input.h"
+#include "graphics/imgui/ImGuiLibrary.h"
 
 namespace tessera
 {
 	void Application::init()
 	{
-		CORE->platform->init("Tessera", 250, 250, 800, 600);
-		//CORE->graphicsLibrary->init();
+		CORE->platform->init();
 		CORE->renderer->init();
+		CORE->graphicsLibrary->init();
 
 		isRunning = true;
 
+		registerEvents();
+	}
+
+	void Application::registerEvents()
+	{
 		REGISTER_EVENT(EventType::EVENT_KEY_RELEASED, [](const KeyButton keyReleased)
 		{
 			if (keyReleased == KeyButton::KEY_ESCAPE)
@@ -27,25 +33,27 @@ namespace tessera
 		});
 	}
 
-	void Application::loop()
+	void Application::loop() const
 	{
 		while (isRunning)
 		{
 			CORE->platform->getMessages();
-			CORE->renderer->drawFrame();
+
+			if (!CORE->platform->getWindowInfo().isMinimized)
+			{
+				CORE->graphicsLibrary->drawFrame();
+				CORE->renderer->drawFrame();
+			}
 		}
-		// CORE->graphicsLibrary->loop([&]
-		// 	{
-		// 		CORE->renderer->drawFrame();
-		// 	});
 
 		CORE->renderer->deviceWaitIdle();
 	}
 
 	void Application::clean()
 	{
+		isRunning = false;
+		CORE->graphicsLibrary->clean();
 		CORE->renderer->clean();
-		//CORE->graphicsLibrary->clean();
 		CORE->platform->clean();
 	}
 

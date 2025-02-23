@@ -93,7 +93,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\Projects\Personal\TesseraEngine\TesseraEngine\source;C:\Libraries\glfw-3.3.9.bin.WIN64\include;C:\Libraries\glm;C:\VulkanSDK\1.3.250.1\Include;C:\Libraries;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Projects\Personal\TesseraEngine\TesseraEngine\source;C:\Libraries\glfw-3.3.9.bin.WIN64\include;C:\Libraries\glm;C:\VulkanSDK\1.3.250.1\Include;C:\Libraries;C:\Projects\Personal\TesseraEngine\TesseraEngine\source\third-party\imgui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <MultiProcessorCompilation>false</MultiProcessorCompilation>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
@@ -118,7 +118,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\Projects\Personal\TesseraEngine\TesseraEngine\source;C:\Libraries\glfw-3.3.9.bin.WIN64\include;C:\Libraries\glm;C:\VulkanSDK\1.3.250.1\Include;C:\Libraries;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Projects\Personal\TesseraEngine\TesseraEngine\source;C:\Libraries\glfw-3.3.9.bin.WIN64\include;C:\Libraries\glm;C:\VulkanSDK\1.3.250.1\Include;C:\Libraries;C:\Projects\Personal\TesseraEngine\TesseraEngine\source\third-party\imgui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <MultiProcessorCompilation>false</MultiProcessorCompilation>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
@@ -148,7 +148,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\Projects\Personal\TesseraEngine\TesseraEngine\source;C:\Libraries\glfw-3.3.9.bin.WIN64\include;C:\Libraries\glm;C:\VulkanSDK\1.3.250.1\Include;C:\Libraries;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Projects\Personal\TesseraEngine\TesseraEngine\source;C:\Libraries\glfw-3.3.9.bin.WIN64\include;C:\Libraries\glm;C:\VulkanSDK\1.3.250.1\Include;C:\Libraries;C:\Projects\Personal\TesseraEngine\TesseraEngine\source\third-party\imgui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <MultiProcessorCompilation>false</MultiProcessorCompilation>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
@@ -173,7 +173,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\Projects\Personal\TesseraEngine\TesseraEngine\source;C:\Libraries\glfw-3.3.9.bin.WIN64\include;C:\Libraries\glm;C:\VulkanSDK\1.3.250.1\Include;C:\Libraries;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Projects\Personal\TesseraEngine\TesseraEngine\source;C:\Libraries\glfw-3.3.9.bin.WIN64\include;C:\Libraries\glm;C:\VulkanSDK\1.3.250.1\Include;C:\Libraries;C:\Projects\Personal\TesseraEngine\TesseraEngine\source\third-party\imgui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <MultiProcessorCompilation>false</MultiProcessorCompilation>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
@@ -201,13 +201,94 @@
     <ClCompile Include="source\Core.cpp" />
     <ClCompile Include="source\core\Input.cpp" />
     <ClCompile Include="source\core\platform\PlatformWindows.cpp" />
-    <ClCompile Include="source\graphics\glfw\GlfwLibrary.cpp" />
     <ClCompile Include="source\graphics\GraphicsLibrary.cpp" />
+    <ClCompile Include="source\graphics\imgui\ImGuiLibrary.cpp">
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <Optimization>Disabled</Optimization>
+      <SupportJustMyCode>true</SupportJustMyCode>
+      <AssemblerOutput>NoListing</AssemblerOutput>
+      <AssemblerListingLocation>C:\Projects\Personal\TesseraEngine\intermediate\</AssemblerListingLocation>
+      <UndefineAllPreprocessorDefinitions>false</UndefineAllPreprocessorDefinitions>
+      <BrowseInformation>false</BrowseInformation>
+      <BrowseInformationFile>C:\Projects\Personal\TesseraEngine\intermediate\</BrowseInformationFile>
+      <CompileAs>Default</CompileAs>
+      <ConformanceMode>true</ConformanceMode>
+      <DiagnosticsFormat>Column</DiagnosticsFormat>
+      <DisableLanguageExtensions>false</DisableLanguageExtensions>
+      <ErrorReporting>Prompt</ErrorReporting>
+      <ExpandAttributedSource>false</ExpandAttributedSource>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <EnableASAN>false</EnableASAN>
+      <EnableFuzzer>false</EnableFuzzer>
+      <EnableFiberSafeOptimizations>false</EnableFiberSafeOptimizations>
+      <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
+      <FloatingPointModel>Precise</FloatingPointModel>
+      <ForceConformanceInForLoopScope>true</ForceConformanceInForLoopScope>
+      <GenerateModuleDependencies>false</GenerateModuleDependencies>
+      <GenerateSourceDependencies>false</GenerateSourceDependencies>
+      <GenerateXMLDocumentationFiles>false</GenerateXMLDocumentationFiles>
+      <InlineFunctionExpansion>Default</InlineFunctionExpansion>
+      <IntrinsicFunctions>false</IntrinsicFunctions>
+      <IgnoreStandardIncludePath>false</IgnoreStandardIncludePath>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <LanguageStandard_C>Default</LanguageStandard_C>
+      <MinimalRebuild>false</MinimalRebuild>
+      <ModuleDependenciesFile>C:\Projects\Personal\TesseraEngine\intermediate\</ModuleDependenciesFile>
+      <ModuleOutputFile>C:\Projects\Personal\TesseraEngine\intermediate\</ModuleOutputFile>
+      <OmitDefaultLibName>false</OmitDefaultLibName>
+      <FavorSizeOrSpeed>Neither</FavorSizeOrSpeed>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <ObjectFileName>C:\Projects\Personal\TesseraEngine\intermediate\</ObjectFileName>
+      <CallingConvention>Cdecl</CallingConvention>
+      <ProgramDataBaseFileName>C:\Projects\Personal\TesseraEngine\intermediate\vc143.pdb</ProgramDataBaseFileName>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PrecompiledHeaderFile>stdafx.h</PrecompiledHeaderFile>
+      <PrecompiledHeaderOutputFile>C:\Projects\Personal\TesseraEngine\intermediate\TesseraEngine.pch</PrecompiledHeaderOutputFile>
+      <PreprocessToFile>false</PreprocessToFile>
+      <PreprocessKeepComments>false</PreprocessKeepComments>
+      <PreprocessSuppressLineNumbers>false</PreprocessSuppressLineNumbers>
+      <RemoveUnreferencedCodeData>true</RemoveUnreferencedCodeData>
+      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
+      <ShowIncludes>false</ShowIncludes>
+      <SourceDependenciesFile>C:\Projects\Personal\TesseraEngine\intermediate\</SourceDependenciesFile>
+      <SuppressStartupBanner>true</SuppressStartupBanner>
+      <BufferSecurityCheck>true</BufferSecurityCheck>
+      <SmallerTypeCheck>false</SmallerTypeCheck>
+      <SpectreMitigation>false</SpectreMitigation>
+      <StructMemberAlignment>Default</StructMemberAlignment>
+      <TrackerLogDirectory>C:\Projects\Personal\TesseraEngine\intermediate\TesseraEngine.tlog\</TrackerLogDirectory>
+      <TranslateIncludes>false</TranslateIncludes>
+      <MinimalRebuildFromTracking>true</MinimalRebuildFromTracking>
+      <TreatWarningAsError>false</TreatWarningAsError>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <UseFullPaths>true</UseFullPaths>
+      <WarningLevel>Level4</WarningLevel>
+      <XMLDocumentationFileName>C:\Projects\Personal\TesseraEngine\intermediate\</XMLDocumentationFileName>
+      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+      <IntelJCCErratum>false</IntelJCCErratum>
+      <BuildStlModules>false</BuildStlModules>
+      <TreatAngleIncludeAsExternal>false</TreatAngleIncludeAsExternal>
+      <ExternalWarningLevel>InheritWarningLevel</ExternalWarningLevel>
+      <TreatExternalTemplatesAsInternal>true</TreatExternalTemplatesAsInternal>
+      <DisableAnalyzeExternal>false</DisableAnalyzeExternal>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;_UNICODE;UNICODE;</PreprocessorDefinitions>
+      <SDLCheck>true</SDLCheck>
+      <AdditionalIncludeDirectories>C:\Projects\Personal\TesseraEngine\TesseraEngine\source;C:\Libraries\glfw-3.3.9.bin.WIN64\include;C:\Libraries\glm;C:\VulkanSDK\1.3.250.1\Include;C:\Libraries;C:\Projects\Personal\TesseraEngine\TesseraEngine\source\third-party\imgui;</AdditionalIncludeDirectories>
+      <MultiProcessorCompilation>false</MultiProcessorCompilation>
+      <LinkCompiled>true</LinkCompiled>
+    </ClCompile>
     <ClCompile Include="source\renderer\Renderer.cpp" />
     <ClCompile Include="source\Application.cpp" />
     <ClCompile Include="source\Main.cpp" />
     <ClCompile Include="source\utils\TesseraLog.cpp" />
     <ClCompile Include="source\renderer\vulkan\VulkanRenderer.cpp" />
+    <ClCompile Include="source\third-party\imgui\backends\imgui_impl_vulkan.cpp" />
+    <ClCompile Include="source\third-party\imgui\backends\imgui_impl_win32.cpp" />
+    <ClCompile Include="source\third-party\imgui\imgui.cpp" />
+    <ClCompile Include="source\third-party\imgui\imgui_draw.cpp" />
+    <ClCompile Include="source\third-party\imgui\imgui_tables.cpp" />
+    <ClCompile Include="source\third-party\imgui\imgui_widgets.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="source\core\Defines.h" />
@@ -215,8 +296,8 @@
     <ClInclude Include="source\core\platform\Platform.h" />
     <ClInclude Include="source\Event.h" />
     <ClInclude Include="source\Core.h" />
-    <ClInclude Include="source\graphics\glfw\GlfwLibrary.h" />
     <ClInclude Include="source\graphics\GraphicsLibrary.h" />
+    <ClInclude Include="source\graphics\imgui\ImGuiLibrary.h" />
     <ClInclude Include="source\renderer\Renderer.h" />
     <ClInclude Include="source\entities\UniformBufferObject.h" />
     <ClInclude Include="source\Application.h" />
@@ -224,10 +305,19 @@
     <ClInclude Include="source\utils\Utils.h" />
     <ClInclude Include="source\entities\Vertex.h" />
     <ClInclude Include="source\renderer\vulkan\VulkanRenderer.h" />
+    <ClInclude Include="source\third-party\imgui\backends\imgui_impl_vulkan.h" />
+    <ClInclude Include="source\third-party\imgui\backends\imgui_impl_win32.h" />
+    <ClInclude Include="source\third-party\imgui\imconfig.h" />
+    <ClInclude Include="source\third-party\imgui\imgui.h" />
+    <ClInclude Include="source\third-party\imgui\imgui_internal.h" />
+    <ClInclude Include="source\third-party\imgui\imstb_rectpack.h" />
+    <ClInclude Include="source\third-party\imgui\imstb_textedit.h" />
+    <ClInclude Include="source\third-party\imgui\imstb_truetype.h" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="source\shaders\shader.frag" />
     <Content Include="source\shaders\shader.vert" />
+    <Content Include="source\third-party\imgui\LICENSE.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

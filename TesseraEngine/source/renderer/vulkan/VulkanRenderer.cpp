@@ -17,12 +17,10 @@
 #include <stdexcept>
 #include <unordered_map>
 #include <unordered_set>
-#include <GLFW/glfw3.h>
 
 #include "Core.h"
 #include "core/platform/Platform.h"
 #include "entities/UniformBufferObject.h"
-#include "graphics/glfw/GlfwLibrary.h"
 #include "utils/TesseraLog.h"
 
 namespace tessera::vulkan
@@ -577,8 +575,9 @@ namespace tessera::vulkan
 			return capabilities.currentExtent;
 		}
 
-		int width = 800, height = 600;
-		//glfwGetFramebufferSize(CORE->graphicsLibrary->getWindow().get(), &width, &height);
+		const auto windowInfo = CORE->platform->getWindowInfo();
+		const int width = windowInfo.width;
+		const int height = windowInfo.height;
 
 		VkExtent2D actualExtent = {
 			static_cast<uint32_t>(width),
@@ -611,7 +610,7 @@ namespace tessera::vulkan
 
 	void VulkanContext::recreateSwapChain()
 	{
-		//CORE->graphicsLibrary->handleMinimization();
+		CORE->graphicsLibrary->handleMinimization();
 		CORE->renderer->deviceWaitIdle();
 
 		cleanupSwapChain();
@@ -1029,6 +1028,7 @@ namespace tessera::vulkan
 		const auto numberOfIndices = static_cast<uint32_t>(indices.size());
 
 		vkCmdDrawIndexed(commandBufferToRecord, numberOfIndices, 1, 0, 0, 0);
+		CORE->graphicsLibrary->renderDrawData(commandBufferToRecord);
 		vkCmdEndRenderPass(commandBufferToRecord);
 		ASSERT(vkEndCommandBuffer(commandBufferToRecord) == VK_SUCCESS, " failed to record command buffer.");
 	}
@@ -1554,13 +1554,14 @@ namespace tessera::vulkan
 		poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 		poolSizes[0].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
 		poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		poolSizes[1].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
-
+		poolSizes[1].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT + IMAGE_SAMPLER_POOL_SIZE);
+		
 		VkDescriptorPoolCreateInfo poolInfo{};
 		poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+		poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
 		poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
 		poolInfo.pPoolSizes = poolSizes.data();
-		poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+		poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT + IMAGE_SAMPLER_POOL_SIZE);
 
 		ASSERT(vkCreateDescriptorPool(logicalDevice, &poolInfo, nullptr, &descriptorPool) == VK_SUCCESS, "failed to create descriptor pool.");
 	}

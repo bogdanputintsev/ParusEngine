@@ -6,7 +6,35 @@
 namespace tessera
 {
         
-    enum MouseButton
+    enum class KeyButton : uint8_t;
+    enum class MouseButton : uint8_t;
+    
+    class Input final
+    {
+    public:
+        Input() = default;
+        void processKey(KeyButton key, const bool isPressed);
+        static void processChar(const char inputChar);
+        void processButton(MouseButton button, const bool isPressed);
+        void processMouseMove(const int newMouseX, const int newMouseY);
+        static void processMouseWheel(int wheelDelta);
+    private:
+        struct KeyboardState
+        {
+            std::array<bool, 256> keyPressed;
+        }
+        keyboardState{};
+
+        struct MouseState
+        {
+            int mouseX;
+            int mouseY;
+            std::array<bool, 3> mousePressed;
+        }
+        mouseState{};
+    };
+
+    enum class MouseButton : uint8_t
     {
         BUTTON_LEFT,
         BUTTON_RIGHT,
@@ -17,14 +45,14 @@ namespace tessera
     {
         switch (e)
         {
-        case BUTTON_LEFT: return "BUTTON_LEFT";
-        case BUTTON_RIGHT: return "BUTTON_RIGHT";
-        case BUTTON_MIDDLE: return "BUTTON_MIDDLE";
+        case MouseButton::BUTTON_LEFT: return "BUTTON_LEFT";
+        case MouseButton::BUTTON_RIGHT: return "BUTTON_RIGHT";
+        case MouseButton::BUTTON_MIDDLE: return "BUTTON_MIDDLE";
         default: return "unknown";
         }
     }
 
-    enum KeyButton
+    enum class KeyButton : uint8_t
     {
         KEY_BACKSPACE = 0x08,
         KEY_ENTER = 0x0D,
@@ -153,156 +181,126 @@ namespace tessera
         KEY_GRAVE = 0xC0,
     };
 
-    inline const char* toString(KeyButton e)
+    inline const char* toString(const KeyButton key)
     {
-        switch (e)
+        switch (key)
         {
-        case KEY_BACKSPACE: return "KEY_BACKSPACE";
-        case KEY_ENTER: return "KEY_ENTER";
-        case KEY_TAB: return "KEY_TAB";
-        case KEY_SHIFT: return "KEY_SHIFT";
-        case KEY_CONTROL: return "KEY_CONTROL";
-        case KEY_PAUSE: return "KEY_PAUSE";
-        case KEY_CAPITAL: return "KEY_CAPITAL";
-        case KEY_ESCAPE: return "KEY_ESCAPE";
-        case KEY_CONVERT: return "KEY_CONVERT";
-        case KEY_NONCONVERT: return "KEY_NONCONVERT";
-        case KEY_ACCEPT: return "KEY_ACCEPT";
-        case KEY_MODECHANGE: return "KEY_MODECHANGE";
-        case KEY_SPACE: return "KEY_SPACE";
-        case KEY_PRIOR: return "KEY_PRIOR";
-        case KEY_NEXT: return "KEY_NEXT";
-        case KEY_END: return "KEY_END";
-        case KEY_HOME: return "KEY_HOME";
-        case KEY_LEFT: return "KEY_LEFT";
-        case KEY_UP: return "KEY_UP";
-        case KEY_RIGHT: return "KEY_RIGHT";
-        case KEY_DOWN: return "KEY_DOWN";
-        case KEY_SELECT: return "KEY_SELECT";
-        case KEY_PRINT: return "KEY_PRINT";
-        case KEY_SNAPSHOT: return "KEY_SNAPSHOT";
-        case KEY_INSERT: return "KEY_INSERT";
-        case KEY_DELETE: return "KEY_DELETE";
-        case KEY_HELP: return "KEY_HELP";
-        case KEY_A: return "KEY_A";
-        case KEY_B: return "KEY_B";
-        case KEY_C: return "KEY_C";
-        case KEY_D: return "KEY_D";
-        case KEY_E: return "KEY_E";
-        case KEY_F: return "KEY_F";
-        case KEY_G: return "KEY_G";
-        case KEY_H: return "KEY_H";
-        case KEY_I: return "KEY_I";
-        case KEY_J: return "KEY_J";
-        case KEY_K: return "KEY_K";
-        case KEY_L: return "KEY_L";
-        case KEY_M: return "KEY_M";
-        case KEY_N: return "KEY_N";
-        case KEY_O: return "KEY_O";
-        case KEY_P: return "KEY_P";
-        case KEY_Q: return "KEY_Q";
-        case KEY_R: return "KEY_R";
-        case KEY_S: return "KEY_S";
-        case KEY_T: return "KEY_T";
-        case KEY_U: return "KEY_U";
-        case KEY_V: return "KEY_V";
-        case KEY_W: return "KEY_W";
-        case KEY_X: return "KEY_X";
-        case KEY_Y: return "KEY_Y";
-        case KEY_Z: return "KEY_Z";
-        case KEY_LWIN: return "KEY_LWIN";
-        case KEY_RWIN: return "KEY_RWIN";
-        case KEY_APPS: return "KEY_APPS";
-        case KEY_SLEEP: return "KEY_SLEEP";
-        case KEY_NUMPAD0: return "KEY_NUMPAD0";
-        case KEY_NUMPAD1: return "KEY_NUMPAD1";
-        case KEY_NUMPAD2: return "KEY_NUMPAD2";
-        case KEY_NUMPAD3: return "KEY_NUMPAD3";
-        case KEY_NUMPAD4: return "KEY_NUMPAD4";
-        case KEY_NUMPAD5: return "KEY_NUMPAD5";
-        case KEY_NUMPAD6: return "KEY_NUMPAD6";
-        case KEY_NUMPAD7: return "KEY_NUMPAD7";
-        case KEY_NUMPAD8: return "KEY_NUMPAD8";
-        case KEY_NUMPAD9: return "KEY_NUMPAD9";
-        case KEY_MULTIPLY: return "KEY_MULTIPLY";
-        case KEY_ADD: return "KEY_ADD";
-        case KEY_SEPARATOR: return "KEY_SEPARATOR";
-        case KEY_SUBTRACT: return "KEY_SUBTRACT";
-        case KEY_DECIMAL: return "KEY_DECIMAL";
-        case KEY_DIVIDE: return "KEY_DIVIDE";
-        case KEY_F1: return "KEY_F1";
-        case KEY_F2: return "KEY_F2";
-        case KEY_F3: return "KEY_F3";
-        case KEY_F4: return "KEY_F4";
-        case KEY_F5: return "KEY_F5";
-        case KEY_F6: return "KEY_F6";
-        case KEY_F7: return "KEY_F7";
-        case KEY_F8: return "KEY_F8";
-        case KEY_F9: return "KEY_F9";
-        case KEY_F10: return "KEY_F10";
-        case KEY_F11: return "KEY_F11";
-        case KEY_F12: return "KEY_F12";
-        case KEY_F13: return "KEY_F13";
-        case KEY_F14: return "KEY_F14";
-        case KEY_F15: return "KEY_F15";
-        case KEY_F16: return "KEY_F16";
-        case KEY_F17: return "KEY_F17";
-        case KEY_F18: return "KEY_F18";
-        case KEY_F19: return "KEY_F19";
-        case KEY_F20: return "KEY_F20";
-        case KEY_F21: return "KEY_F21";
-        case KEY_F22: return "KEY_F22";
-        case KEY_F23: return "KEY_F23";
-        case KEY_F24: return "KEY_F24";
-        case KEY_NUMLOCK: return "KEY_NUMLOCK";
-        case KEY_SCROLL: return "KEY_SCROLL";
-        case KEY_NUMPAD_EQUAL: return "KEY_NUMPAD_EQUAL";
-        case KEY_LSHIFT: return "KEY_LSHIFT";
-        case KEY_RSHIFT: return "KEY_RSHIFT";
-        case KEY_LCONTROL: return "KEY_LCONTROL";
-        case KEY_RCONTROL: return "KEY_RCONTROL";
-        case KEY_LMENU: return "KEY_LMENU";
-        case KEY_RMENU: return "KEY_RMENU";
-        case KEY_SEMICOLON: return "KEY_SEMICOLON";
-        case KEY_PLUS: return "KEY_PLUS";
-        case KEY_COMMA: return "KEY_COMMA";
-        case KEY_MINUS: return "KEY_MINUS";
-        case KEY_PERIOD: return "KEY_PERIOD";
-        case KEY_SLASH: return "KEY_SLASH";
-        case KEY_GRAVE: return "KEY_GRAVE";
+        case KeyButton::KEY_BACKSPACE: return "KEY_BACKSPACE";
+        case KeyButton::KEY_ENTER: return "KEY_ENTER";
+        case KeyButton::KEY_TAB: return "KEY_TAB";
+        case KeyButton::KEY_SHIFT: return "KEY_SHIFT";
+        case KeyButton::KEY_CONTROL: return "KEY_CONTROL";
+        case KeyButton::KEY_PAUSE: return "KEY_PAUSE";
+        case KeyButton::KEY_CAPITAL: return "KEY_CAPITAL";
+        case KeyButton::KEY_ESCAPE: return "KEY_ESCAPE";
+        case KeyButton::KEY_CONVERT: return "KEY_CONVERT";
+        case KeyButton::KEY_NONCONVERT: return "KEY_NONCONVERT";
+        case KeyButton::KEY_ACCEPT: return "KEY_ACCEPT";
+        case KeyButton::KEY_MODECHANGE: return "KEY_MODECHANGE";
+        case KeyButton::KEY_SPACE: return "KEY_SPACE";
+        case KeyButton::KEY_PRIOR: return "KEY_PRIOR";
+        case KeyButton::KEY_NEXT: return "KEY_NEXT";
+        case KeyButton::KEY_END: return "KEY_END";
+        case KeyButton::KEY_HOME: return "KEY_HOME";
+        case KeyButton::KEY_LEFT: return "KEY_LEFT";
+        case KeyButton::KEY_UP: return "KEY_UP";
+        case KeyButton::KEY_RIGHT: return "KEY_RIGHT";
+        case KeyButton::KEY_DOWN: return "KEY_DOWN";
+        case KeyButton::KEY_SELECT: return "KEY_SELECT";
+        case KeyButton::KEY_PRINT: return "KEY_PRINT";
+        case KeyButton::KEY_SNAPSHOT: return "KEY_SNAPSHOT";
+        case KeyButton::KEY_INSERT: return "KEY_INSERT";
+        case KeyButton::KEY_DELETE: return "KEY_DELETE";
+        case KeyButton::KEY_HELP: return "KEY_HELP";
+        case KeyButton::KEY_A: return "KEY_A";
+        case KeyButton::KEY_B: return "KEY_B";
+        case KeyButton::KEY_C: return "KEY_C";
+        case KeyButton::KEY_D: return "KEY_D";
+        case KeyButton::KEY_E: return "KEY_E";
+        case KeyButton::KEY_F: return "KEY_F";
+        case KeyButton::KEY_G: return "KEY_G";
+        case KeyButton::KEY_H: return "KEY_H";
+        case KeyButton::KEY_I: return "KEY_I";
+        case KeyButton::KEY_J: return "KEY_J";
+        case KeyButton::KEY_K: return "KEY_K";
+        case KeyButton::KEY_L: return "KEY_L";
+        case KeyButton::KEY_M: return "KEY_M";
+        case KeyButton::KEY_N: return "KEY_N";
+        case KeyButton::KEY_O: return "KEY_O";
+        case KeyButton::KEY_P: return "KEY_P";
+        case KeyButton::KEY_Q: return "KEY_Q";
+        case KeyButton::KEY_R: return "KEY_R";
+        case KeyButton::KEY_S: return "KEY_S";
+        case KeyButton::KEY_T: return "KEY_T";
+        case KeyButton::KEY_U: return "KEY_U";
+        case KeyButton::KEY_V: return "KEY_V";
+        case KeyButton::KEY_W: return "KEY_W";
+        case KeyButton::KEY_X: return "KEY_X";
+        case KeyButton::KEY_Y: return "KEY_Y";
+        case KeyButton::KEY_Z: return "KEY_Z";
+        case KeyButton::KEY_LWIN: return "KEY_LWIN";
+        case KeyButton::KEY_RWIN: return "KEY_RWIN";
+        case KeyButton::KEY_APPS: return "KEY_APPS";
+        case KeyButton::KEY_SLEEP: return "KEY_SLEEP";
+        case KeyButton::KEY_NUMPAD0: return "KEY_NUMPAD0";
+        case KeyButton::KEY_NUMPAD1: return "KEY_NUMPAD1";
+        case KeyButton::KEY_NUMPAD2: return "KEY_NUMPAD2";
+        case KeyButton::KEY_NUMPAD3: return "KEY_NUMPAD3";
+        case KeyButton::KEY_NUMPAD4: return "KEY_NUMPAD4";
+        case KeyButton::KEY_NUMPAD5: return "KEY_NUMPAD5";
+        case KeyButton::KEY_NUMPAD6: return "KEY_NUMPAD6";
+        case KeyButton::KEY_NUMPAD7: return "KEY_NUMPAD7";
+        case KeyButton::KEY_NUMPAD8: return "KEY_NUMPAD8";
+        case KeyButton::KEY_NUMPAD9: return "KEY_NUMPAD9";
+        case KeyButton::KEY_MULTIPLY: return "KEY_MULTIPLY";
+        case KeyButton::KEY_ADD: return "KEY_ADD";
+        case KeyButton::KEY_SEPARATOR: return "KEY_SEPARATOR";
+        case KeyButton::KEY_SUBTRACT: return "KEY_SUBTRACT";
+        case KeyButton::KEY_DECIMAL: return "KEY_DECIMAL";
+        case KeyButton::KEY_DIVIDE: return "KEY_DIVIDE";
+        case KeyButton::KEY_F1: return "KEY_F1";
+        case KeyButton::KEY_F2: return "KEY_F2";
+        case KeyButton::KEY_F3: return "KEY_F3";
+        case KeyButton::KEY_F4: return "KEY_F4";
+        case KeyButton::KEY_F5: return "KEY_F5";
+        case KeyButton::KEY_F6: return "KEY_F6";
+        case KeyButton::KEY_F7: return "KEY_F7";
+        case KeyButton::KEY_F8: return "KEY_F8";
+        case KeyButton::KEY_F9: return "KEY_F9";
+        case KeyButton::KEY_F10: return "KEY_F10";
+        case KeyButton::KEY_F11: return "KEY_F11";
+        case KeyButton::KEY_F12: return "KEY_F12";
+        case KeyButton::KEY_F13: return "KEY_F13";
+        case KeyButton::KEY_F14: return "KEY_F14";
+        case KeyButton::KEY_F15: return "KEY_F15";
+        case KeyButton::KEY_F16: return "KEY_F16";
+        case KeyButton::KEY_F17: return "KEY_F17";
+        case KeyButton::KEY_F18: return "KEY_F18";
+        case KeyButton::KEY_F19: return "KEY_F19";
+        case KeyButton::KEY_F20: return "KEY_F20";
+        case KeyButton::KEY_F21: return "KEY_F21";
+        case KeyButton::KEY_F22: return "KEY_F22";
+        case KeyButton::KEY_F23: return "KEY_F23";
+        case KeyButton::KEY_F24: return "KEY_F24";
+        case KeyButton::KEY_NUMLOCK: return "KEY_NUMLOCK";
+        case KeyButton::KEY_SCROLL: return "KEY_SCROLL";
+        case KeyButton::KEY_NUMPAD_EQUAL: return "KEY_NUMPAD_EQUAL";
+        case KeyButton::KEY_LSHIFT: return "KEY_LSHIFT";
+        case KeyButton::KEY_RSHIFT: return "KEY_RSHIFT";
+        case KeyButton::KEY_LCONTROL: return "KEY_LCONTROL";
+        case KeyButton::KEY_RCONTROL: return "KEY_RCONTROL";
+        case KeyButton::KEY_LMENU: return "KEY_LMENU";
+        case KeyButton::KEY_RMENU: return "KEY_RMENU";
+        case KeyButton::KEY_SEMICOLON: return "KEY_SEMICOLON";
+        case KeyButton::KEY_PLUS: return "KEY_PLUS";
+        case KeyButton::KEY_COMMA: return "KEY_COMMA";
+        case KeyButton::KEY_MINUS: return "KEY_MINUS";
+        case KeyButton::KEY_PERIOD: return "KEY_PERIOD";
+        case KeyButton::KEY_SLASH: return "KEY_SLASH";
+        case KeyButton::KEY_GRAVE: return "KEY_GRAVE";
         default: return "unknown";
         }
     }
 
-    class Input final
-    {
-    public:
-        Input() = default;
-        void processKey(KeyButton key, const bool isPressed);
-        void processButton(MouseButton button, const bool isPressed);
-        void processMouseMove(const int newMouseX, const int newMouseY);
-        static void processMouseWheel(int wheelDelta);
-
-        [[nodiscard]] inline bool isKeyDown(KeyButton key) const;
-        [[nodiscard]] inline bool isKeyUp(KeyButton key) const;
-        [[nodiscard]] inline bool isMouseDown(MouseButton button) const;
-        [[nodiscard]] inline bool isMouseUp(MouseButton button) const;
-        [[nodiscard]] inline std::pair<int, int> getMousePosition() const;
-    private:
-        struct KeyboardState
-        {
-            std::array<bool, 256> keyPressed;
-        }
-        keyboardState{};
-
-        struct MouseState
-        {
-            int mouseX;
-            int mouseY;
-            std::array<bool, 3> mousePressed;
-        }
-        mouseState{};
-    };
-        
 }
 
