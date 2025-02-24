@@ -34,9 +34,6 @@
     <ClCompile Include="source\graphics\GraphicsLibrary.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="source\graphics\glfw\GlfwLibrary.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="source\Core.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -44,9 +41,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="source\core\platform\PlatformWindows.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="source\graphics\glfw\ImGuiLibrary.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="source\third-party\imgui\backends\imgui_impl_vulkan.cpp">
@@ -58,9 +52,6 @@
     <ClCompile Include="source\third-party\imgui\imgui.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="source\third-party\imgui\imgui_demo.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="source\third-party\imgui\imgui_draw.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -68,6 +59,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="source\third-party\imgui\imgui_widgets.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="source\graphics\imgui\ImGuiLibrary.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -80,13 +74,11 @@
     <ClInclude Include="source\renderer\Renderer.h" />
     <ClInclude Include="source\renderer\vulkan\VulkanRenderer.h" />
     <ClInclude Include="source\graphics\GraphicsLibrary.h" />
-    <ClInclude Include="source\graphics\glfw\GlfwLibrary.h" />
     <ClInclude Include="source\Core.h" />
     <ClInclude Include="source\Event.h" />
     <ClInclude Include="source\core\Defines.h" />
     <ClInclude Include="source\core\Input.h" />
     <ClInclude Include="source\core\platform\Platform.h" />
-    <ClInclude Include="source\graphics\glfw\ImGuiLibrary.h" />
     <ClInclude Include="source\third-party\imgui\backends\imgui_impl_vulkan.h" />
     <ClInclude Include="source\third-party\imgui\backends\imgui_impl_win32.h" />
     <ClInclude Include="source\third-party\imgui\imconfig.h" />
@@ -95,5 +87,6 @@
     <ClInclude Include="source\third-party\imgui\imstb_rectpack.h" />
     <ClInclude Include="source\third-party\imgui\imstb_textedit.h" />
     <ClInclude Include="source\third-party\imgui\imstb_truetype.h" />
+    <ClInclude Include="source\graphics\imgui\ImGuiLibrary.h" />
   </ItemGroup>
 </Project>
