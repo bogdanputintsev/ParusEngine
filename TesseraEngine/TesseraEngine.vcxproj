@@ -202,6 +202,7 @@
     <ClCompile Include="source\core\Input.cpp" />
     <ClCompile Include="source\core\platform\PlatformWindows.cpp" />
     <ClCompile Include="source\graphics\GraphicsLibrary.cpp" />
+    <ClCompile Include="source\graphics\gui\ConsoleGui.cpp" />
     <ClCompile Include="source\graphics\imgui\ImGuiLibrary.cpp">
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
@@ -297,6 +298,7 @@
     <ClInclude Include="source\Event.h" />
     <ClInclude Include="source\Core.h" />
     <ClInclude Include="source\graphics\GraphicsLibrary.h" />
+    <ClInclude Include="source\graphics\gui\ConsoleGui.h" />
     <ClInclude Include="source\graphics\imgui\ImGuiLibrary.h" />
     <ClInclude Include="source\renderer\Renderer.h" />
     <ClInclude Include="source\entities\UniformBufferObject.h" />

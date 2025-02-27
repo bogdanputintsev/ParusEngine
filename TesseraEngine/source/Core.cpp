@@ -14,7 +14,7 @@ namespace tessera
 	Core::Core()
 	{
 		context->platform = std::make_shared<Platform>();
-		//context->graphicsLibrary = std::make_shared<glfw::GlfwLibrary>();
+		context->graphicsLibrary = std::make_shared<imgui::ImGuiLibrary>();
 		context->renderer = std::make_shared<vulkan::VulkanRenderer>();
 		context->eventSystem = std::make_shared<EventSystem>();
 		context->inputSystem = std::make_shared<Input>();

@@ -109,6 +109,8 @@ namespace tessera::imgui
 		{
 			ImGui::GetIO().AddInputCharacter(inputChar);
 		});
+
+		consoleGui.registerEvents();
 	}
 	
 	void ImGuiLibrary::renderDrawData(const VkCommandBuffer cmd)
@@ -129,9 +131,7 @@ namespace tessera::imgui
 
 	void ImGuiLibrary::draw()
 	{
-		static char str1[128] = "";
-		ImGui::InputTextWithHint("input text (w/ hint)", "enter text here", str1, IM_ARRAYSIZE(str1));
-
+		consoleGui.draw();
 	}
 
 	void ImGuiLibrary::handleMinimization()

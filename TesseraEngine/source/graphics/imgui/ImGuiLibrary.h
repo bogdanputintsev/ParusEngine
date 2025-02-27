@@ -4,6 +4,7 @@
 
 #include "imgui.h"
 #include "graphics/GraphicsLibrary.h"
+#include "graphics/gui/ConsoleGui.h"
 
 
 namespace tessera
@@ -19,14 +20,15 @@ namespace tessera::imgui
     public:
         void init() override;
         void drawFrame() override;
-        static void draw();
+        void draw();
         static void renderDrawData(VkCommandBuffer cmd);
         void handleMinimization() override;
         [[nodiscard]] std::vector<const char*> getRequiredExtensions() const override;
         void clean() override;
     private:
-        
         static ImGuiKey getImGuiKeyCode(const ::tessera::KeyButton keyTest);
+
+        ConsoleGui consoleGui{};
     };
 
 
