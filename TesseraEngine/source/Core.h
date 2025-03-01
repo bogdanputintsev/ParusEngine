@@ -8,6 +8,7 @@
 #include "utils/TesseraLog.h"
 #include "utils/Utils.h"
 #include "renderer/vulkan/VulkanRenderer.h"
+#include "world/World.h"
 
 namespace tessera
 {
@@ -33,7 +34,8 @@ namespace tessera
 			std::shared_ptr<imgui::ImGuiLibrary> graphicsLibrary;
 			std::shared_ptr<vulkan::VulkanRenderer> renderer;
 			std::shared_ptr<EventSystem> eventSystem;
-			std::shared_ptr<Input> inputSystem; 
+			std::shared_ptr<Input> inputSystem;
+			World world;
 		};
 
 	public:

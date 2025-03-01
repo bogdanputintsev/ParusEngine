@@ -33,10 +33,19 @@ namespace tessera
 		});
 	}
 
-	void Application::loop() const
+	void Application::loop()
 	{
+		auto lastFrameTime = std::chrono::high_resolution_clock::now();
+
 		while (isRunning)
 		{
+			const auto currentFrameTime = std::chrono::high_resolution_clock::now();
+			const std::chrono::duration<float> deltaTimeDuration = currentFrameTime - lastFrameTime;
+			const float deltaTime = deltaTimeDuration.count();
+			lastFrameTime = currentFrameTime;
+
+			CORE->world.tick(deltaTime);
+			
 			CORE->platform->getMessages();
 
 			if (!CORE->platform->getWindowInfo().isMinimized)

@@ -290,6 +290,8 @@
     <ClCompile Include="source\third-party\imgui\imgui_draw.cpp" />
     <ClCompile Include="source\third-party\imgui\imgui_tables.cpp" />
     <ClCompile Include="source\third-party\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="source\world\camera\SpectatorCamera.cpp" />
+    <ClCompile Include="source\world\World.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="source\core\Defines.h" />
@@ -315,6 +317,8 @@
     <ClInclude Include="source\third-party\imgui\imstb_rectpack.h" />
     <ClInclude Include="source\third-party\imgui\imstb_textedit.h" />
     <ClInclude Include="source\third-party\imgui\imstb_truetype.h" />
+    <ClInclude Include="source\world\camera\SpectatorCamera.h" />
+    <ClInclude Include="source\world\World.h" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="source\shaders\shader.frag" />

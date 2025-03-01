@@ -18,6 +18,10 @@ namespace tessera
         void processButton(MouseButton button, const bool isPressed);
         void processMouseMove(const int newMouseX, const int newMouseY);
         static void processMouseWheel(int wheelDelta);
+
+        [[nodiscard]] bool isKeyPressed(const KeyButton key) const;
+        [[nodiscard]] bool isMouseDown(const MouseButton button) const;
+        [[nodiscard]] std::pair<int, int> getMouseOffset();
     private:
         struct KeyboardState
         {
@@ -29,6 +33,10 @@ namespace tessera
         {
             int mouseX;
             int mouseY;
+            int offsetX;
+            int offsetY;
+            int lastOffsetX;
+            int lastOffsetY;
             std::array<bool, 3> mousePressed;
         }
         mouseState{};

@@ -27,13 +27,14 @@ namespace tessera
         void processOnResize();
         [[nodiscard]] VkSurfaceKHR createVulkanSurface(const VkInstance& instance) const;
 
+        
         struct WindowInfo
         {
             const char* title = "Tessera Engine";
             int positionX = 250;
             int positionY = 250;
-            int width = 800;
-            int height = 600;
+            int width = 1200;
+            int height = 900;
             bool isMinimized = false;
         };
 
