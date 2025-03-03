@@ -1,8 +1,8 @@
 #pragma once
-#include "world/World.h"
 
 namespace tessera
 {
+	
 	class Application final
 	{
 	public:
