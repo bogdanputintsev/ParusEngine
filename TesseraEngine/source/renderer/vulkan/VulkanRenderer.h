@@ -67,10 +67,18 @@ namespace tessera::vulkan
 		std::vector<Texture> textures;
 	};
 
-	struct VulkanContext final
+	class VulkanRenderer final : public Renderer
 	{
+	public:
+		void init() override;
+		void clean() override;
+		void drawFrame() override;
+		void deviceWaitIdle() override;
+
+		friend class tessera::imgui::ImGuiLibrary;
+	private:
 		// Load model
-		Model loadModel(const std::string& modelPath, const std::string& texturePath);
+		Model loadModel(const std::string& modelPath) const;
 
 		// Instance
 		void createInstance();
@@ -235,20 +243,6 @@ namespace tessera::vulkan
 		static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 		static constexpr int IMAGE_SAMPLER_POOL_SIZE = 1000;
 		static constexpr uint32_t DESCRIPTOR_SET_COUNT = MAX_FRAMES_IN_FLIGHT + IMAGE_SAMPLER_POOL_SIZE;
-
-	};
-
-	class VulkanRenderer final : public Renderer
-	{
-	public:
-		void init() override;
-		void clean() override;
-		void drawFrame() override;
-		void deviceWaitIdle() override;
-
-		friend class tessera::imgui::ImGuiLibrary;
-	private:
-		VulkanContext context;
 	};
 
 }
