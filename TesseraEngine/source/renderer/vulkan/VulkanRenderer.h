@@ -47,14 +47,24 @@ namespace tessera::vulkan
 		uint32_t maxMipLevels;
 	};
 
-	struct Model
+	struct Mesh
 	{
-		std::vector<Vertex> vertices;
-		std::vector<uint32_t> indices;
+		size_t vertexOffset;
+		size_t vertexCount;
+		size_t indexOffset;
+		size_t indexCount;
 		Texture texture;
 		std::vector<VkDescriptorSet> descriptorSets;
-		size_t vertexOffset; // Offset into the combined vertex buffer
-		size_t indexOffset;  // Offset into the combined index buffer
+
+		// Temporary storage for vertices/indices during loading
+		std::vector<Vertex> tempVertices;
+		std::vector<uint32_t> tempIndices;
+	};
+
+	struct Model
+	{
+		std::vector<Mesh> meshes;
+		std::vector<Texture> textures;
 	};
 
 	struct VulkanContext final
@@ -141,7 +151,7 @@ namespace tessera::vulkan
 		static bool hasStencilComponent(VkFormat format);
 
 		// Texture image
-		Texture loadTexture(const std::string& texturePath);
+		Texture loadTexture(const std::string& texturePath) const;
 		void generateMipmaps(const Texture& texture, VkFormat imageFormat,
 		                     int32_t texWidth,
 		                     int32_t texHeight) const;
@@ -150,9 +160,6 @@ namespace tessera::vulkan
 			properties, VkImage& image, VkDeviceMemory& imageMemory) const;
 		void transitionImageLayout(const VkImage image, VkFormat format, const VkImageLayout oldLayout, const VkImageLayout newLayout, uint32_t mipLevels) const;
 		void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height) const;
-		void createTextureImageView(Texture& texture) const;
-
-		void createTextureImageView(const Texture& textureImage);
 		VkSampler createTextureSampler(uint32_t maxMipLevels) const;
 		void createColorResources();
 

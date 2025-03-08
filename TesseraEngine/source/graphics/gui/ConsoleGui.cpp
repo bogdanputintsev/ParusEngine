@@ -2,6 +2,7 @@
 
 #include "Event.h"
 #include "imgui.h"
+#include "imgui_internal.h"
 #include "core/Input.h"
 
 namespace tessera::imgui
@@ -21,12 +22,16 @@ namespace tessera::imgui
     {
         if (isVisible)
         {
-            ImGui::SetNextWindowPos(ImVec2(0, 0));
-            ImGui::SetNextWindowSize(ImVec2(250, ImGui::GetTextLineHeight() * 19));
+            // ImGui::SetNextWindowPos(ImVec2(0, 0));
+            // ImGui::SetNextWindowSize(ImVec2(250, ImGui::GetTextLineHeight() * 19));
             ImGui::SetNextWindowBgAlpha(0.1f);
-            ImGui::Begin("Console", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoTitleBar);
+            ImGui::Begin("Console", nullptr);
             {
-                ImGui::SetNextItemWidth(-FLT_MIN); 
+                commandLineText.reserve(50);
+                consoleHistory.reserve(1024);
+                
+                ImGui::SetNextItemWidth(-FLT_MIN);
+                ImGui::SetKeyboardFocusHere();
                 if (ImGui::InputText("##command", commandLineText.data(), commandLineText.capacity() + 1))
                 {
                     commandLineText.resize(strlen(commandLineText.data()));
@@ -50,7 +55,29 @@ namespace tessera::imgui
         if (!commandLineText.empty())
         {
             consoleHistory += "> " + commandLineText + "\n";
+            consoleHistory += processCommand(commandLineText);
+            consoleHistory.resize(strlen(consoleHistory.data()));
             commandLineText = "";
         }
+    }
+
+    std::string ConsoleGui::processCommand(const std::string& inputCommand)
+    {
+        std::string consoleOutput;
+        
+        if (strcmp(inputCommand.c_str(), "get camera position") == 0)
+        {
+            const auto cameraPosition { CORE->world.getMainCamera().getPosition() };
+            consoleOutput += "Camera position:"
+                "\n\tX: " + std::to_string(cameraPosition.x) +
+                "\n\tY: " + std::to_string(cameraPosition.y) +
+                "\n\tZ: " + std::to_string(cameraPosition.z);
+        }
+        else
+        {
+            consoleOutput += "Unknown command: '" + inputCommand + "'.";
+        }
+
+        return consoleOutput + "\n";
     }
 }
