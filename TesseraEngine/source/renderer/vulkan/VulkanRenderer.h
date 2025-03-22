@@ -85,10 +85,10 @@ namespace tessera::vulkan
 		static void checkValidationLayerSupport();
 		static bool validationLayersAreEnabled();
 		static std::vector<const char*> getValidationLayers();
-		static void checkIfAllGlsfRequiredExtensionsAreSupported();
+		static void checkIfAllRequiredExtensionsAreSupported();
 		void destroyDebugUtilsMessengerExt(VkDebugUtilsMessengerEXT debugMessengerToDestroy,
 			const VkAllocationCallbacks* pAllocator) const;
-		static std::vector<const char*> getRequiredInstanceExtensions();
+		static std::vector<const char*> getRequiredExtensions();
 		static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
 			[[maybe_unused]] VkDebugUtilsMessageTypeFlagsEXT messageType,
 			const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
@@ -230,9 +230,14 @@ namespace tessera::vulkan
 		VkDeviceMemory colorImageMemory;
 		VkImageView colorImageView;
 
-		std::vector<VkBuffer> uniformBuffers{};
-		std::vector<VkDeviceMemory> uniformBuffersMemory{};
-		std::vector<void*> uniformBuffersMapped{};
+		std::vector<VkBuffer> globalUboBuffers{};
+		std::vector<VkDeviceMemory> globalUboMemory{};
+		std::vector<void*> globalUboMapped{};
+
+		std::vector<VkBuffer> instanceUboBuffers{};
+		std::vector<VkDeviceMemory> instanceUboMemory{};
+		std::vector<void*> instanceUboMapped{};
+		
 		std::vector<VkSemaphore> imageAvailableSemaphores{};
 		std::vector<VkSemaphore> renderFinishedSemaphores{};
 		std::vector<VkFence> inFlightFences{};

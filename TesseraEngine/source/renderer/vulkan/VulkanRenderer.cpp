@@ -20,7 +20,7 @@
 
 #include "Core.h"
 #include "core/platform/Platform.h"
-#include "entities/UniformBufferObject.h"
+#include "entities/GlobalUbo.h"
 #include "utils/TesseraLog.h"
 
 namespace tessera::vulkan
@@ -76,8 +76,10 @@ namespace tessera::vulkan
 
 		for (size_t i = 0; i < VulkanRenderer::MAX_FRAMES_IN_FLIGHT; i++)
 		{
-			vkDestroyBuffer(logicalDevice, uniformBuffers[i], nullptr);
-			vkFreeMemory(logicalDevice, uniformBuffersMemory[i], nullptr);
+			vkDestroyBuffer(logicalDevice, globalUboBuffers[i], nullptr);
+			vkDestroyBuffer(logicalDevice, instanceUboBuffers[i], nullptr);
+			vkFreeMemory(logicalDevice, globalUboMemory[i], nullptr);
+			vkFreeMemory(logicalDevice, instanceUboMemory[i], nullptr);
 		}
 
 		vkDestroyDescriptorPool(logicalDevice, descriptorPool, nullptr);
@@ -310,9 +312,9 @@ namespace tessera::vulkan
 		createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 		createInfo.pApplicationInfo = &appInfo;
 
-		checkIfAllGlsfRequiredExtensionsAreSupported();
+		checkIfAllRequiredExtensionsAreSupported();
 
-		const std::vector<const char*> requiredExtensions = getRequiredInstanceExtensions();
+		const std::vector<const char*> requiredExtensions = getRequiredExtensions();
 		createInfo.enabledExtensionCount = static_cast<uint32_t>(requiredExtensions.size());
 		createInfo.ppEnabledExtensionNames = requiredExtensions.data();
 
@@ -391,9 +393,9 @@ namespace tessera::vulkan
 		return { "VK_LAYER_KHRONOS_validation" };
 	}
 
-	void VulkanRenderer::checkIfAllGlsfRequiredExtensionsAreSupported()
+	void VulkanRenderer::checkIfAllRequiredExtensionsAreSupported()
 	{
-		const std::vector<const char*> requiredExtensions = getRequiredInstanceExtensions();
+		const std::vector<const char*> requiredExtensions = getRequiredExtensions();
 		const std::unordered_set<std::string> requiredExtensionsSet{ requiredExtensions.begin(), requiredExtensions.end() };
 
 		uint32_t matches = 0;
@@ -407,8 +409,7 @@ namespace tessera::vulkan
 
 		for (const auto& [extensionName, specVersion] : extensions)
 		{
-			LOG_DEBUG("Extension " + std::string(extensionName) + " "
-				+ (requiredExtensionsSet.contains(extensionName) ? "REQUIRED" : ""));
+			LOG_DEBUG("\t" + std::string(extensionName));
 
 			if (requiredExtensionsSet.contains(std::string(extensionName)))
 			{
@@ -428,7 +429,7 @@ namespace tessera::vulkan
 		}
 	}
 
-	std::vector<const char*> VulkanRenderer::getRequiredInstanceExtensions()
+	std::vector<const char*> VulkanRenderer::getRequiredExtensions()
 	{
 		std::vector extensions = CORE->graphicsLibrary->getRequiredExtensions();
 
@@ -980,21 +981,31 @@ namespace tessera::vulkan
 
 	void VulkanRenderer::createDescriptorSetLayout()
 	{
-		VkDescriptorSetLayoutBinding uboLayoutBinding{};
-		uboLayoutBinding.binding = 0;
-		uboLayoutBinding.descriptorCount = 1;
-		uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		uboLayoutBinding.pImmutableSamplers = nullptr;
-		uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+		// Binding 0: Global UBO
+		VkDescriptorSetLayoutBinding globalUboBinding{};
+		globalUboBinding.binding = 0;
+		globalUboBinding.descriptorCount = 1;
+		globalUboBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		globalUboBinding.pImmutableSamplers = nullptr;
+		globalUboBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
+		// Binding 1: Instance UBO
+		VkDescriptorSetLayoutBinding instanceUboBinding{};
+		instanceUboBinding.binding = 1;
+		instanceUboBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		instanceUboBinding.descriptorCount = 1;
+		instanceUboBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+		instanceUboBinding.pImmutableSamplers = nullptr;
+
+		// Binding 2: Combined image sampler (for the texture)
 		VkDescriptorSetLayoutBinding samplerLayoutBinding{};
-		samplerLayoutBinding.binding = 1;
+		samplerLayoutBinding.binding = 2;
 		samplerLayoutBinding.descriptorCount = 1;
 		samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 		samplerLayoutBinding.pImmutableSamplers = nullptr;
 		samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-		const std::array bindings = { uboLayoutBinding, samplerLayoutBinding };
+		const std::array bindings = { globalUboBinding, instanceUboBinding, samplerLayoutBinding };
 		VkDescriptorSetLayoutCreateInfo layoutInfo{};
 		layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
 		layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
@@ -1205,7 +1216,7 @@ namespace tessera::vulkan
 	{
 		ASSERT(static_cast<size_t>(bufferId) < commandBuffers.size() && bufferId >= 0, "current frame number is larger than number of fences.");
 
-		vkResetCommandBuffer(commandBuffers[bufferId], 0);
+		ASSERT(vkResetCommandBuffer(commandBuffers[bufferId], 0) == VK_SUCCESS, "Failed to reset command buffer.");
 	}
 
 	void VulkanRenderer::recordCommandBuffer(const VkCommandBuffer commandBufferToRecord, const uint32_t imageIndex) const
@@ -1726,6 +1737,7 @@ namespace tessera::vulkan
 		bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
 		ASSERT(vkCreateBuffer(logicalDevice, &bufferInfo, nullptr, &buffer) == VK_SUCCESS, "failed to create buffer.");
+		ASSERT(buffer != VK_NULL_HANDLE, "Buffer must be valid.");
 
 		// Calculate memory requirements.
 		VkMemoryRequirements memRequirements;
@@ -1796,37 +1808,75 @@ namespace tessera::vulkan
 
 	void VulkanRenderer::createUniformBuffer()
 	{
-		constexpr VkDeviceSize bufferSize = sizeof(UniformBufferObject);
+		// Global UBO
+		constexpr VkDeviceSize globalUboSize = sizeof(GlobalUbo);
 
-		uniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-		uniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
-		uniformBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
+		globalUboBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+		globalUboMemory.resize(MAX_FRAMES_IN_FLIGHT);
+		globalUboMapped.resize(MAX_FRAMES_IN_FLIGHT);
 
 		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 		{
-			createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffers[i], uniformBuffersMemory[i]);
+			createBuffer(
+				globalUboSize,
+				VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+				globalUboBuffers[i],
+				globalUboMemory[i]);
 
-			vkMapMemory(logicalDevice, uniformBuffersMemory[i], 0, bufferSize, 0, &uniformBuffersMapped[i]);
+			ASSERT(globalUboBuffers[i] != VK_NULL_HANDLE, "Global Buffer must be valid");
+			vkMapMemory(logicalDevice, globalUboMemory[i], 0, globalUboSize, 0, &globalUboMapped[i]);
 		}
+
+		ASSERT(globalUboBuffers[0] != VK_NULL_HANDLE, "Global Buffer must be invalid");
+
+
+		// Instance UBO
+		constexpr VkDeviceSize instanceUboSize = sizeof(InstanceUbo);
+
+		instanceUboBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+		instanceUboMemory.resize(MAX_FRAMES_IN_FLIGHT);
+		instanceUboMapped.resize(MAX_FRAMES_IN_FLIGHT);
+
+		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+		{
+			createBuffer(instanceUboSize,
+				VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+				instanceUboBuffers[i],
+				instanceUboMemory[i]);
+
+			ASSERT(instanceUboBuffers[i] != VK_NULL_HANDLE, "Instance Buffer must be valid");
+
+			vkMapMemory(logicalDevice, instanceUboMemory[i], 0, instanceUboSize, 0, &instanceUboMapped[i]);
+		}
+
+		ASSERT(instanceUboBuffers[0] != VK_NULL_HANDLE, "Instance Buffer must be valid");
+
 	}
 
 	void VulkanRenderer::updateUniformBuffer(const uint32_t currentImage) const
 	{
 		const SpectatorCamera camera = CORE->world.getMainCamera();
 		
-		UniformBufferObject ubo{};
+		GlobalUbo globalUbo{};
 		
-		ubo.model = glm::mat4(1.0f);
-		ubo.view = lookAt(camera.getPosition(),
+		globalUbo.view = lookAt(camera.getPosition(),
 			camera.getPosition() + camera.getForwardVector(),
 			camera.getUpVector());
 		
-		ubo.proj = glm::perspective(glm::radians(45.0f),
+		globalUbo.proj = glm::perspective(glm::radians(45.0f),
 			static_cast<float>(swapChainDetails.swapChainExtent.width) / static_cast<float>(swapChainDetails.swapChainExtent.height),
 			0.1f, 512.0f);
-		ubo.proj[1][1] *= -1;
+		globalUbo.proj[1][1] *= -1;
 
-		memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
+		memcpy(globalUboMapped[currentImage], &globalUbo, sizeof(globalUbo));
+
+		InstanceUbo instanceUbo{};
+		instanceUbo.model = glm::mat4(1.0f);
+
+		memcpy(instanceUboMapped[currentImage], &instanceUbo, sizeof(instanceUbo));
+
 	}
 
 	void VulkanRenderer::createDescriptorPool()
@@ -1839,7 +1889,7 @@ namespace tessera::vulkan
 		
 		std::array<VkDescriptorPoolSize, 2> poolSizes{};
 		poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		poolSizes[0].descriptorCount = static_cast<uint32_t>(numberOfMeshes * MAX_FRAMES_IN_FLIGHT);
+		poolSizes[0].descriptorCount = static_cast<uint32_t>(numberOfMeshes * MAX_FRAMES_IN_FLIGHT) * 2;
 		poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;	
 		poolSizes[1].descriptorCount = static_cast<uint32_t>(numberOfMeshes * MAX_FRAMES_IN_FLIGHT) + IMAGE_SAMPLER_POOL_SIZE;
 		
@@ -1848,7 +1898,7 @@ namespace tessera::vulkan
 		poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
 		poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
 		poolInfo.pPoolSizes = poolSizes.data();
-		poolInfo.maxSets = static_cast<uint32_t>(numberOfMeshes * MAX_FRAMES_IN_FLIGHT) + IMAGE_SAMPLER_POOL_SIZE;
+		poolInfo.maxSets = static_cast<uint32_t>(numberOfMeshes * MAX_FRAMES_IN_FLIGHT) * 2;
 
 		ASSERT(vkCreateDescriptorPool(logicalDevice, &poolInfo, nullptr, &descriptorPool) == VK_SUCCESS, "failed to create descriptor pool.");
 	}
@@ -1869,17 +1919,22 @@ namespace tessera::vulkan
 
 			for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 			{
-				VkDescriptorBufferInfo bufferInfo{};
-				bufferInfo.buffer = uniformBuffers[i];
-				bufferInfo.offset = 0;
-				bufferInfo.range = sizeof(UniformBufferObject);
+				VkDescriptorBufferInfo globalBufferInfo{};
+				globalBufferInfo.buffer = globalUboBuffers[i];
+				globalBufferInfo.offset = 0;
+				globalBufferInfo.range = sizeof(GlobalUbo);
+			
+				VkDescriptorBufferInfo instanceBufferInfo{};
+				instanceBufferInfo.buffer = instanceUboBuffers[i];
+				instanceBufferInfo.offset = 0;
+				instanceBufferInfo.range = sizeof(InstanceUbo);
 
 				VkDescriptorImageInfo imageInfo{};
 				imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 				imageInfo.imageView = mesh.texture.textureImageView;
 				imageInfo.sampler = mesh.texture.textureSampler;
-
-				std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
+			
+				std::array<VkWriteDescriptorSet, 3> descriptorWrites{};
 
 				descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 				descriptorWrites[0].dstSet = mesh.descriptorSets[i];
@@ -1887,15 +1942,23 @@ namespace tessera::vulkan
 				descriptorWrites[0].dstArrayElement = 0;
 				descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 				descriptorWrites[0].descriptorCount = 1;
-				descriptorWrites[0].pBufferInfo = &bufferInfo;
+				descriptorWrites[0].pBufferInfo = &globalBufferInfo;
 
 				descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 				descriptorWrites[1].dstSet = mesh.descriptorSets[i];
 				descriptorWrites[1].dstBinding = 1;
 				descriptorWrites[1].dstArrayElement = 0;
-				descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+				descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 				descriptorWrites[1].descriptorCount = 1;
-				descriptorWrites[1].pImageInfo = &imageInfo;
+				descriptorWrites[1].pBufferInfo = &instanceBufferInfo;
+
+				descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+				descriptorWrites[2].dstSet = mesh.descriptorSets[i];
+				descriptorWrites[2].dstBinding = 2;
+				descriptorWrites[2].dstArrayElement = 0;
+				descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+				descriptorWrites[2].descriptorCount = 1;
+				descriptorWrites[2].pImageInfo = &imageInfo;
 
 				vkUpdateDescriptorSets(logicalDevice, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 			}

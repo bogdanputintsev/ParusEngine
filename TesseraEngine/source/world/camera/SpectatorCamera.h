@@ -13,6 +13,7 @@ namespace tessera
         inline glm::vec3 getForwardVector() const { return forward; }
         inline glm::vec3 getUpVector() const { return up; }
         inline glm::vec3 getRightVector() const { return right; }
+        
     private:
         glm::vec3 position = glm::vec3(65.8f, 55.4f, -45.32f);
         glm::vec3 forward = glm::vec3(0.0f, 0.0f, -1.0f);
