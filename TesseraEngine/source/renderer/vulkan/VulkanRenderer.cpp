@@ -6,9 +6,6 @@
 #define TINYOBJLOADER_IMPLEMENTATION
 #include <tiny_obj_loader.h>
 
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -20,7 +17,7 @@
 
 #include "Core.h"
 #include "core/platform/Platform.h"
-#include "entities/GlobalUbo.h"
+#include "math/UniformBufferObjects.h"
 #include "utils/TesseraLog.h"
 
 namespace tessera::vulkan
@@ -56,8 +53,8 @@ namespace tessera::vulkan
 		for (const auto& [_, mesh] : meshes)
 		{
 			models.push_back({
-				.mesh= mesh,
-				.transform= glm::identity<glm::mat4>()
+				.mesh = mesh,
+				.transform = math::Matrix4x4::identity()
 			});
 		}
 		
@@ -240,7 +237,7 @@ namespace tessera::vulkan
 		}
 
 		std::unordered_map<int, MeshPart> materialMeshes;
-		std::unordered_map<Vertex, uint32_t> uniqueVertices;
+		std::unordered_map<math::Vertex, uint32_t> uniqueVertices;
 		
 		for (const auto& shape : shapes) 
 		{
@@ -265,7 +262,7 @@ namespace tessera::vulkan
 				{
 					tinyobj::index_t index = shape.mesh.indices[indexOffset + v];
 
-					Vertex vertex{};
+					math::Vertex vertex{};
 			
 					vertex.position = {
 						attrib.vertices[3 * index.vertex_index + 0],
@@ -275,14 +272,14 @@ namespace tessera::vulkan
 
 					if (index.texcoord_index >= 0)
 					{
-						vertex.texCoord = {
+						vertex.textureCoordinates = math::Vector2(
 							attrib.texcoords[2 * index.texcoord_index + 0],
 							1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
-						};
+						);
 					}
 					else
 					{
-						vertex.texCoord = {0.0f, 0.0f};
+						vertex.textureCoordinates = {0.0f, 0.0f};
 					}
 					
 					vertex.color = { 1.0f, 1.0f, 1.0f };
@@ -1705,7 +1702,7 @@ namespace tessera::vulkan
 	void VulkanRenderer::createBufferManager()
 	{
 		// Combine all vertex and index data
-		std::vector<Vertex> allVertices;
+		std::vector<math::Vertex> allVertices;
 		std::vector<uint32_t> allIndices;
 
 		for (auto& [_, mesh] : meshes)
@@ -1725,7 +1722,7 @@ namespace tessera::vulkan
 		createUniformBuffer();
 	}
 
-	void VulkanRenderer::createVertexBuffer(const std::vector<Vertex>& vertices)
+	void VulkanRenderer::createVertexBuffer(const std::vector<math::Vertex>& vertices)
 	{
 		const VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
 		
@@ -1829,7 +1826,7 @@ namespace tessera::vulkan
 	void VulkanRenderer::createUniformBuffer()
 	{
 		// Global UBO
-		constexpr VkDeviceSize globalUboSize = sizeof(GlobalUbo);
+		constexpr VkDeviceSize globalUboSize = sizeof(math::GlobalUbo);
 
 		globalUboBuffers.resize(MAX_FRAMES_IN_FLIGHT);
 		globalUboMemory.resize(MAX_FRAMES_IN_FLIGHT);
@@ -1852,7 +1849,7 @@ namespace tessera::vulkan
 
 
 		// Instance UBO
-		constexpr VkDeviceSize instanceUboSize = sizeof(InstanceUbo);
+		constexpr VkDeviceSize instanceUboSize = sizeof(math::InstanceUbo);
 
 		instanceUboBuffers.resize(MAX_FRAMES_IN_FLIGHT);
 		instanceUboMemory.resize(MAX_FRAMES_IN_FLIGHT);
@@ -1878,22 +1875,23 @@ namespace tessera::vulkan
 	void VulkanRenderer::updateUniformBuffer(const uint32_t currentImage) const
 	{
 		const SpectatorCamera camera = CORE->world.getMainCamera();
-		
-		GlobalUbo globalUbo{};
-		
-		globalUbo.view = lookAt(camera.getPosition(),
+
+		math::GlobalUbo globalUbo{};
+
+		globalUbo.view = math::Matrix4x4::lookAt(
+			camera.getPosition(),
 			camera.getPosition() + camera.getForwardVector(),
 			camera.getUpVector());
-		
-		globalUbo.proj = glm::perspective(glm::radians(45.0f),
-			static_cast<float>(swapChainDetails.swapChainExtent.width) / static_cast<float>(swapChainDetails.swapChainExtent.height),
-			0.1f, 512.0f);
-		globalUbo.proj[1][1] *= -1;
 
+		globalUbo.projection = math::Matrix4x4::perspective(
+			math::radians(45.0f),
+			static_cast<float>(swapChainDetails.swapChainExtent.width) / static_cast<float>(swapChainDetails.swapChainExtent.height),
+			Z_NEAR, Z_FAR);
+		
 		memcpy(globalUboMapped[currentImage], &globalUbo, sizeof(globalUbo));
 
-		InstanceUbo instanceUbo{};
-		instanceUbo.model = glm::mat4(1.0f);
+		math::InstanceUbo instanceUbo{};
+		instanceUbo.model = math::Matrix4x4();
 
 		memcpy(instanceUboMapped[currentImage], &instanceUbo, sizeof(instanceUbo));
 
@@ -1942,12 +1940,12 @@ namespace tessera::vulkan
 				VkDescriptorBufferInfo globalBufferInfo{};
 				globalBufferInfo.buffer = globalUboBuffers[i];
 				globalBufferInfo.offset = 0;
-				globalBufferInfo.range = sizeof(GlobalUbo);
+				globalBufferInfo.range = sizeof(math::GlobalUbo);
 			
 				VkDescriptorBufferInfo instanceBufferInfo{};
 				instanceBufferInfo.buffer = instanceUboBuffers[i];
 				instanceBufferInfo.offset = 0;
-				instanceBufferInfo.range = sizeof(InstanceUbo);
+				instanceBufferInfo.range = sizeof(math::InstanceUbo);
 
 				DEBUG_ASSERT(meshPart.texture, "Texture must exist for any mesh part.");
 
@@ -2050,7 +2048,7 @@ namespace tessera::vulkan
 	{
 		VkVertexInputBindingDescription bindingDescription{};
 		bindingDescription.binding = 0;
-		bindingDescription.stride = sizeof(Vertex);
+		bindingDescription.stride = sizeof(math::Vertex);
 		bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
 		return bindingDescription;
@@ -2063,17 +2061,17 @@ namespace tessera::vulkan
 		attributeDescriptions[0].binding = 0;
 		attributeDescriptions[0].location = 0;
 		attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-		attributeDescriptions[0].offset = offsetof(Vertex, position);
+		attributeDescriptions[0].offset = offsetof(math::Vertex, position);
 
 		attributeDescriptions[1].binding = 0;
 		attributeDescriptions[1].location = 1;
 		attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-		attributeDescriptions[1].offset = offsetof(Vertex, color);
+		attributeDescriptions[1].offset = offsetof(math::Vertex, color);
 
 		attributeDescriptions[2].binding = 0;
 		attributeDescriptions[2].location = 2;
 		attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
-		attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
+		attributeDescriptions[2].offset = offsetof(math::Vertex, textureCoordinates);
 
 		return attributeDescriptions;
 	}

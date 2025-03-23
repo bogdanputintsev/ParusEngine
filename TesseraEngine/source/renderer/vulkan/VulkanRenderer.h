@@ -1,10 +1,11 @@
 #pragma once
 #include <memory>
 #include <optional>
+#include <unordered_map>
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
-#include "entities/Vertex.h"
+#include "math/Math.h"
 #include "renderer/Renderer.h"
 #include "utils/TesseraLog.h"
 
@@ -57,7 +58,7 @@ namespace tessera::vulkan
 		std::shared_ptr<Texture> texture;
 		std::vector<VkDescriptorSet> descriptorSets;
 
-		std::vector<Vertex> vertices;
+		std::vector<math::Vertex> vertices;
 		std::vector<uint32_t> indices;
 	};
 
@@ -69,7 +70,7 @@ namespace tessera::vulkan
 	struct Model
 	{
 		std::shared_ptr<Mesh> mesh;
-		glm::mat4 transform = glm::identity<glm::mat4>();
+		math::Matrix4x4 transform = math::Matrix4x4::identity();
 	};
 
 	class VulkanRenderer final : public Renderer
@@ -182,7 +183,7 @@ namespace tessera::vulkan
 
 		// Buffer manager
 		void createBufferManager();
-		void createVertexBuffer(const std::vector<Vertex>& vertices);
+		void createVertexBuffer(const std::vector<math::Vertex>& vertices);
 		void createBuffer(const VkDeviceSize size, const VkBufferUsageFlags usage, const VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) const;
 		[[nodiscard]] uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const;
 		void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) const;
@@ -253,7 +254,9 @@ namespace tessera::vulkan
 
 		int currentFrame = 0;
 		bool framebufferResized = false;
-
+		
+		static constexpr float Z_NEAR = 0.1f;
+		static constexpr float Z_FAR = 1500.0f;
 		static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 		static constexpr int IMAGE_SAMPLER_POOL_SIZE = 1000;
 		static constexpr uint32_t DESCRIPTOR_SET_COUNT = MAX_FRAMES_IN_FLIGHT + IMAGE_SAMPLER_POOL_SIZE;

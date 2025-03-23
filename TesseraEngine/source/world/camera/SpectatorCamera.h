@@ -1,5 +1,6 @@
 ﻿#pragma once
-#include <glm/vec3.hpp>
+
+#include "math/Math.h"
 
 namespace tessera
 {
@@ -9,16 +10,16 @@ namespace tessera
     public:
         void updateTransform(float deltaTime);
 
-        inline glm::vec3 getPosition() const { return position; }
-        inline glm::vec3 getForwardVector() const { return forward; }
-        inline glm::vec3 getUpVector() const { return up; }
-        inline glm::vec3 getRightVector() const { return right; }
+        inline math::Vector3 getPosition() const { return position; }
+        inline math::Vector3 getForwardVector() const { return forward; }
+        inline math::Vector3 getUpVector() const { return up; }
+        inline math::Vector3 getRightVector() const { return right; }
         
     private:
-        glm::vec3 position = glm::vec3(65.8f, 55.4f, -45.32f);
-        glm::vec3 forward = glm::vec3(0.0f, 0.0f, -1.0f);
-        glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
-        glm::vec3 right = glm::vec3(1.0f, 0.0f, 0.0f);
+        math::Vector3 position = math::Vector3(65.8f, 55.4f, -45.32f);
+        math::Vector3 forward = math::Vector3(0.0f, 0.0f, -1.0f);
+        math::Vector3 up = math::Vector3(0.0f, 1.0f, 0.0f);
+        math::Vector3 right = math::Vector3(1.0f, 0.0f, 0.0f);
 
         float yaw = -90.0f;
         float pitch = 0.0f;

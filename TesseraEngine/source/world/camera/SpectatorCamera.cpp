@@ -1,8 +1,5 @@
 ﻿#include "SpectatorCamera.h"
 
-#include <glm/geometric.hpp>
-#include <glm/trigonometric.hpp>
-
 #include "core/Input.h"
 
 namespace tessera
@@ -54,16 +51,17 @@ namespace tessera
         }
         
         // Calculate new direction vector.
-        glm::vec3 direction;
-        direction.x = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
-        direction.y = sin(glm::radians(pitch));
-        direction.z = -cos(glm::radians(yaw)) * cos(glm::radians(pitch));
-        forward = glm::normalize(direction);
+        const math::Vector3 direction {
+            sin(math::radians(yaw) * cos(math::radians(pitch))),
+            sin(math::radians(pitch)),
+            -cos(math::radians(yaw)) * cos(math::radians(pitch))
+        };
 
+        forward = direction.normalize();
+        
         // Recalculate right and up vectors.
-        right = glm::normalize(glm::cross(forward, glm::vec3(0.0f, 1.0f, 0.0f)));
-        up = glm::normalize(glm::cross(right, forward));
-
+        right = forward.cross(math::Vector3::up()).normalize();
+        up = right.cross(forward).normalize();
     }
     
 }
