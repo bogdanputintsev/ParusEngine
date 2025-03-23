@@ -31,28 +31,29 @@ namespace tessera
 		static void send(const LogType logType, const std::string& filename, const long line, const std::string& message);
 	private:
 
-#ifdef NDEBUG
-		inline static int logTypeMask = static_cast<int>(LogType::DEFAULT);
-#else
+#if IN_DEBUG_MODE
 		inline static int logTypeMask = static_cast<int>(LogType::ALL);
+#else
+		inline static int logTypeMask = static_cast<int>(LogType::DEFAULT);
 #endif
+		
 		static std::string getLogMessage(const LogType logType, const std::string& filename, const long line, const std::string& message);
 		static bool isLogTypeEnabled(const LogType logType) { return static_cast<int>(logType) & logTypeMask; }
 		static std::string toString(LogType logType);
 	};
 
 #if WITH_WINDOWS_PLATFORM
-#define T_FILENAME (strrchr(__FILE__, '\\') ? strrchr(__FILE__, '\\') + 1 : __FILE__)
+	#define GET_FILENAME (strrchr(__FILE__, '\\') ? strrchr(__FILE__, '\\') + 1 : __FILE__)
 #else
-#define T_FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
+	#define GET_FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #endif
 
-#define LOG_DEBUG(msg) tessera::TesseraLog::send(tessera::LogType::DEBUG, T_FILENAME, __LINE__, msg)
-#define LOG_INFO(msg) tessera::TesseraLog::send(tessera::LogType::INFO, T_FILENAME, __LINE__, msg)
-#define LOG_WARNING(msg) tessera::TesseraLog::send(tessera::LogType::WARNING, T_FILENAME, __LINE__, msg)
-#define LOG_ERROR(msg) tessera::TesseraLog::send(tessera::LogType::TE_ERROR, T_FILENAME, __LINE__, msg)
-#define LOG_FATAL(msg) tessera::TesseraLog::send(tessera::LogType::FATAL, T_FILENAME, __LINE__, msg)
-#define LOG(type, msg) tessera::TesseraLog::send(type, T_FILENAME, __LINE__, msg)
+#define LOG_DEBUG(msg) tessera::TesseraLog::send(tessera::LogType::DEBUG, GET_FILENAME, __LINE__, msg)
+#define LOG_INFO(msg) tessera::TesseraLog::send(tessera::LogType::INFO, GET_FILENAME, __LINE__, msg)
+#define LOG_WARNING(msg) tessera::TesseraLog::send(tessera::LogType::WARNING, GET_FILENAME, __LINE__, msg)
+#define LOG_ERROR(msg) tessera::TesseraLog::send(tessera::LogType::TE_ERROR, GET_FILENAME, __LINE__, msg)
+#define LOG_FATAL(msg) tessera::TesseraLog::send(tessera::LogType::FATAL, GET_FILENAME, __LINE__, msg)
+#define LOG(type, msg) tessera::TesseraLog::send(type, GET_FILENAME, __LINE__, msg)
 
 /**
  * \brief This macro assures that the condition is true. Otherwise, it logs an error and throw an exception.
@@ -69,6 +70,18 @@ namespace tessera
         }														\
     } while (0)
 
+/**
+ * \brief This macro assures that the condition is true if application is in debug mode.
+ * Otherwise, it logs an error and throw an exception.
+ * \param condition The boolean condition that will be checked.
+ * \param msg This message will be printed if the condition fails.
+ */
+#if IN_DEBUG_MODE												
+	#define DEBUG_ASSERT(condition, msg) ASSERT(condition, msg)									
+#else
+	#define DEBUG_ASSERT(condition, msg)
+#endif
+    	
 #define REGISTER_EVENT(type, func) tessera::registerHelper(*CORE->eventSystem, type, func)
 #define FIRE_EVENT(type, args, ...) CORE->eventSystem->fireEvent(type, args, __VA_ARGS__)
 
