@@ -29,6 +29,11 @@ namespace tessera::vulkan
 			LOG_INFO("Vulkan initiated window resize. New dimensions: " + std::to_string(newWidth) + " " + std::to_string(newHeight));
 			onResize();
 		});
+
+		REGISTER_EVENT(EventType::EVENT_APPLICATION_QUIT, [&]([[maybe_unused]]const int exitCode)
+		{
+			isRunning = false;
+		});
 		
 		createInstance();
 		createDebugManager();
@@ -55,6 +60,8 @@ namespace tessera::vulkan
 
 		createCommandBuffer();
 		createSyncObjects();
+
+		isRunning = true;
 
 	}
 
@@ -117,9 +124,13 @@ namespace tessera::vulkan
 
 	void VulkanRenderer::drawFrame()
 	{
+		if (!isRunning)
+		{
+			return;
+		}
+		
 		currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 
-		// Clean up resources from N frames ago (where N = MAX_FRAMES_IN_FLIGHT)
 		cleanupFrameResources();
 		
 		vkWaitForFences(logicalDevice, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
