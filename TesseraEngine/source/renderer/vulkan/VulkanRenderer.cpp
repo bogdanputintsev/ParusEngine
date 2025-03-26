@@ -46,19 +46,16 @@ namespace tessera::vulkan
 
 		createUniformBuffer();
 		createDescriptorPool();
-
-		importMeshAsync("bin/assets/skybox/skybox.obj");
-
-		requestMeshImport("bin/assets/terrain/floor.obj");
-		requestMeshImport("bin/assets/indoor/indoor.obj");
-		requestMeshImport("bin/assets/indoor/threshold.obj");
-		requestMeshImport("bin/assets/indoor/torch.obj");
+		
+		importMesh("bin/assets/skybox/skybox.obj");
+		RUN_ASYNC(importMesh("bin/assets/terrain/floor.obj"););
+		RUN_ASYNC(importMesh("bin/assets/indoor/indoor.obj"););
+		RUN_ASYNC(importMesh("bin/assets/indoor/threshold.obj"););
+		RUN_ASYNC(importMesh("bin/assets/indoor/torch.obj"););
 
 		createCommandBuffer();
 		createSyncObjects();
 
-		loaderThread = std::thread(&VulkanRenderer::loaderJob, this);
-		loaderThread.detach();
 	}
 
 	void VulkanRenderer::clean()
@@ -192,7 +189,7 @@ namespace tessera::vulkan
 		vkDeviceWaitIdle(logicalDevice);
 	}
 	
-	void VulkanRenderer::importMeshAsync(const std::string& meshPath)
+	void VulkanRenderer::importMesh(const std::string& meshPath)
 	{
 		Mesh newMesh{};
 
@@ -357,30 +354,6 @@ namespace tessera::vulkan
 		{
 			createDescriptorSets(mesh);
 		}
-	}
-
-	void VulkanRenderer::loaderJob()
-	{
-		while (true)
-		{
-			std::unique_lock lock(importModelMutex);
-			conditionVariableLoader.wait(lock, [&]
-			{
-				return !loadRequests.empty();
-			});
-
-			std::string newModelPath = loadRequests.front();
-			loadRequests.pop();
-			lock.unlock();
-			
-			importMeshAsync(newModelPath);
-		}
-	}
-
-	void VulkanRenderer::requestMeshImport(const std::string& newMeshPath)
-	{
-		std::lock_guard lock(importModelMutex);
-		loadRequests.emplace(newMeshPath);
 	}
 
 	void VulkanRenderer::createInstance()
