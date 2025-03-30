@@ -7,9 +7,13 @@
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
+#include "importers/textures/TextureImporter.h"
 #include "math/Math.h"
+#include "mesh/Mesh.h"
+#include "model/Model.h"
 #include "renderer/Renderer.h"
 #include "utils/TesseraLog.h"
+
 
 namespace tessera::imgui
 {
@@ -42,39 +46,7 @@ namespace tessera::vulkan
 		[[nodiscard]] bool isComplete() const { return graphicsFamily.has_value() && presentFamily.has_value(); }
 	};
 
-	struct Texture
-	{
-		VkImage textureImage;
-		VkDeviceMemory textureImageMemory;
-		VkImageView textureImageView;
-		VkSampler textureSampler;
-		uint32_t maxMipLevels;
-	};
-
-	struct MeshPart
-	{
-		size_t vertexOffset;
-		size_t vertexCount;
-		size_t indexOffset;
-		size_t indexCount;
-		std::shared_ptr<Texture> texture;
-		std::vector<VkDescriptorSet> descriptorSets;
-
-		std::vector<math::Vertex> vertices;
-		std::vector<uint32_t> indices;
-	};
-
-	struct Mesh
-	{
-		std::vector<MeshPart> meshParts;
-	};
-
-	struct Model
-	{
-		std::shared_ptr<Mesh> mesh;
-		math::Matrix4x4 transform = math::Matrix4x4::identity();
-	};
-
+	
 	struct GlobalGeometryBuffers
 	{
 		VkBuffer vertexBuffer = VK_NULL_HANDLE;
@@ -96,11 +68,17 @@ namespace tessera::vulkan
 		void deviceWaitIdle() override;
 
 		friend class tessera::imgui::ImGuiLibrary;
+		friend class tessera::TextureImporter;
 	private:
+		static constexpr float Z_NEAR = 0.1f;
+		static constexpr float Z_FAR = 1500.0f;
+		static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
+		static constexpr int IMAGE_SAMPLER_POOL_SIZE = 1000;
+		static constexpr uint32_t DESCRIPTOR_SET_COUNT = MAX_FRAMES_IN_FLIGHT + IMAGE_SAMPLER_POOL_SIZE;
+		
 		GlobalGeometryBuffers globalBuffers;
 		
-		std::unordered_map<std::string, std::shared_ptr<Mesh>> meshes;
-		std::unordered_map<std::string, std::shared_ptr<Texture>> textures;
+		
 		std::vector<Model> models;
 
 		void cleanupFrameResources();
@@ -191,7 +169,6 @@ namespace tessera::vulkan
 		static bool hasStencilComponent(VkFormat format);
 
 		// Texture image
-		void importTexture(const std::string& texturePath);
 		void generateMipmaps(
 			const Texture& texture,
 			VkFormat imageFormat,
@@ -303,11 +280,7 @@ namespace tessera::vulkan
 		int currentFrame = 0;
 		bool framebufferResized = false;
 		
-		static constexpr float Z_NEAR = 0.1f;
-		static constexpr float Z_FAR = 1500.0f;
-		static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
-		static constexpr int IMAGE_SAMPLER_POOL_SIZE = 1000;
-		static constexpr uint32_t DESCRIPTOR_SET_COUNT = MAX_FRAMES_IN_FLIGHT + IMAGE_SAMPLER_POOL_SIZE;
+		
 
 		struct FrameData {
 			VkCommandPool commandPool;

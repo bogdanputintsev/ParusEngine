@@ -3,9 +3,6 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
-#define TINYOBJLOADER_IMPLEMENTATION
-#include <tiny_obj_loader.h>
-
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -17,7 +14,9 @@
 
 #include "Core.h"
 #include "core/platform/Platform.h"
+#include "importers/mesh/ObjImporter.h"
 #include "math/UniformBufferObjects.h"
+#include "texture/Texture.h"
 #include "utils/TesseraLog.h"
 
 namespace tessera::vulkan
@@ -83,7 +82,7 @@ namespace tessera::vulkan
 
 		vkDestroyDescriptorPool(logicalDevice, descriptorPool, nullptr);
 		
-		for (const auto& [_, texture] : textures)
+		for (const auto& texture : CORE->world.getStorage()->getTextures())
 		{
 			vkDestroySampler(logicalDevice, texture->textureSampler, nullptr);
 			vkDestroyImageView(logicalDevice, texture->textureImageView, nullptr);
@@ -202,118 +201,7 @@ namespace tessera::vulkan
 	
 	void VulkanRenderer::importMesh(const std::string& meshPath)
 	{
-		Mesh newMesh{};
-
-		LOG_INFO("Loading mesh: " + meshPath);
-
-		// Load the model (vertices and indices)
-		tinyobj::attrib_t attrib;
-		std::vector<tinyobj::shape_t> shapes;
-		std::vector<tinyobj::material_t> materials;
-		std::string warn, err;
-
-		size_t lastSlash = meshPath.find_last_of("/\\");
-		std::string baseDir = meshPath.substr(0, lastSlash + 1);
-
-		ASSERT(tinyobj::LoadObj(
-			&attrib, &shapes, &materials, &warn, &err,
-			meshPath.c_str(),
-			baseDir.c_str(),
-			true),
-			warn + err);
-
-		std::vector<std::shared_ptr<Texture>> modelTextures;
-		
-		for (const auto& material : materials)
-		{
-			const std::string textureName = material.diffuse_texname;
-			if (!textureName.empty())
-			{
-				const std::string texturePath = baseDir + textureName;
-
-				std::shared_ptr<Texture> currentTexture;
-				if (!textures.contains(texturePath))
-				{
-					importTexture(texturePath);
-				}
-				
-				DEBUG_ASSERT(textures.contains(texturePath), "Texture must exist after importing.");
-				currentTexture = textures[texturePath];
-
-				modelTextures.push_back(currentTexture);
-			}
-		}
-
-		std::unordered_map<int, MeshPart> materialMeshes;
-		std::unordered_map<math::Vertex, uint32_t> uniqueVertices;
-		
-		for (const auto& shape : shapes) 
-		{
-			size_t indexOffset = 0;
-
-			// Process each face in the shape.
-			for (size_t faceIndex = 0; faceIndex < shape.mesh.num_face_vertices.size(); faceIndex++)
-			{
-				int materialId = shape.mesh.material_ids[faceIndex];
-
-				if (!materialMeshes.contains(materialId))
-				{
-					MeshPart newMeshPart;
-					newMeshPart.texture = modelTextures[materialId];
-					materialMeshes[materialId] = newMeshPart;
-				}
-
-				MeshPart& currentMesh = materialMeshes[materialId];
-				
-				size_t faceVertices = 3;
-				for (size_t v = 0; v < faceVertices; v++)
-				{
-					tinyobj::index_t index = shape.mesh.indices[indexOffset + v];
-
-					math::Vertex vertex{};
-			
-					vertex.position = {
-						attrib.vertices[3 * index.vertex_index + 0],
-						attrib.vertices[3 * index.vertex_index + 1],
-						attrib.vertices[3 * index.vertex_index + 2]
-					};
-
-					if (index.texcoord_index >= 0)
-					{
-						vertex.textureCoordinates = math::Vector2(
-							attrib.texcoords[2 * index.texcoord_index + 0],
-							1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
-						);
-					}
-					else
-					{
-						vertex.textureCoordinates = {0.0f, 0.0f};
-					}
-					
-					vertex.color = { 1.0f, 1.0f, 1.0f };
-
-					if (!uniqueVertices.contains(vertex))
-					{
-						uniqueVertices[vertex] = static_cast<uint32_t>(currentMesh.vertices.size());
-						currentMesh.vertices.push_back(vertex);
-					}
-			
-					currentMesh.indices.push_back(uniqueVertices[vertex]);
-				}
-				indexOffset += faceVertices;
-			}
-
-			uniqueVertices.clear();
-		}
-
-		// Convert temporary meshes to final model meshes
-		for (auto& [matId, mesh] : materialMeshes)
-		{
-			mesh.vertexCount = mesh.vertices.size();
-			mesh.indexCount = mesh.indices.size();
-			newMesh.meshParts.push_back(mesh);
-		}
-
+		Mesh newMesh = ObjImporter::importFromFile(meshPath);
 		std::lock_guard lock(importModelMutex);
 		modelQueue.emplace(meshPath, std::make_shared<Mesh>(newMesh));
 	}
@@ -332,7 +220,7 @@ namespace tessera::vulkan
 			modelQueue.pop();
 			lock.unlock();
 			
-			meshes.insert_or_assign(meshPath, newMesh);
+			CORE->world.getStorage()->addNewMesh(meshPath, newMesh);
 
 			models.push_back({
 				.mesh = newMesh,
@@ -343,7 +231,7 @@ namespace tessera::vulkan
 		std::vector<math::Vertex> allVertices;
 		std::vector<uint32_t> allIndices;
 
-		for (auto& [_, mesh] : meshes)
+		for (const auto& mesh : CORE->world.getStorage()->getMeshes())
 		{
 			for (auto& meshPart : mesh->meshParts)
 			{
@@ -361,7 +249,7 @@ namespace tessera::vulkan
 		globalBuffers.totalVertices = allVertices.size();
 		globalBuffers.totalIndices = allIndices.size();
 
-		for (auto& [_, mesh] : meshes)
+		for (auto& mesh : CORE->world.getStorage()->getMeshes())
 		{
 			createDescriptorSets(mesh);
 		}
@@ -1088,10 +976,10 @@ namespace tessera::vulkan
 
 	void VulkanRenderer::createGraphicsPipeline()
 	{
-		const auto vertexShaderCode = readFile("bin/shaders/vert.spv");
+		const auto vertexShaderCode = utils::readFile("bin/shaders/vert.spv");
 		VkShaderModule vertexShaderModule = createShaderModule(vertexShaderCode, logicalDevice);
 
-		const auto fragmentShaderCode = readFile("bin/shaders/frag.spv");
+		const auto fragmentShaderCode = utils::readFile("bin/shaders/frag.spv");
 		VkShaderModule fragmentShaderModule = createShaderModule(fragmentShaderCode, logicalDevice);
 
 		VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
@@ -1482,56 +1370,6 @@ namespace tessera::vulkan
 		return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
 	}
 
-	void VulkanRenderer::importTexture(const std::string& texturePath)
-	{
-		Texture newTexture{};
-		LOG_INFO("Importing texture: " + texturePath);
-
-		int textureWidth;
-		int textureHeight;
-		int textureChannels;
-		stbi_uc* pixels = stbi_load(texturePath.c_str(), &textureWidth, &textureHeight, &textureChannels, STBI_rgb_alpha);
-		
-		const VkDeviceSize imageSize = static_cast<uint64_t>(textureWidth) * static_cast<uint64_t>(textureHeight) * 4;
-		newTexture.maxMipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(textureWidth, textureHeight)))) + 1;
-
-		ASSERT(pixels, "failed to load texture image.");
-
-		VkBuffer stagingBuffer;
-		VkDeviceMemory stagingBufferMemory;
-
-		createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
-
-		void* data;
-		vkMapMemory(logicalDevice, stagingBufferMemory, 0, imageSize, 0, &data);
-		memcpy(data, pixels, static_cast<size_t>(imageSize));
-		vkUnmapMemory(logicalDevice, stagingBufferMemory);
-		
-		stbi_image_free(pixels);
-
-		createImage(textureWidth, textureHeight,
-			newTexture.maxMipLevels,
-			VK_SAMPLE_COUNT_1_BIT,
-			VK_FORMAT_R8G8B8A8_SRGB,
-			VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-			newTexture.textureImage,
-			newTexture.textureImageMemory);
-		
-		transitionImageLayout(newTexture.textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, newTexture.maxMipLevels);
-		copyBufferToImage(stagingBuffer, newTexture.textureImage, static_cast<uint32_t>(textureWidth), static_cast<uint32_t>(textureHeight));
-
-		vkDestroyBuffer(logicalDevice, stagingBuffer, nullptr);
-		vkFreeMemory(logicalDevice, stagingBufferMemory, nullptr);
-
-		generateMipmaps(newTexture, VK_FORMAT_R8G8B8A8_SRGB, textureWidth, textureHeight);
-
-		newTexture.textureImageView = createImageView(newTexture.textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, newTexture.maxMipLevels);
-		newTexture.textureSampler = createTextureSampler(newTexture.maxMipLevels);
-
-		textures.insert_or_assign(texturePath, std::make_shared<Texture>(newTexture));
-	}
-
 	void VulkanRenderer::generateMipmaps(const Texture& texture, const VkFormat imageFormat, const int32_t texWidth, const int32_t texHeight)
 	{
 		// Check if image format supports linear blitting
@@ -1785,7 +1623,7 @@ namespace tessera::vulkan
 		std::vector<math::Vertex> allVertices;
 		std::vector<uint32_t> allIndices;
 
-		for (auto& [_, mesh] : meshes)
+		for (auto& mesh : CORE->world.getStorage()->getMeshes())
 		{
 			for (auto& meshPart : mesh->meshParts)
 			{
