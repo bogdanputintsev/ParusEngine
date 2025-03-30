@@ -3,9 +3,6 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
-#define TINYOBJLOADER_IMPLEMENTATION
-#include <tiny_obj_loader.h>
-
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -17,7 +14,9 @@
 
 #include "Core.h"
 #include "core/platform/Platform.h"
+#include "importers/mesh/ObjImporter.h"
 #include "math/UniformBufferObjects.h"
+#include "texture/Texture.h"
 #include "utils/TesseraLog.h"
 
 namespace tessera::vulkan
@@ -28,6 +27,11 @@ namespace tessera::vulkan
 		{
 			LOG_INFO("Vulkan initiated window resize. New dimensions: " + std::to_string(newWidth) + " " + std::to_string(newHeight));
 			onResize();
+		});
+
+		REGISTER_EVENT(EventType::EVENT_APPLICATION_QUIT, [&]([[maybe_unused]]const int exitCode)
+		{
+			isRunning = false;
 		});
 		
 		createInstance();
@@ -40,34 +44,24 @@ namespace tessera::vulkan
 		createRenderPass();
 		createDescriptorSetLayout();
 		createGraphicsPipeline();
-		createCommandPool();
 		createColorResources();
 		createDepthResources();
 		createFramebuffers();
-		
-		importMesh("bin/assets/skybox/skybox.obj");
-		importMesh("bin/assets/terrain/floor.obj");
-		importMesh("bin/assets/indoor/indoor.obj");
-		importMesh("bin/assets/indoor/threshold.obj");
-		importMesh("bin/assets/indoor/torch.obj");
-		for (const auto& [_, mesh] : meshes)
-		{
-			models.push_back({
-				.mesh = mesh,
-				.transform = math::Matrix4x4::identity()
-			});
-		}
-		
-		createBufferManager();
+
+		createUniformBuffer();
 		createDescriptorPool();
 		
-		// Create descriptor sets for this model
-		for (auto& [meshPath, mesh] : meshes)
-		{
-			createDescriptorSets(mesh);
-		}
+		importMesh("bin/assets/skybox/skybox.obj");
+		RUN_ASYNC(importMesh("bin/assets/terrain/floor.obj"););
+		RUN_ASYNC(importMesh("bin/assets/indoor/indoor.obj"););
+		RUN_ASYNC(importMesh("bin/assets/indoor/threshold.obj"););
+		RUN_ASYNC(importMesh("bin/assets/indoor/torch.obj"););
+
 		createCommandBuffer();
 		createSyncObjects();
+
+		isRunning = true;
+
 	}
 
 	void VulkanRenderer::clean()
@@ -88,7 +82,7 @@ namespace tessera::vulkan
 
 		vkDestroyDescriptorPool(logicalDevice, descriptorPool, nullptr);
 		
-		for (const auto& [_, texture] : textures)
+		for (const auto& texture : CORE->world.getStorage()->getTextures())
 		{
 			vkDestroySampler(logicalDevice, texture->textureSampler, nullptr);
 			vkDestroyImageView(logicalDevice, texture->textureImageView, nullptr);
@@ -98,11 +92,11 @@ namespace tessera::vulkan
 
 		vkDestroyDescriptorSetLayout(logicalDevice, descriptorSetLayout, nullptr);
 
-		vkDestroyBuffer(logicalDevice, indexBuffer, nullptr);
-		vkFreeMemory(logicalDevice, indexBufferMemory, nullptr);
+		vkDestroyBuffer(logicalDevice, globalBuffers.indexBuffer, nullptr);
+		vkFreeMemory(logicalDevice, globalBuffers.indexBufferMemory, nullptr);
 
-		vkDestroyBuffer(logicalDevice, vertexBuffer, nullptr);
-		vkFreeMemory(logicalDevice, vertexBufferMemory, nullptr);
+		vkDestroyBuffer(logicalDevice, globalBuffers.vertexBuffer, nullptr);
+		vkFreeMemory(logicalDevice, globalBuffers.vertexBufferMemory, nullptr);
 
 		for (size_t i = 0; i < VulkanRenderer::MAX_FRAMES_IN_FLIGHT; i++)
 		{
@@ -111,7 +105,10 @@ namespace tessera::vulkan
 			vkDestroyFence(logicalDevice, inFlightFences[i], nullptr);
 		}
 
-		vkDestroyCommandPool(logicalDevice, commandPool, nullptr);
+		for (const auto& [_, commandPool]: threadCommandPools)
+		{
+			vkDestroyCommandPool(logicalDevice, commandPool, nullptr);
+		}
 
 		vkDestroyDevice(logicalDevice, nullptr);
 
@@ -126,6 +123,15 @@ namespace tessera::vulkan
 
 	void VulkanRenderer::drawFrame()
 	{
+		if (!isRunning)
+		{
+			return;
+		}
+		
+		currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+
+		cleanupFrameResources();
+		
 		vkWaitForFences(logicalDevice, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
 
 		const std::optional<uint32_t> imageIndex = acquireNextImage();
@@ -135,6 +141,7 @@ namespace tessera::vulkan
 		}
 
 		updateUniformBuffer(currentFrame);
+		processLoadedMeshes();
 		vkResetFences(logicalDevice, 1, &inFlightFences[currentFrame]);
 
 		const auto commandBuffer = getCommandBuffer(currentFrame);
@@ -157,7 +164,7 @@ namespace tessera::vulkan
 		submitInfo.signalSemaphoreCount = 1;
 		submitInfo.pSignalSemaphores = signalSemaphores;
 
-		ASSERT(vkQueueSubmit(graphicsQueue, 1, &submitInfo, inFlightFences[currentFrame]) == VK_SUCCESS, "failed to submit draw command buffer.");
+		ASSERT(threadSafeQueueSubmit(&submitInfo, inFlightFences[currentFrame]) == VK_SUCCESS, "failed to submit draw command buffer.");
 
 		// Submit result back to swap chain to have it eventually show up on the screen. 
 		VkPresentInfoKHR presentInfo{};
@@ -172,7 +179,8 @@ namespace tessera::vulkan
 		presentInfo.pImageIndices = &imageIndex.value();
 		presentInfo.pResults = nullptr;
 
-		const VkResult result = vkQueuePresentKHR(presentQueue, &presentInfo);
+		
+		const VkResult result = threadSafePresent(&presentInfo);
 
 		if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebufferResized)
 		{
@@ -184,7 +192,6 @@ namespace tessera::vulkan
 			ASSERT(result == VK_SUCCESS, "failed to present swap chain image.");
 		}
 
-		currentFrame = (currentFrame + 1) % VulkanRenderer::MAX_FRAMES_IN_FLIGHT;
 	}
 
 	void VulkanRenderer::deviceWaitIdle()
@@ -192,121 +199,60 @@ namespace tessera::vulkan
 		vkDeviceWaitIdle(logicalDevice);
 	}
 	
-	void VulkanRenderer::importMesh(const std::string& modelPath)
+	void VulkanRenderer::importMesh(const std::string& meshPath)
 	{
-		Mesh newMesh{};
+		Mesh newMesh = ObjImporter::importFromFile(meshPath);
+		std::lock_guard lock(importModelMutex);
+		modelQueue.emplace(meshPath, std::make_shared<Mesh>(newMesh));
+	}
 
-		LOG_INFO("Loading mesh: " + modelPath);
-
-		// Load the model (vertices and indices)
-		tinyobj::attrib_t attrib;
-		std::vector<tinyobj::shape_t> shapes;
-		std::vector<tinyobj::material_t> materials;
-		std::string warn, err;
-
-		size_t lastSlash = modelPath.find_last_of("/\\");
-		std::string baseDir = modelPath.substr(0, lastSlash + 1);
-
-		ASSERT(tinyobj::LoadObj(
-			&attrib, &shapes, &materials, &warn, &err,
-			modelPath.c_str(),
-			baseDir.c_str(),
-			true),
-			warn + err);
-
-		std::vector<std::shared_ptr<Texture>> modelTextures;
-		
-		for (const auto& material : materials)
+	void VulkanRenderer::processLoadedMeshes()
+	{
+		std::unique_lock lock(importModelMutex);
+		if (modelQueue.empty())
 		{
-			const std::string textureName = material.diffuse_texname;
-			if (!textureName.empty())
+			return;	
+		}
+		
+		while (!modelQueue.empty())
+		{
+			auto [meshPath, newMesh] = modelQueue.front();
+			modelQueue.pop();
+			lock.unlock();
+			
+			CORE->world.getStorage()->addNewMesh(meshPath, newMesh);
+
+			models.push_back({
+				.mesh = newMesh,
+				.transform = math::Matrix4x4::identity()
+			});
+		}
+		
+		std::vector<math::Vertex> allVertices;
+		std::vector<uint32_t> allIndices;
+
+		for (const auto& mesh : CORE->world.getStorage()->getMeshes())
+		{
+			for (auto& meshPart : mesh->meshParts)
 			{
-				const std::string texturePath = baseDir + textureName;
+				meshPart.vertexOffset = allVertices.size();
+				meshPart.indexOffset = allIndices.size();
 
-				std::shared_ptr<Texture> currentTexture;
-				if (!textures.contains(texturePath))
-				{
-					importTexture(texturePath);
-				}
-				
-				DEBUG_ASSERT(textures.contains(texturePath), "Texture must exist after importing.");
-				currentTexture = textures[texturePath];
-
-				modelTextures.push_back(currentTexture);
+				allVertices.insert(allVertices.end(), meshPart.vertices.begin(), meshPart.vertices.end());
+				allIndices.insert(allIndices.end(), meshPart.indices.begin(), meshPart.indices.end());
 			}
 		}
-
-		std::unordered_map<int, MeshPart> materialMeshes;
-		std::unordered_map<math::Vertex, uint32_t> uniqueVertices;
 		
-		for (const auto& shape : shapes) 
-		{
-			size_t indexOffset = 0;
-
-			// Process each face in the shape.
-			for (size_t faceIndex = 0; faceIndex < shape.mesh.num_face_vertices.size(); faceIndex++)
-			{
-				int materialId = shape.mesh.material_ids[faceIndex];
-
-				if (!materialMeshes.contains(materialId))
-				{
-					MeshPart newMeshPart;
-					newMeshPart.texture = modelTextures[materialId];
-					materialMeshes[materialId] = newMeshPart;
-				}
-
-				MeshPart& currentMesh = materialMeshes[materialId];
-				
-				size_t faceVertices = 3;
-				for (size_t v = 0; v < faceVertices; v++)
-				{
-					tinyobj::index_t index = shape.mesh.indices[indexOffset + v];
-
-					math::Vertex vertex{};
-			
-					vertex.position = {
-						attrib.vertices[3 * index.vertex_index + 0],
-						attrib.vertices[3 * index.vertex_index + 1],
-						attrib.vertices[3 * index.vertex_index + 2]
-					};
-
-					if (index.texcoord_index >= 0)
-					{
-						vertex.textureCoordinates = math::Vector2(
-							attrib.texcoords[2 * index.texcoord_index + 0],
-							1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
-						);
-					}
-					else
-					{
-						vertex.textureCoordinates = {0.0f, 0.0f};
-					}
-					
-					vertex.color = { 1.0f, 1.0f, 1.0f };
-
-					if (!uniqueVertices.contains(vertex))
-					{
-						uniqueVertices[vertex] = static_cast<uint32_t>(currentMesh.vertices.size());
-						currentMesh.vertices.push_back(vertex);
-					}
-			
-					currentMesh.indices.push_back(uniqueVertices[vertex]);
-				}
-				indexOffset += faceVertices;
-			}
-
-			uniqueVertices.clear();
-		}
-
-		// Convert temporary meshes to final model meshes
-		for (auto& [matId, mesh] : materialMeshes)
-		{
-			mesh.vertexCount = mesh.vertices.size();
-			mesh.indexCount = mesh.indices.size();
-			newMesh.meshParts.push_back(mesh);
-		}
+		createVertexBuffer(allVertices);
+		createIndexBuffer(allIndices);
 		
-		meshes.insert_or_assign(modelPath, std::make_shared<Mesh>(newMesh));
+		globalBuffers.totalVertices = allVertices.size();
+		globalBuffers.totalIndices = allIndices.size();
+
+		for (auto& mesh : CORE->world.getStorage()->getMeshes())
+		{
+			createDescriptorSets(mesh);
+		}
 	}
 
 	void VulkanRenderer::createInstance()
@@ -721,6 +667,7 @@ namespace tessera::vulkan
 
 		ASSERT(graphicsFamily.has_value() && presentFamily.has_value(), "queue family is undefined.");
 
+		std::lock_guard lock(graphicsQueueMutex);
 		vkGetDeviceQueue(logicalDevice, graphicsFamily.value(), 0, &graphicsQueue);
 		vkGetDeviceQueue(logicalDevice, presentFamily.value(), 0, &presentQueue);
 	}
@@ -1029,10 +976,10 @@ namespace tessera::vulkan
 
 	void VulkanRenderer::createGraphicsPipeline()
 	{
-		const auto vertexShaderCode = readFile("bin/shaders/vert.spv");
+		const auto vertexShaderCode = utils::readFile("bin/shaders/vert.spv");
 		VkShaderModule vertexShaderModule = createShaderModule(vertexShaderCode, logicalDevice);
 
-		const auto fragmentShaderCode = readFile("bin/shaders/frag.spv");
+		const auto fragmentShaderCode = utils::readFile("bin/shaders/frag.spv");
 		VkShaderModule fragmentShaderModule = createShaderModule(fragmentShaderCode, logicalDevice);
 
 		VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
@@ -1218,7 +1165,7 @@ namespace tessera::vulkan
 
 		VkCommandBufferAllocateInfo allocInfo{};
 		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-		allocInfo.commandPool = commandPool;
+		allocInfo.commandPool = getCommandPool();
 		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 		allocInfo.commandBufferCount = static_cast<uint32_t>(commandBuffers.size());
 
@@ -1275,10 +1222,10 @@ namespace tessera::vulkan
 		scissor.extent = swapChainDetails.swapChainExtent;
 		vkCmdSetScissor(commandBufferToRecord, 0, 1, &scissor);
 
-		const VkBuffer vertexBuffers[] = { vertexBuffer };
+		const VkBuffer vertexBuffers[] = { globalBuffers.vertexBuffer };
 		constexpr VkDeviceSize offsets[] = { 0 };
 		vkCmdBindVertexBuffers(commandBufferToRecord, 0, 1, vertexBuffers, offsets);
-		vkCmdBindIndexBuffer(commandBufferToRecord, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+		vkCmdBindIndexBuffer(commandBufferToRecord, globalBuffers.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
 		for (const auto& [mesh, transform] : models)
 		{
@@ -1309,8 +1256,21 @@ namespace tessera::vulkan
 		return commandBuffers[bufferId];
 	}
 
-	void VulkanRenderer::createCommandPool()
+	VkCommandPool VulkanRenderer::getCommandPool()
 	{
+		const std::thread::id threadId = std::this_thread::get_id();
+		if (!threadCommandPools.contains(threadId))
+		{
+			threadCommandPools[threadId] = createCommandPool();		
+		}
+		
+		return threadCommandPools[threadId];
+	}
+	
+	VkCommandPool VulkanRenderer::createCommandPool() const
+	{
+		VkCommandPool newCommandPool;
+		
 		const auto [graphicsFamily, presentFamily] = findQueueFamilies(physicalDevice, surface);
 		ASSERT(graphicsFamily.has_value(), "Graphics family is incomplete.");
 		VkCommandPoolCreateInfo poolInfo{};
@@ -1318,15 +1278,16 @@ namespace tessera::vulkan
 		poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 		poolInfo.queueFamilyIndex = graphicsFamily.value();
 
-		ASSERT(vkCreateCommandPool(logicalDevice, &poolInfo, nullptr, &commandPool) == VK_SUCCESS, "failed to create command pool.");
+		ASSERT(vkCreateCommandPool(logicalDevice, &poolInfo, nullptr, &newCommandPool) == VK_SUCCESS, "failed to create command pool.");
+		return newCommandPool;
 	}
 
-	VkCommandBuffer VulkanRenderer::beginSingleTimeCommands() const
+	VkCommandBuffer VulkanRenderer::beginSingleTimeCommands()
 	{
 		VkCommandBufferAllocateInfo allocInfo{};
 		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-		allocInfo.commandPool = commandPool;
+		allocInfo.commandPool = getCommandPool();
 		allocInfo.commandBufferCount = 1;
 
 		VkCommandBuffer commandBuffer;
@@ -1341,7 +1302,7 @@ namespace tessera::vulkan
 		return commandBuffer;
 	}
 
-	void VulkanRenderer::endSingleTimeCommands(const VkCommandBuffer commandBuffer) const
+	void VulkanRenderer::endSingleTimeCommands(const VkCommandBuffer commandBuffer)
 	{
 		vkEndCommandBuffer(commandBuffer);
 
@@ -1350,10 +1311,12 @@ namespace tessera::vulkan
 		submitInfo.commandBufferCount = 1;
 		submitInfo.pCommandBuffers = &commandBuffer;
 
-		vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-		vkQueueWaitIdle(graphicsQueue);
-
-		vkFreeCommandBuffers(logicalDevice, commandPool, 1, &commandBuffer);
+		threadSafeQueueSubmit(&submitInfo, nullptr);
+		{
+			std::lock_guard lock(graphicsQueueMutex);
+			vkQueueWaitIdle(graphicsQueue);
+		}
+		vkFreeCommandBuffers(logicalDevice, getCommandPool(), 1, &commandBuffer);
 	}
 
 	void VulkanRenderer::createDepthResources()
@@ -1407,57 +1370,7 @@ namespace tessera::vulkan
 		return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
 	}
 
-	void VulkanRenderer::importTexture(const std::string& texturePath)
-	{
-		Texture newTexture{};
-		LOG_INFO("Importing texture: " + texturePath);
-
-		int textureWidth;
-		int textureHeight;
-		int textureChannels;
-		stbi_uc* pixels = stbi_load(texturePath.c_str(), &textureWidth, &textureHeight, &textureChannels, STBI_rgb_alpha);
-		
-		const VkDeviceSize imageSize = static_cast<uint64_t>(textureWidth) * static_cast<uint64_t>(textureHeight) * 4;
-		newTexture.maxMipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(textureWidth, textureHeight)))) + 1;
-
-		ASSERT(pixels, "failed to load texture image.");
-
-		VkBuffer stagingBuffer;
-		VkDeviceMemory stagingBufferMemory;
-
-		createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
-
-		void* data;
-		vkMapMemory(logicalDevice, stagingBufferMemory, 0, imageSize, 0, &data);
-		memcpy(data, pixels, static_cast<size_t>(imageSize));
-		vkUnmapMemory(logicalDevice, stagingBufferMemory);
-		
-		stbi_image_free(pixels);
-
-		createImage(textureWidth, textureHeight,
-			newTexture.maxMipLevels,
-			VK_SAMPLE_COUNT_1_BIT,
-			VK_FORMAT_R8G8B8A8_SRGB,
-			VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-			newTexture.textureImage,
-			newTexture.textureImageMemory);
-		
-		transitionImageLayout(newTexture.textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, newTexture.maxMipLevels);
-		copyBufferToImage(stagingBuffer, newTexture.textureImage, static_cast<uint32_t>(textureWidth), static_cast<uint32_t>(textureHeight));
-
-		vkDestroyBuffer(logicalDevice, stagingBuffer, nullptr);
-		vkFreeMemory(logicalDevice, stagingBufferMemory, nullptr);
-
-		generateMipmaps(newTexture, VK_FORMAT_R8G8B8A8_SRGB, textureWidth, textureHeight);
-
-		newTexture.textureImageView = createImageView(newTexture.textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, newTexture.maxMipLevels);
-		newTexture.textureSampler = createTextureSampler(newTexture.maxMipLevels);
-
-		textures.insert_or_assign(texturePath, std::make_shared<Texture>(newTexture));
-	}
-
-	void VulkanRenderer::generateMipmaps(const Texture& texture, const VkFormat imageFormat, const int32_t texWidth, const int32_t texHeight) const
+	void VulkanRenderer::generateMipmaps(const Texture& texture, const VkFormat imageFormat, const int32_t texWidth, const int32_t texHeight)
 	{
 		// Check if image format supports linear blitting
 		VkFormatProperties formatProperties;
@@ -1586,7 +1499,12 @@ namespace tessera::vulkan
 		vkBindImageMemory(logicalDevice, image, imageMemory, 0);
 	}
 
-	void VulkanRenderer::transitionImageLayout(const VkImage image, [[maybe_unused]] VkFormat format, const VkImageLayout oldLayout, const VkImageLayout newLayout, uint32_t mipLevels) const
+	void VulkanRenderer::transitionImageLayout(
+		const VkImage image,
+		[[maybe_unused]] VkFormat format,
+		const VkImageLayout oldLayout,
+		const VkImageLayout newLayout,
+		const uint32_t mipLevels)
 	{
 		const VkCommandBuffer commandBuffer = beginSingleTimeCommands();
 
@@ -1637,7 +1555,7 @@ namespace tessera::vulkan
 		endSingleTimeCommands(commandBuffer);
 	}
 
-	void VulkanRenderer::copyBufferToImage(const VkBuffer buffer, const VkImage image, const uint32_t width, const uint32_t height) const
+	void VulkanRenderer::copyBufferToImage(const VkBuffer buffer, const VkImage image, const uint32_t width, const uint32_t height)
 	{
 		const VkCommandBuffer commandBuffer = beginSingleTimeCommands();
 
@@ -1705,7 +1623,7 @@ namespace tessera::vulkan
 		std::vector<math::Vertex> allVertices;
 		std::vector<uint32_t> allIndices;
 
-		for (auto& [_, mesh] : meshes)
+		for (auto& mesh : CORE->world.getStorage()->getMeshes())
 		{
 			for (auto& meshPart : mesh->meshParts)
 			{
@@ -1724,11 +1642,24 @@ namespace tessera::vulkan
 
 	void VulkanRenderer::createVertexBuffer(const std::vector<math::Vertex>& vertices)
 	{
+		if (globalBuffers.vertexBuffer != VK_NULL_HANDLE)
+		{
+			frames[currentFrame].buffersToDelete.emplace_back(
+			   globalBuffers.vertexBuffer, 
+			   globalBuffers.vertexBufferMemory
+			);
+		}
+		
 		const VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
 		
 		VkBuffer stagingBuffer;
 		VkDeviceMemory stagingBufferMemory;
-		createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+		createBuffer(
+			bufferSize,
+			VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+			stagingBuffer,
+			stagingBufferMemory);
 
 		// Fill vertex buffer data.
 		void* data;
@@ -1736,8 +1667,14 @@ namespace tessera::vulkan
 		memcpy(data, vertices.data(), bufferSize);
 		vkUnmapMemory(logicalDevice, stagingBufferMemory);
 
-		createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer, vertexBufferMemory);
-		copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
+		createBuffer(
+			bufferSize,
+			VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+			globalBuffers.vertexBuffer,
+			globalBuffers.vertexBufferMemory);
+		
+		copyBuffer(stagingBuffer, globalBuffers.vertexBuffer, bufferSize);
 		vkDestroyBuffer(logicalDevice, stagingBuffer, nullptr);
 		vkFreeMemory(logicalDevice, stagingBufferMemory, nullptr);
 	}
@@ -1791,7 +1728,7 @@ namespace tessera::vulkan
 		return memoryIndex.value();
 	}
 
-	void VulkanRenderer::copyBuffer(const VkBuffer srcBuffer, const VkBuffer dstBuffer, const VkDeviceSize size) const
+	void VulkanRenderer::copyBuffer(const VkBuffer srcBuffer, const VkBuffer dstBuffer, const VkDeviceSize size)
 	{
 		const VkCommandBuffer commandBuffer = beginSingleTimeCommands();
 
@@ -1804,20 +1741,36 @@ namespace tessera::vulkan
 
 	void VulkanRenderer::createIndexBuffer(const std::vector<uint32_t>& indices)
 	{
+		if (globalBuffers.indexBuffer != VK_NULL_HANDLE)
+		{
+			frames[currentFrame].buffersToDelete.emplace_back(
+			   globalBuffers.indexBuffer, 
+			   globalBuffers.indexBufferMemory
+			);
+		}
+		
 		const VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
 
 		VkBuffer stagingBuffer;
 		VkDeviceMemory stagingBufferMemory;
-		createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+		createBuffer(bufferSize,
+			VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+			stagingBuffer,
+			stagingBufferMemory);
 
 		void* data;
 		vkMapMemory(logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);
 		memcpy(data, indices.data(), (size_t)bufferSize);
 		vkUnmapMemory(logicalDevice, stagingBufferMemory);
 
-		createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer, indexBufferMemory);
+		createBuffer(bufferSize,
+			VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+			globalBuffers.indexBuffer,
+			globalBuffers.indexBufferMemory);
 
-		copyBuffer(stagingBuffer, indexBuffer, bufferSize);
+		copyBuffer(stagingBuffer, globalBuffers.indexBuffer, bufferSize);
 
 		vkDestroyBuffer(logicalDevice, stagingBuffer, nullptr);
 		vkFreeMemory(logicalDevice, stagingBufferMemory, nullptr);
@@ -1899,11 +1852,11 @@ namespace tessera::vulkan
 
 	void VulkanRenderer::createDescriptorPool()
 	{
-		size_t numberOfMeshes = 0;
-		for (const auto& [mesh, transform] : models)
-		{
-			numberOfMeshes += mesh->meshParts.size();
-		}
+		size_t numberOfMeshes = 1000;
+		// for (const auto& [mesh, transform] : models)
+		// {
+		// 	numberOfMeshes += mesh->meshParts.size();
+		// }
 		
 		std::array<VkDescriptorPoolSize, 2> poolSizes{};
 		poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -2076,5 +2029,16 @@ namespace tessera::vulkan
 		return attributeDescriptions;
 	}
 
-
+	void VulkanRenderer::cleanupFrameResources()
+	{
+		// Destroy buffers scheduled for deletion from N frames ago
+		const uint32_t frameToClean = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+    
+		for (auto& [buffer, memory] : frames[frameToClean].buffersToDelete)
+		{
+			vkDestroyBuffer(logicalDevice, buffer, nullptr);
+			vkFreeMemory(logicalDevice, memory, nullptr);
+		}
+		frames[frameToClean].buffersToDelete.clear();
+	}
 }

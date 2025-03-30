@@ -8,6 +8,7 @@
 #include "utils/TesseraLog.h"
 #include "utils/Utils.h"
 #include "renderer/vulkan/VulkanRenderer.h"
+#include "threading/ThreadPool.h"
 #include "world/World.h"
 
 namespace tessera
@@ -30,12 +31,14 @@ namespace tessera
 
 		struct CoreContext final
 		{
+			CoreContext() = default;
 			std::shared_ptr<Platform> platform;
 			std::shared_ptr<imgui::ImGuiLibrary> graphicsLibrary;
 			std::shared_ptr<vulkan::VulkanRenderer> renderer;
 			std::shared_ptr<EventSystem> eventSystem;
 			std::shared_ptr<Input> inputSystem;
 			World world;
+			ThreadPool threadPool;
 		};
 
 	public:
@@ -43,6 +46,7 @@ namespace tessera
 	};
 
 #define CORE Core::getInstance()->context
+#define RUN_ASYNC(function) CORE->threadPool.enqueue([&]{function})
 }
 
 

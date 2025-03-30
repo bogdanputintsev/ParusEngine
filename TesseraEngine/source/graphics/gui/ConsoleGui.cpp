@@ -73,6 +73,10 @@ namespace tessera::imgui
                 "\n\tY: " + std::to_string(cameraPosition.y) +
                 "\n\tZ: " + std::to_string(cameraPosition.z);
         }
+        else if (strcmp(inputCommand.c_str(), "import mesh") == 0)
+        {
+            
+        }
         else
         {
             consoleOutput += "Unknown command: '" + inputCommand + "'.";
