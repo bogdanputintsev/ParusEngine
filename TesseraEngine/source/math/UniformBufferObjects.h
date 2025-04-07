@@ -5,21 +5,21 @@
 namespace tessera::math
 {
 
-    struct GlobalUbo
+    struct alignas(16) GlobalUbo
 	{
-        alignas(16) Matrix4x4 view; 
-        alignas(16) Matrix4x4 projection;
-        alignas(16) Matrix4x4 cameraPosition;
-        bool debug = false;
+        alignas(16) TrivialMatrix4x4 view; 
+        alignas(16) TrivialMatrix4x4 projection;
+        TrivialVector3 cameraPosition;
+	    int debug = 0;
     };
 
-    struct InstanceUbo
+    struct alignas(16) InstanceUbo
     {
-        alignas(16) Matrix4x4 model;
-        alignas(16) Matrix4x4 normal;
+        alignas(16) TrivialMatrix4x4 model;
+        alignas(16) TrivialMatrix4x4 normal;
     };
 
-    struct DirectionalLightUbo
+    struct alignas(16) DirectionalLightUbo
     {
         TrivialVector3 color;
         TrivialVector3 direction;

@@ -4,14 +4,16 @@
 // Descriptors
 // =============================================
 // Set 0: Global data
-layout(set = 0, binding = 0) uniform GlobalUBO 
-{
+layout(set = 0, binding = 0, std140) uniform GlobalUBO {
     mat4 view;
-    mat4 projection;
-    vec3 cameraPosition;
-    // FIXME: Debug flag doesn't work.
-    bool debug;
-} globalUbo;
+    mat4 proj;
+    vec3 cameraPos;
+    float _pad0;
+    int debug;
+    int _pad1;
+    int _pad2;
+    int _pad3;
+} globalUBO;
 
 // Set 2: Material
 layout(set = 2, binding = 0) uniform sampler2D albedoMap;
@@ -21,7 +23,7 @@ layout(set = 2, binding = 3) uniform sampler2D roughnessMap;
 layout(set = 2, binding = 4) uniform sampler2D aoMap;
 
 // Set 3: Light sources
-layout(set = 3, binding = 0) uniform DirectionalLightUBO
+layout(set = 3, binding = 0, std140) uniform DirectionalLightUBO
 {
     vec3 color;
     vec3 direction;
@@ -154,8 +156,13 @@ void main()
     float roughness = texture(roughnessMap, inTextureCoordinate).r;
     float ao = texture(aoMap, inTextureCoordinate).r;
     
+    if (globalUBO.debug == 1)
+    {
+        albedo = vec3(1.0);
+    }
+    
     vec3 N = normalize(inTBN * normal);
-    vec3 V = normalize(globalUbo.cameraPosition - inPosition);
+    vec3 V = normalize(globalUBO.cameraPos - inPosition);
     
     vec3 F0 = vec3(0.04);
     F0 = mix(F0, albedo, metallic);

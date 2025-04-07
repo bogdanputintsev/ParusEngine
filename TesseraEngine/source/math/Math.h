@@ -75,12 +75,12 @@ namespace tessera::math
     /*==================================
      * Vector3
      *==================================*/
-    struct TrivialVector3
+    struct alignas(16) TrivialVector3
     {
         float x;
         float y;
         float z;
-        [[maybe_unused]] float pad = 0.0f;
+        float pad = 0.0f;
     };
     
     struct Vector3
@@ -88,7 +88,6 @@ namespace tessera::math
         float x;
         float y;
         float z;
-        [[maybe_unused]] float pad = 0.0f; // Added padding to ensure structure is 16 bytes.
         
         // Default constructor
         Vector3() : x(0), y(0), z(0) {}
@@ -155,6 +154,12 @@ namespace tessera::math
      * Matrix4x4
      *==================================*/
     // ReSharper disable once CppInconsistentNaming
+    struct alignas(16) TrivialMatrix4x4
+    {
+        float values[4][4];
+    };
+    
+    // ReSharper disable once CppInconsistentNaming
     struct Matrix4x4
     {
     public:
@@ -200,11 +205,14 @@ namespace tessera::math
         // Transpose matrix
         [[nodiscard]] Matrix4x4 transpose() const;
 
+        [[nodiscard]] TrivialMatrix4x4 trivial() const noexcept;
+        
         static Matrix4x4 perspective(const float fovRadians, const float aspectRatio, const float near, const float far);
 
         static Matrix4x4 lookAt(const Vector3& eye, const Vector3& target, const Vector3& up);
 
         static Matrix4x4 identity() { return {}; }
+
     private:
         std::array<std::array<float, 4>, 4> values;
     };
