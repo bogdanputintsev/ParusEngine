@@ -47,6 +47,42 @@ namespace tessera::math
         return *this;
     }
 
+    Vector2 Vector2::operator+(const Vector2& other) const
+    {
+        return { x + other.x, y + other.y };
+    }
+
+    Vector2 Vector2::operator-(const Vector2& other) const
+    {
+        return { x - other.x, y - other.y };
+    }
+
+    Vector2 Vector2::operator*(const float scalar) const
+    {
+        return { x * scalar, y * scalar };
+    }
+
+    Vector2& Vector2::operator+=(const Vector2& other)
+    {
+        x += other.x;
+        y += other.y;
+        return *this;
+    }
+
+    Vector2& Vector2::operator-=(const Vector2& other)
+    {
+        x -= other.x;
+        y -= other.y;
+        return *this;
+    }
+
+    Vector2& Vector2::operator*=(const float scalar)
+    {
+        x *= scalar;
+        y *= scalar;
+        return *this;
+    }
+
     bool Vector2::operator==(const Vector2& other) const
     {
         return isNearlyEqual(x, other.x)
@@ -309,7 +345,19 @@ namespace tessera::math
     bool Vertex::operator==(const Vertex& other) const
     {
         return position == other.position
-            && color == other.color
-            && textureCoordinates == other.textureCoordinates;
+            && normal == other.normal
+            && textureCoordinates == other.textureCoordinates
+            && tangent == other.tangent;
+    }
+    
+    TrivialVertex Vertex::trivial() const noexcept
+    {
+         return
+            {
+                .position = position.trivial(),
+                .normal = normal.trivial(),
+                .tangent = tangent.trivial(),
+                .textureCoordinates= textureCoordinates.trivial()
+            }; 
     }
 }

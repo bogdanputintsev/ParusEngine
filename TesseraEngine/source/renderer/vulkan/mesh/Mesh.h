@@ -1,17 +1,14 @@
 ﻿#pragma once
 #include <memory>
 #include <vector>
+#include <filesystem>
 #include <vulkan/vulkan_core.h>
 
-
-namespace tessera::math
-{
-    struct Vertex;
-}
+#include "math/Math.h"
+#include "renderer/vulkan/material/Material.h"
 
 namespace tessera
 {
-    struct Texture;
 
     struct MeshPart
     {
@@ -19,10 +16,9 @@ namespace tessera
         size_t vertexCount;
         size_t indexOffset;
         size_t indexCount;
-        std::shared_ptr<Texture> texture;
-        std::vector<VkDescriptorSet> descriptorSets;
-
-        std::vector<tessera::math::Vertex> vertices;
+        std::shared_ptr<vulkan::Material> material;
+        
+        std::vector<math::Vertex> vertices;
         std::vector<uint32_t> indices;
     };
 
@@ -30,5 +26,7 @@ namespace tessera
     {
         std::vector<MeshPart> meshParts;
     };
+
+    Mesh importMeshFromFile(const std::string& filePath);
     
 }

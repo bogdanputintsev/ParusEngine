@@ -1,8 +1,5 @@
 #include "VulkanRenderer.h"
 
-#define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
-
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -13,11 +10,13 @@
 #include <unordered_set>
 
 #include "Core.h"
+#include "core/Input.h"
 #include "core/platform/Platform.h"
-#include "importers/mesh/ObjImporter.h"
 #include "math/UniformBufferObjects.h"
-#include "texture/Texture.h"
+#include "material/Material.h"
 #include "utils/TesseraLog.h"
+
+// FIXME: Operation not permitted - race condition.
 
 namespace tessera::vulkan
 {
@@ -25,8 +24,20 @@ namespace tessera::vulkan
 	{
 		REGISTER_EVENT(EventType::EVENT_WINDOW_RESIZED, [&](const int newWidth, const int newHeight)
 		{
+			// FIXME: ERROR [VulkanRenderer.cpp:420] - Validation Error: [ UNASSIGNED-Threading-MultipleThreads ]
+			// Object 0: handle = 0x26d38875208, type = VK_OBJECT_TYPE_QUEUE; | MessageID = 0x141cb623 | THREADING ERROR : vkQueueSubmit():
+			// object of type VkQueue is simultaneously used in thread 22340 and thread 1816
+			
 			LOG_INFO("Vulkan initiated window resize. New dimensions: " + std::to_string(newWidth) + " " + std::to_string(newHeight));
 			onResize();
+		});
+
+		REGISTER_EVENT(EventType::EVENT_KEY_PRESSED, [&](const KeyButton key)
+		{
+			if (key == KeyButton::KEY_Z)
+			{
+				isDrawDebugEnabled = !isDrawDebugEnabled;
+			}
 		});
 
 		REGISTER_EVENT(EventType::EVENT_APPLICATION_QUIT, [&]([[maybe_unused]]const int exitCode)
@@ -50,8 +61,18 @@ namespace tessera::vulkan
 
 		createUniformBuffer();
 		createDescriptorPool();
+
+		directionalLight = 
+			{
+				.light = {
+					.color = math::Vector3(1.0f, 0.65f, 0.8f).trivial(),
+					.direction = math::Vector3(66.0f, 70.0f, 429.0f).trivial()
+				},
+				.descriptorSets = {}
+			};
 		
 		importMesh("bin/assets/skybox/skybox.obj");
+		// RUN_ASYNC(importMesh("bin/assets/sphere/sphere.obj"););
 		RUN_ASYNC(importMesh("bin/assets/terrain/floor.obj"););
 		RUN_ASYNC(importMesh("bin/assets/indoor/indoor.obj"););
 		RUN_ASYNC(importMesh("bin/assets/indoor/threshold.obj"););
@@ -61,7 +82,6 @@ namespace tessera::vulkan
 		createSyncObjects();
 
 		isRunning = true;
-
 	}
 
 	void VulkanRenderer::clean()
@@ -72,25 +92,30 @@ namespace tessera::vulkan
 		vkDestroyPipelineLayout(logicalDevice, pipelineLayout, nullptr);
 		vkDestroyRenderPass(logicalDevice, renderPass, nullptr);
 
-		for (size_t i = 0; i < VulkanRenderer::MAX_FRAMES_IN_FLIGHT; i++)
+		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 		{
-			vkDestroyBuffer(logicalDevice, globalUboBuffers[i], nullptr);
-			vkDestroyBuffer(logicalDevice, instanceUboBuffers[i], nullptr);
-			vkFreeMemory(logicalDevice, globalUboMemory[i], nullptr);
-			vkFreeMemory(logicalDevice, instanceUboMemory[i], nullptr);
+			vkDestroyBuffer(logicalDevice, globalUboBuffer.frameBuffers[i], nullptr);
+			vkDestroyBuffer(logicalDevice, instanceUboBuffer.frameBuffers[i], nullptr);
+			vkDestroyBuffer(logicalDevice, directionalLightUboBuffer.frameBuffers[i], nullptr);
+			vkFreeMemory(logicalDevice, globalUboBuffer.memory[i], nullptr);
+			vkFreeMemory(logicalDevice, instanceUboBuffer.memory[i], nullptr);
+			vkFreeMemory(logicalDevice, directionalLightUboBuffer.memory[i], nullptr);
 		}
 
 		vkDestroyDescriptorPool(logicalDevice, descriptorPool, nullptr);
 		
-		for (const auto& texture : CORE->world.getStorage()->getTextures())
+		for (const auto& texture : CORE->world.getStorage()->getAllTextures())
 		{
-			vkDestroySampler(logicalDevice, texture->textureSampler, nullptr);
-			vkDestroyImageView(logicalDevice, texture->textureImageView, nullptr);
-			vkDestroyImage(logicalDevice, texture->textureImage, nullptr);
-			vkFreeMemory(logicalDevice, texture->textureImageMemory, nullptr);
+			vkDestroySampler(logicalDevice, texture->sampler, nullptr);
+			vkDestroyImageView(logicalDevice, texture->imageView, nullptr);
+			vkDestroyImage(logicalDevice, texture->image, nullptr);
+			vkFreeMemory(logicalDevice, texture->imageMemory, nullptr);
 		}
 
-		vkDestroyDescriptorSetLayout(logicalDevice, descriptorSetLayout, nullptr);
+		vkDestroyDescriptorSetLayout(logicalDevice, globalDescriptorSetLayout, nullptr);
+		vkDestroyDescriptorSetLayout(logicalDevice, instanceDescriptorSetLayout, nullptr);
+		vkDestroyDescriptorSetLayout(logicalDevice, materialDescriptorSetLayout, nullptr);
+		vkDestroyDescriptorSetLayout(logicalDevice, lightsDescriptorSetLayout, nullptr);
 
 		vkDestroyBuffer(logicalDevice, globalBuffers.indexBuffer, nullptr);
 		vkFreeMemory(logicalDevice, globalBuffers.indexBufferMemory, nullptr);
@@ -98,7 +123,7 @@ namespace tessera::vulkan
 		vkDestroyBuffer(logicalDevice, globalBuffers.vertexBuffer, nullptr);
 		vkFreeMemory(logicalDevice, globalBuffers.vertexBufferMemory, nullptr);
 
-		for (size_t i = 0; i < VulkanRenderer::MAX_FRAMES_IN_FLIGHT; i++)
+		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 		{
 			vkDestroySemaphore(logicalDevice, renderFinishedSemaphores[i], nullptr);
 			vkDestroySemaphore(logicalDevice, imageAvailableSemaphores[i], nullptr);
@@ -112,7 +137,7 @@ namespace tessera::vulkan
 
 		vkDestroyDevice(logicalDevice, nullptr);
 
-		if (VulkanRenderer::validationLayersAreEnabled())
+		if (validationLayersAreEnabled())
 		{
 			destroyDebugUtilsMessengerExt(debugMessenger, nullptr);
 		}
@@ -201,7 +226,7 @@ namespace tessera::vulkan
 	
 	void VulkanRenderer::importMesh(const std::string& meshPath)
 	{
-		Mesh newMesh = ObjImporter::importFromFile(meshPath);
+		Mesh newMesh = importMeshFromFile(meshPath);
 		std::lock_guard lock(importModelMutex);
 		modelQueue.emplace(meshPath, std::make_shared<Mesh>(newMesh));
 	}
@@ -222,16 +247,17 @@ namespace tessera::vulkan
 			
 			CORE->world.getStorage()->addNewMesh(meshPath, newMesh);
 
-			models.push_back({
+			meshInstances.push_back({
 				.mesh = newMesh,
-				.transform = math::Matrix4x4::identity()
+				.transform = math::Matrix4x4::identity(),
+				.instanceDescriptorSets = {}
 			});
 		}
 		
 		std::vector<math::Vertex> allVertices;
 		std::vector<uint32_t> allIndices;
 
-		for (const auto& mesh : CORE->world.getStorage()->getMeshes())
+		for (const auto& mesh : CORE->world.getStorage()->getAllMeshes())
 		{
 			for (auto& meshPart : mesh->meshParts)
 			{
@@ -249,10 +275,13 @@ namespace tessera::vulkan
 		globalBuffers.totalVertices = allVertices.size();
 		globalBuffers.totalIndices = allIndices.size();
 
-		for (auto& mesh : CORE->world.getStorage()->getMeshes())
+		for (auto& mesh : CORE->world.getStorage()->getAllMeshes())
 		{
-			createDescriptorSets(mesh);
+			createMeshDescriptorSets(mesh);
 		}
+
+		createLightsDescriptorSets();
+
 	}
 
 	void VulkanRenderer::createInstance()
@@ -349,7 +378,9 @@ namespace tessera::vulkan
 
 	std::vector<const char*> VulkanRenderer::getValidationLayers()
 	{
-		return { "VK_LAYER_KHRONOS_validation" };
+		return {
+			"VK_LAYER_KHRONOS_validation"
+		};
 	}
 
 	void VulkanRenderer::checkIfAllRequiredExtensionsAreSupported()
@@ -445,8 +476,13 @@ namespace tessera::vulkan
 
 		VkDebugUtilsMessengerCreateInfoEXT createInfo{};
 		populate(createInfo);
-
 		ASSERT(createDebugUtilsMessengerExt(&createInfo, nullptr, &debugMessenger) == VK_SUCCESS, "failed to set up debug messenger.");
+
+		// Setup debug object name extension
+		vkSetDebugUtilsObjectNameEXT
+			= reinterpret_cast<PFN_vkSetDebugUtilsObjectNameEXT>(vkGetInstanceProcAddr(instance, "vkSetDebugUtilsObjectNameEXT"));
+
+		ASSERT(vkSetDebugUtilsObjectNameEXT, "Failed to load vkSetDebugUtilsObjectNameEXT");
 	}
 
 	VkResult VulkanRenderer::createDebugUtilsMessengerExt(const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
@@ -461,10 +497,27 @@ namespace tessera::vulkan
 		return VK_ERROR_EXTENSION_NOT_PRESENT;
 	}
 
+	void VulkanRenderer::setDebugObjectName(const uint64_t objectHandle, const VkObjectType objectType, const char* name) const
+	{
+		if (vkSetDebugUtilsObjectNameEXT)
+		{
+			VkDebugUtilsObjectNameInfoEXT nameInfo{};
+			nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
+			nameInfo.objectType = objectType;
+			nameInfo.objectHandle = objectHandle;
+			nameInfo.pObjectName = name;
+
+			vkSetDebugUtilsObjectNameEXT(logicalDevice, &nameInfo);
+		}
+		else
+		{
+			LOG_WARNING("VkDebugUtilsObjectNameInfoEXT is not properly set.");
+		}
+		
+	}
+
 	void VulkanRenderer::createSurface()
 	{
-		//const std::shared_ptr<GLFWwindow>& window = CORE->graphicsLibrary->getWindow();
-		//ASSERT(glfwCreateWindowSurface(instance, window.get(), nullptr, &surface) == VK_SUCCESS, "failed to create window surface.");
 		surface = CORE->platform->createVulkanSurface(instance);
 	}
 
@@ -686,6 +739,7 @@ namespace tessera::vulkan
 			imageCount = capabilities.maxImageCount;
 		}
 
+		// FIXME:  Swap chain extent is invalid (window may be minimized)
 		ASSERT(extent.width != 0 && extent.height != 0, "Swap chain extent is invalid (window may be minimized)");
 
 		VkSwapchainCreateInfoKHR createInfo{};
@@ -941,37 +995,154 @@ namespace tessera::vulkan
 
 	void VulkanRenderer::createDescriptorSetLayout()
 	{
-		// Binding 0: Global UBO
-		VkDescriptorSetLayoutBinding globalUboBinding{};
-		globalUboBinding.binding = 0;
-		globalUboBinding.descriptorCount = 1;
-		globalUboBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		globalUboBinding.pImmutableSamplers = nullptr;
-		globalUboBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+		createGlobalDescriptorSetLayout();
+		createInstanceDescriptorSetLayout();
+		createMaterialDescriptorSetLayout();
+		createLightsDescriptorSetLayout();
+	}
 
-		// Binding 1: Instance UBO
-		VkDescriptorSetLayoutBinding instanceUboBinding{};
-		instanceUboBinding.binding = 1;
-		instanceUboBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		instanceUboBinding.descriptorCount = 1;
-		instanceUboBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-		instanceUboBinding.pImmutableSamplers = nullptr;
+	void VulkanRenderer::createGlobalDescriptorSetLayout()
+	{
+		// Descriptor Set 0 - Global UBO
+		const std::array<VkDescriptorSetLayoutBinding, 1> globalBindings =
+			{{
+				// Binding 0: Global UBO
+				{
+					.binding= 0,
+					.descriptorType= VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+					.descriptorCount= 1,
+					.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+					.pImmutableSamplers= nullptr
+				},
+			}};
 
-		// Binding 2: Combined image sampler (for the texture)
-		VkDescriptorSetLayoutBinding samplerLayoutBinding{};
-		samplerLayoutBinding.binding = 2;
-		samplerLayoutBinding.descriptorCount = 1;
-		samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		samplerLayoutBinding.pImmutableSamplers = nullptr;
-		samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+		const VkDescriptorSetLayoutCreateInfo layoutInfo =
+			{
+				.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+				.pNext = nullptr,
+				.flags = 0,
+				.bindingCount = static_cast<uint32_t>(globalBindings.size()),
+				.pBindings = globalBindings.data()
+			};
+	
+		ASSERT(vkCreateDescriptorSetLayout(logicalDevice, &layoutInfo, nullptr, &globalDescriptorSetLayout) == VK_SUCCESS,
+			   "failed to create global descriptor set layout.");
+	}
 
-		const std::array bindings = { globalUboBinding, instanceUboBinding, samplerLayoutBinding };
-		VkDescriptorSetLayoutCreateInfo layoutInfo{};
-		layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-		layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
-		layoutInfo.pBindings = bindings.data();
+	void VulkanRenderer::createInstanceDescriptorSetLayout()
+	{
+		// Descriptor Set 1 - Instance UBO
+		const std::array<VkDescriptorSetLayoutBinding, 1> instanceBindings =
+			{{
+				// Binding 0: Instance UBO
+				{
+					.binding= 0,
+					.descriptorType= VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+					.descriptorCount= 1,
+					.stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+					.pImmutableSamplers= nullptr
+				},
+			}};
 
-		ASSERT(vkCreateDescriptorSetLayout(logicalDevice, &layoutInfo, nullptr, &descriptorSetLayout) == VK_SUCCESS, "failed to create descriptor set layout.");
+		const VkDescriptorSetLayoutCreateInfo layoutInfo =
+			{
+					.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+					.pNext = nullptr,
+					.flags = 0,
+					.bindingCount = static_cast<uint32_t>(instanceBindings.size()),
+					.pBindings = instanceBindings.data()
+			};
+		
+		ASSERT(vkCreateDescriptorSetLayout(logicalDevice, &layoutInfo, nullptr, &instanceDescriptorSetLayout) == VK_SUCCESS,
+			   "failed to create instance descriptor set layout.");
+	}
+
+	void VulkanRenderer::createMaterialDescriptorSetLayout()
+	{
+		// Descriptor Set 2 - Material
+		const std::array<VkDescriptorSetLayoutBinding, NUMBER_OF_TEXTURE_TYPES> materialBindings = 
+			{{
+				// Binding 0: Albedo
+				{
+					.binding= 0,
+					.descriptorType= VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+					.descriptorCount= 1,
+					.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+					.pImmutableSamplers= nullptr
+				},
+				// Binding 1: Normal
+				{
+					.binding= 1,
+					.descriptorType= VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+					.descriptorCount= 1,
+					.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+					.pImmutableSamplers= nullptr
+				},
+				// Binding 2: Metallic
+				{
+					.binding= 2,
+					.descriptorType= VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+					.descriptorCount= 1,
+					.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+					.pImmutableSamplers= nullptr
+				},
+				// Binding 3: Roughness
+				{
+					.binding= 3,
+					.descriptorType= VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+					.descriptorCount= 1,
+					.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+					.pImmutableSamplers= nullptr
+				},
+				// Binding 4: Ambient Occlusion
+				{
+					.binding= 4,
+					.descriptorType= VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+					.descriptorCount= 1,
+					.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+					.pImmutableSamplers= nullptr
+				},
+			}};
+
+		const VkDescriptorSetLayoutCreateInfo layoutInfo =
+			{
+				.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+				.pNext = nullptr,
+				.flags = 0,
+				.bindingCount = static_cast<uint32_t>(materialBindings.size()),
+				.pBindings = materialBindings.data()
+			};
+		
+		ASSERT(vkCreateDescriptorSetLayout(logicalDevice, &layoutInfo, nullptr, &materialDescriptorSetLayout) == VK_SUCCESS,
+			   "failed to create material descriptor set layout.");
+	}
+
+	void VulkanRenderer::createLightsDescriptorSetLayout()
+	{
+		// Descriptor Set 3 - Lights
+		const std::array<VkDescriptorSetLayoutBinding, 1> lightBindings = 
+			{{
+				// Binding 0: Light UBO
+				{
+					.binding= 0,
+					.descriptorType= VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+					.descriptorCount= 1,
+					.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+					.pImmutableSamplers= nullptr
+				},
+			}};
+
+		const VkDescriptorSetLayoutCreateInfo layoutInfo =
+			{
+				.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+				.pNext = nullptr,
+				.flags = 0,
+				.bindingCount = static_cast<uint32_t>(lightBindings.size()),
+				.pBindings = lightBindings.data()
+			};
+		
+		ASSERT(vkCreateDescriptorSetLayout(logicalDevice, &layoutInfo, nullptr, &lightsDescriptorSetLayout) == VK_SUCCESS,
+			   "failed to create lights descriptor set layout.");
 	}
 
 	void VulkanRenderer::createGraphicsPipeline()
@@ -1026,8 +1197,6 @@ namespace tessera::vulkan
 		rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
 		rasterizer.lineWidth = 1.0f;
 		rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-
-		
 		rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 		rasterizer.depthBiasEnable = VK_FALSE;
 		rasterizer.depthBiasConstantFactor = 0.0f;
@@ -1086,13 +1255,24 @@ namespace tessera::vulkan
 		dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
 		dynamicState.pDynamicStates = dynamicStates.data();
 
+		std::array descriptorSetsLayouts = {
+			globalDescriptorSetLayout,
+			instanceDescriptorSetLayout,
+			materialDescriptorSetLayout,
+			lightsDescriptorSetLayout
+		};
+		
 		// Pipeline layout.
-		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
-		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-		pipelineLayoutInfo.setLayoutCount = 1;
-		pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout;
-		pipelineLayoutInfo.pushConstantRangeCount = 0;
-		pipelineLayoutInfo.pPushConstantRanges = nullptr;
+		const VkPipelineLayoutCreateInfo pipelineLayoutInfo =
+			{
+				.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+				.pNext = nullptr,
+				.flags = 0,
+				.setLayoutCount = static_cast<uint32_t>(descriptorSetsLayouts.size()),
+				.pSetLayouts = descriptorSetsLayouts.data(),
+				.pushConstantRangeCount = 0,
+				.pPushConstantRanges = nullptr,
+			};
 
 		ASSERT(vkCreatePipelineLayout(logicalDevice, &pipelineLayoutInfo, nullptr, &pipelineLayout) == VK_SUCCESS, "failed to create pipeline layout.");
 
@@ -1193,19 +1373,18 @@ namespace tessera::vulkan
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 		renderPassInfo.renderPass = renderPass;
 		renderPassInfo.framebuffer = swapChainFramebuffers[imageIndex];
-		renderPassInfo.renderArea.offset = { 0, 0 };
+		renderPassInfo.renderArea.offset = { .x = 0, .y = 0};
 		renderPassInfo.renderArea.extent = swapChainDetails.swapChainExtent;
 
 		std::array<VkClearValue, 2> clearValues{};
 		clearValues[0].color = { {0.0f, 0.0f, 0.0f, 1.0f} };
-		clearValues[1].depthStencil = { 1.0f, 0 };
+		clearValues[1].depthStencil = { .depth = 1.0f, .stencil = 0};
 
 		renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
 		renderPassInfo.pClearValues = clearValues.data();
 
 		// Draw.
 		vkCmdBeginRenderPass(commandBufferToRecord, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-		// TODO: Maybe RAII initialization?
 		// Bind the graphics pipeline.
 		vkCmdBindPipeline(commandBufferToRecord, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 		VkViewport viewport{};
@@ -1218,7 +1397,7 @@ namespace tessera::vulkan
 		vkCmdSetViewport(commandBufferToRecord, 0, 1, &viewport);
 
 		VkRect2D scissor{};
-		scissor.offset = { 0, 0 };
+		scissor.offset = { .x = 0, .y = 0 };
 		scissor.extent = swapChainDetails.swapChainExtent;
 		vkCmdSetScissor(commandBufferToRecord, 0, 1, &scissor);
 
@@ -1227,14 +1406,48 @@ namespace tessera::vulkan
 		vkCmdBindVertexBuffers(commandBufferToRecord, 0, 1, vertexBuffers, offsets);
 		vkCmdBindIndexBuffer(commandBufferToRecord, globalBuffers.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
-		for (const auto& [mesh, transform] : models)
-		{
-			for (const auto& meshPart : mesh->meshParts)
-			{
-				// Bind the model's descriptor set.
-				vkCmdBindDescriptorSets(commandBufferToRecord, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1,
-					&meshPart.descriptorSets[currentFrame], 0, nullptr);
+		// Bind the global descriptor set.
+		vkCmdBindDescriptorSets(
+			commandBufferToRecord,
+			VK_PIPELINE_BIND_POINT_GRAPHICS,
+			pipelineLayout,
+			0,
+			1,
+			&globalDescriptorSets[currentFrame], 0, nullptr);
 
+		// Bind the directional light descriptor set.
+		vkCmdBindDescriptorSets(
+				commandBufferToRecord,
+				VK_PIPELINE_BIND_POINT_GRAPHICS,
+				pipelineLayout,
+				3,
+				1,
+				&directionalLight.descriptorSets[currentFrame], 0, nullptr);
+		
+		for (const auto& meshInstance : meshInstances)
+		{
+			// Bind the instance descriptor set.
+			vkCmdBindDescriptorSets(
+				commandBufferToRecord,
+				VK_PIPELINE_BIND_POINT_GRAPHICS,
+				pipelineLayout,
+				1,
+				1,
+				&meshInstance.instanceDescriptorSets[currentFrame], 0, nullptr);
+
+			
+			for (const auto& meshPart : meshInstance.mesh->meshParts)
+			{
+				// Bind the material descriptor set.
+				vkCmdBindDescriptorSets(
+					commandBufferToRecord,
+					VK_PIPELINE_BIND_POINT_GRAPHICS,
+					pipelineLayout,
+					2,
+					1,
+					&meshPart.material->materialDescriptorSet, 0, nullptr);
+
+				// Draw mesh part.
 				vkCmdDrawIndexed(commandBufferToRecord,
 					static_cast<uint32_t>(meshPart.indexCount),
 					1,
@@ -1243,6 +1456,8 @@ namespace tessera::vulkan
 					0);
 			}
 		}
+
+		
 		
 		CORE->graphicsLibrary->renderDrawData(commandBufferToRecord);
 		vkCmdEndRenderPass(commandBufferToRecord);
@@ -1370,7 +1585,7 @@ namespace tessera::vulkan
 		return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
 	}
 
-	void VulkanRenderer::generateMipmaps(const Texture& texture, const VkFormat imageFormat, const int32_t texWidth, const int32_t texHeight)
+	void VulkanRenderer::generateMipmaps(const VulkanTexture& texture, const VkFormat imageFormat, const int32_t texWidth, const int32_t texHeight)
 	{
 		// Check if image format supports linear blitting
 		VkFormatProperties formatProperties;
@@ -1382,7 +1597,7 @@ namespace tessera::vulkan
 
 		VkImageMemoryBarrier barrier{};
 		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-		barrier.image = texture.textureImage;
+		barrier.image = texture.image;
 		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -1421,8 +1636,8 @@ namespace tessera::vulkan
 			blit.dstSubresource.layerCount = 1;
 
 			vkCmdBlitImage(commandBuffer,
-				texture.textureImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-				texture.textureImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+				texture.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+				texture.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 				1, &blit,
 				VK_FILTER_LINEAR);
 
@@ -1623,7 +1838,7 @@ namespace tessera::vulkan
 		std::vector<math::Vertex> allVertices;
 		std::vector<uint32_t> allIndices;
 
-		for (auto& mesh : CORE->world.getStorage()->getMeshes())
+		for (auto& mesh : CORE->world.getStorage()->getAllMeshes())
 		{
 			for (auto& meshPart : mesh->meshParts)
 			{
@@ -1781,54 +1996,68 @@ namespace tessera::vulkan
 		// Global UBO
 		constexpr VkDeviceSize globalUboSize = sizeof(math::GlobalUbo);
 
-		globalUboBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-		globalUboMemory.resize(MAX_FRAMES_IN_FLIGHT);
-		globalUboMapped.resize(MAX_FRAMES_IN_FLIGHT);
-
 		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 		{
 			createBuffer(
 				globalUboSize,
 				VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-				globalUboBuffers[i],
-				globalUboMemory[i]);
+				globalUboBuffer.frameBuffers[i],
+				globalUboBuffer.memory[i]);
 
-			ASSERT(globalUboBuffers[i] != VK_NULL_HANDLE, "Global Buffer must be valid");
-			vkMapMemory(logicalDevice, globalUboMemory[i], 0, globalUboSize, 0, &globalUboMapped[i]);
+			ASSERT(globalUboBuffer.frameBuffers[i] != VK_NULL_HANDLE, "Global Buffer must be valid");
+			vkMapMemory(
+				logicalDevice,
+				globalUboBuffer.memory[i],
+				0,
+				globalUboSize,
+				0,
+				&globalUboBuffer.mapped[i]);
 		}
 
-		ASSERT(globalUboBuffers[0] != VK_NULL_HANDLE, "Global Buffer must be invalid");
-
-
+		ASSERT(globalUboBuffer.frameBuffers[0] != VK_NULL_HANDLE, "Global Buffer must be invalid");
+		
 		// Instance UBO
 		constexpr VkDeviceSize instanceUboSize = sizeof(math::InstanceUbo);
-
-		instanceUboBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-		instanceUboMemory.resize(MAX_FRAMES_IN_FLIGHT);
-		instanceUboMapped.resize(MAX_FRAMES_IN_FLIGHT);
 
 		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 		{
 			createBuffer(instanceUboSize,
 				VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-				instanceUboBuffers[i],
-				instanceUboMemory[i]);
+				instanceUboBuffer.frameBuffers[i],
+				instanceUboBuffer.memory[i]);
 
-			ASSERT(instanceUboBuffers[i] != VK_NULL_HANDLE, "Instance Buffer must be valid");
+			ASSERT(instanceUboBuffer.frameBuffers[i] != VK_NULL_HANDLE, "Instance Buffer must be valid");
 
-			vkMapMemory(logicalDevice, instanceUboMemory[i], 0, instanceUboSize, 0, &instanceUboMapped[i]);
+			vkMapMemory(logicalDevice, instanceUboBuffer.memory[i], 0, instanceUboSize, 0, &instanceUboBuffer.mapped[i]);
 		}
 
-		ASSERT(instanceUboBuffers[0] != VK_NULL_HANDLE, "Instance Buffer must be valid");
+		ASSERT(instanceUboBuffer.frameBuffers[0] != VK_NULL_HANDLE, "Instance Buffer must be valid");
 
+		// Directional Light UBO
+		constexpr VkDeviceSize lightUboSize = sizeof(math::DirectionalLightUbo);
+		
+		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+		{
+			createBuffer(lightUboSize,
+				VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+				directionalLightUboBuffer.frameBuffers[i],
+				directionalLightUboBuffer.memory[i]);
+
+			ASSERT(directionalLightUboBuffer.frameBuffers[i] != VK_NULL_HANDLE, "Directional Light Buffer must be valid");
+
+			vkMapMemory(logicalDevice, directionalLightUboBuffer.memory[i], 0, lightUboSize, 0, &directionalLightUboBuffer.mapped[i]);
+		}
+	
 	}
 
-	void VulkanRenderer::updateUniformBuffer(const uint32_t currentImage) const
+	void VulkanRenderer::updateUniformBuffer(const uint32_t currentImage)
 	{
 		const SpectatorCamera camera = CORE->world.getMainCamera();
 
+		// Global UBO
 		math::GlobalUbo globalUbo{};
 
 		globalUbo.view = math::Matrix4x4::lookAt(
@@ -1840,103 +2069,252 @@ namespace tessera::vulkan
 			math::radians(45.0f),
 			static_cast<float>(swapChainDetails.swapChainExtent.width) / static_cast<float>(swapChainDetails.swapChainExtent.height),
 			Z_NEAR, Z_FAR);
-		
-		memcpy(globalUboMapped[currentImage], &globalUbo, sizeof(globalUbo));
 
+		globalUbo.debug = isDrawDebugEnabled;
+		
+		memcpy(globalUboBuffer.mapped[currentImage], &globalUbo, sizeof(globalUbo));
+
+		// Instance UBO
 		math::InstanceUbo instanceUbo{};
 		instanceUbo.model = math::Matrix4x4();
 
-		memcpy(instanceUboMapped[currentImage], &instanceUbo, sizeof(instanceUbo));
+		memcpy(instanceUboBuffer.mapped[currentImage], &instanceUbo, sizeof(instanceUbo));
 
+		// Directional Light UBO
+		math::DirectionalLightUbo directionalLightUbo{};
+		directionalLightUbo.color = directionalLight.light.color;
+		directionalLightUbo.direction = directionalLight.light.direction;
+		
+		memcpy(directionalLightUboBuffer.mapped[currentFrame], &directionalLightUbo, sizeof(directionalLightUbo));
 	}
 
 	void VulkanRenderer::createDescriptorPool()
 	{
-		size_t numberOfMeshes = 1000;
-		// for (const auto& [mesh, transform] : models)
-		// {
-		// 	numberOfMeshes += mesh->meshParts.size();
-		// }
-		
-		std::array<VkDescriptorPoolSize, 2> poolSizes{};
-		poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		poolSizes[0].descriptorCount = static_cast<uint32_t>(numberOfMeshes * MAX_FRAMES_IN_FLIGHT) * 2;
-		poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;	
-		poolSizes[1].descriptorCount = static_cast<uint32_t>(numberOfMeshes * MAX_FRAMES_IN_FLIGHT) + IMAGE_SAMPLER_POOL_SIZE;
+		constexpr std::array<VkDescriptorPoolSize, 4> poolSizes =
+			{{
+				// Descriptor pool for global descriptor set (set = 0)
+				{
+					.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+					.descriptorCount = MAX_FRAMES_IN_FLIGHT
+				},
+				// Descriptor pool for instance descriptor set (set = 1)
+				{
+					.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+					.descriptorCount = MAX_FRAMES_IN_FLIGHT * MAX_NUMBER_OF_MESHES * 2
+				},
+				// Descriptor pool for material descriptor set (set = 2)
+				{
+					.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+					.descriptorCount = MAX_NUMBER_OF_MESHES * NUMBER_OF_TEXTURE_TYPES + IMAGE_SAMPLER_POOL_SIZE
+				},
+				// Descriptor pool for light descriptor set (set = 3)
+				{
+					.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+					.descriptorCount = MAX_FRAMES_IN_FLIGHT
+				},
+			}};
 		
 		VkDescriptorPoolCreateInfo poolInfo{};
 		poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 		poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
 		poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
 		poolInfo.pPoolSizes = poolSizes.data();
-		poolInfo.maxSets = static_cast<uint32_t>(numberOfMeshes * MAX_FRAMES_IN_FLIGHT) * 2;
+		poolInfo.maxSets
+			= static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT * MAX_NUMBER_OF_MESHES * NUMBER_OF_TEXTURE_TYPES + IMAGE_SAMPLER_POOL_SIZE + 1);
 
 		ASSERT(vkCreateDescriptorPool(logicalDevice, &poolInfo, nullptr, &descriptorPool) == VK_SUCCESS, "failed to create descriptor pool.");
 	}
 
-	void VulkanRenderer::createDescriptorSets(const std::shared_ptr<Mesh>& mesh) const
+	void VulkanRenderer::createMeshDescriptorSets(const std::shared_ptr<Mesh>& mesh)
+	{
+		createGlobalDescriptorSets();
+		createInstanceDescriptorSets();
+		createMaterialDescriptorSets(mesh);
+	}
+
+	void VulkanRenderer::createGlobalDescriptorSets()
+	{
+		const std::vector globalLayouts(MAX_FRAMES_IN_FLIGHT, globalDescriptorSetLayout);
+		VkDescriptorSetAllocateInfo globalAllocateInfo{};
+		globalAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+		globalAllocateInfo.descriptorPool = descriptorPool;
+		globalAllocateInfo.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+		globalAllocateInfo.pSetLayouts = globalLayouts.data();
+
+		ASSERT(vkAllocateDescriptorSets(logicalDevice, &globalAllocateInfo, globalDescriptorSets.data()) == VK_SUCCESS,
+			"Failed to allocate global descriptor sets.");
+
+		for (size_t frameIndex = 0; frameIndex < MAX_FRAMES_IN_FLIGHT; frameIndex++)
+		{
+			// Global UBO descriptor set
+			const VkDescriptorBufferInfo globalBufferInfo =
+				{
+					.buffer = globalUboBuffer.frameBuffers[frameIndex],
+					.offset = 0,
+					.range = sizeof(math::GlobalUbo)
+				};
+
+			const VkWriteDescriptorSet globalWrite =
+				{
+				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+				.pNext = nullptr,
+				.dstSet = globalDescriptorSets[frameIndex],
+				.dstBinding = 0,
+				.dstArrayElement = 0,
+				.descriptorCount = 1,
+				.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+				.pImageInfo = nullptr,
+				.pBufferInfo = &globalBufferInfo,
+				.pTexelBufferView = nullptr
+			};
+
+			vkUpdateDescriptorSets(logicalDevice, 1, &globalWrite, 0, nullptr);
+		}
+	}
+	
+	void VulkanRenderer::createInstanceDescriptorSets()
+	{
+		for (auto& meshInstance : meshInstances)
+		{
+			const std::vector instanceLayouts(MAX_FRAMES_IN_FLIGHT, instanceDescriptorSetLayout);
+			VkDescriptorSetAllocateInfo instanceSetAllocateInfo{};
+			instanceSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+			instanceSetAllocateInfo.descriptorPool = descriptorPool;
+			instanceSetAllocateInfo.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+			instanceSetAllocateInfo.pSetLayouts = instanceLayouts.data();
+
+			meshInstance.instanceDescriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
+			ASSERT(vkAllocateDescriptorSets(logicalDevice, &instanceSetAllocateInfo, meshInstance.instanceDescriptorSets.data()) == VK_SUCCESS,
+				"Failed to allocate instance descriptor sets.");
+
+			for (size_t frameIndex = 0; frameIndex < MAX_FRAMES_IN_FLIGHT; frameIndex++)
+			{
+				// Instance UBO descriptor set
+				const VkDescriptorBufferInfo instanceBufferInfo =
+					{
+						.buffer = instanceUboBuffer.frameBuffers[frameIndex],
+						.offset = 0,
+						.range = sizeof(math::InstanceUbo)
+					};
+
+				const VkWriteDescriptorSet descriptorWrite =
+					{
+						.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+						.pNext = nullptr,
+						.dstSet = meshInstance.instanceDescriptorSets[frameIndex],
+						.dstBinding = 0,
+						.dstArrayElement = 0,
+						.descriptorCount = 1,
+						.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+						.pImageInfo = nullptr,
+						.pBufferInfo = &instanceBufferInfo,
+						.pTexelBufferView = nullptr
+					};
+
+				vkUpdateDescriptorSets(logicalDevice, 1, &descriptorWrite, 0, nullptr);
+			}
+		}
+	}
+
+	void VulkanRenderer::createMaterialDescriptorSets(const std::shared_ptr<Mesh>& mesh) const
 	{
 		for (auto& meshPart : mesh->meshParts)
 		{
-			const std::vector layouts(MAX_FRAMES_IN_FLIGHT, descriptorSetLayout);
+			// Material descriptor set
+			ASSERT(meshPart.material, "Material must exist for any mesh part.");
+			const auto& material = meshPart.material;
+			
 			VkDescriptorSetAllocateInfo allocInfo{};
 			allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 			allocInfo.descriptorPool = descriptorPool;
-			allocInfo.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
-			allocInfo.pSetLayouts = layouts.data();
+			allocInfo.descriptorSetCount = 1;
+			allocInfo.pSetLayouts = &materialDescriptorSetLayout;
 
-			meshPart.descriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
-			ASSERT(vkAllocateDescriptorSets(logicalDevice, &allocInfo, meshPart.descriptorSets.data()) == VK_SUCCESS, "failed to allocate descriptor sets.");
+			ASSERT(vkAllocateDescriptorSets(logicalDevice, &allocInfo, &material->materialDescriptorSet) == VK_SUCCESS,
+				"Failed to allocate material descriptor sets.");
+        
+			std::vector<VkDescriptorImageInfo> imageInfos;
+			imageInfos.reserve(NUMBER_OF_TEXTURE_TYPES);
 
-			for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+			material->iterateAllTextures([&]([[maybe_unused]] const TextureType textureType, const std::shared_ptr<const VulkanTexture>& texture)
 			{
-				VkDescriptorBufferInfo globalBufferInfo{};
-				globalBufferInfo.buffer = globalUboBuffers[i];
-				globalBufferInfo.offset = 0;
-				globalBufferInfo.range = sizeof(math::GlobalUbo);
-			
-				VkDescriptorBufferInfo instanceBufferInfo{};
-				instanceBufferInfo.buffer = instanceUboBuffers[i];
-				instanceBufferInfo.offset = 0;
-				instanceBufferInfo.range = sizeof(math::InstanceUbo);
+				imageInfos.push_back(
+					{
+						.sampler = texture->sampler,
+						.imageView = texture->imageView,
+						.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+					});
+			});
 
-				DEBUG_ASSERT(meshPart.texture, "Texture must exist for any mesh part.");
-
-				VkDescriptorImageInfo imageInfo{};
-				imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-				imageInfo.imageView = meshPart.texture->textureImageView;
-				imageInfo.sampler = meshPart.texture->textureSampler;
-			
-				std::array<VkWriteDescriptorSet, 3> descriptorWrites{};
-
-				descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-				descriptorWrites[0].dstSet = meshPart.descriptorSets[i];
-				descriptorWrites[0].dstBinding = 0;
-				descriptorWrites[0].dstArrayElement = 0;
-				descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-				descriptorWrites[0].descriptorCount = 1;
-				descriptorWrites[0].pBufferInfo = &globalBufferInfo;
-
-				descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-				descriptorWrites[1].dstSet = meshPart.descriptorSets[i];
-				descriptorWrites[1].dstBinding = 1;
-				descriptorWrites[1].dstArrayElement = 0;
-				descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-				descriptorWrites[1].descriptorCount = 1;
-				descriptorWrites[1].pBufferInfo = &instanceBufferInfo;
-
-				descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-				descriptorWrites[2].dstSet = meshPart.descriptorSets[i];
-				descriptorWrites[2].dstBinding = 2;
-				descriptorWrites[2].dstArrayElement = 0;
-				descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-				descriptorWrites[2].descriptorCount = 1;
-				descriptorWrites[2].pImageInfo = &imageInfo;
-
-				vkUpdateDescriptorSets(logicalDevice, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+			std::vector<VkWriteDescriptorSet> descriptorWrites;
+			descriptorWrites.reserve(imageInfos.size());
+			for (uint32_t i = 0; i < imageInfos.size(); ++i)
+			{
+				descriptorWrites.push_back({
+					.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+					.pNext = nullptr,
+					.dstSet = material->materialDescriptorSet,
+					.dstBinding = i,
+					.dstArrayElement = 0,
+					.descriptorCount = 1,
+					.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+					.pImageInfo = &imageInfos[i],
+					.pBufferInfo = nullptr,
+					.pTexelBufferView = nullptr
+				});
 			}
+
+			vkUpdateDescriptorSets(logicalDevice,
+				static_cast<uint32_t>(descriptorWrites.size()),
+				descriptorWrites.data(),
+				0, nullptr);
+		}
+	}
+
+	void VulkanRenderer::createLightsDescriptorSets()
+	{
+		if (!directionalLight.descriptorSets.empty())
+		{
+			return;
 		}
 		
+		const std::vector lightLayouts(MAX_FRAMES_IN_FLIGHT, lightsDescriptorSetLayout);
+		VkDescriptorSetAllocateInfo lightSetAllocateInfo{};
+		lightSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+		lightSetAllocateInfo.descriptorPool = descriptorPool;
+		lightSetAllocateInfo.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+		lightSetAllocateInfo.pSetLayouts = lightLayouts.data();
+
+		directionalLight.descriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
+		ASSERT(vkAllocateDescriptorSets(logicalDevice, &lightSetAllocateInfo, directionalLight.descriptorSets.data()) == VK_SUCCESS,
+			"Failed to allocate instance descriptor sets.");
+
+		for (size_t frameIndex = 0; frameIndex < MAX_FRAMES_IN_FLIGHT; frameIndex++)
+		{
+			// Light UBO descriptor set
+			const VkDescriptorBufferInfo directionalLightBufferInfo =
+				{
+					.buffer = directionalLightUboBuffer.frameBuffers[frameIndex],
+					.offset = 0,
+					.range = sizeof(math::DirectionalLightUbo)
+				};
+
+			const VkWriteDescriptorSet descriptorWrite =
+				{
+					.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+					.pNext = nullptr,
+					.dstSet = directionalLight.descriptorSets[frameIndex],
+					.dstBinding = 0,
+					.dstArrayElement = 0,
+					.descriptorCount = 1,
+					.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+					.pImageInfo = nullptr,
+					.pBufferInfo = &directionalLightBufferInfo,
+					.pTexelBufferView = nullptr
+				};
+
+			vkUpdateDescriptorSets(logicalDevice, 1, &descriptorWrite, 0, nullptr);
+		}
 	}
 
 	void VulkanRenderer::createSyncObjects()
@@ -2007,25 +2385,34 @@ namespace tessera::vulkan
 		return bindingDescription;
 	}
 
-	std::array<VkVertexInputAttributeDescription, 3> VulkanRenderer::getAttributeDescriptions()
+	std::array<VkVertexInputAttributeDescription, 4> VulkanRenderer::getAttributeDescriptions()
 	{
-		std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions{};
+		std::array<VkVertexInputAttributeDescription, 4> attributeDescriptions{};
 
+		// Vertex position
 		attributeDescriptions[0].binding = 0;
 		attributeDescriptions[0].location = 0;
 		attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
 		attributeDescriptions[0].offset = offsetof(math::Vertex, position);
 
+		// Normal vector
 		attributeDescriptions[1].binding = 0;
 		attributeDescriptions[1].location = 1;
 		attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-		attributeDescriptions[1].offset = offsetof(math::Vertex, color);
+		attributeDescriptions[1].offset = offsetof(math::Vertex, normal);
 
+		// Texture coordinates
 		attributeDescriptions[2].binding = 0;
 		attributeDescriptions[2].location = 2;
 		attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
 		attributeDescriptions[2].offset = offsetof(math::Vertex, textureCoordinates);
 
+		// Tangent
+		attributeDescriptions[3].binding = 0;
+		attributeDescriptions[3].location = 3;
+		attributeDescriptions[3].format = VK_FORMAT_R32G32B32_SFLOAT;
+		attributeDescriptions[3].offset = offsetof(math::Vertex, tangent);
+		
 		return attributeDescriptions;
 	}
 

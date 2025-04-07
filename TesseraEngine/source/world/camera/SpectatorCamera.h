@@ -23,7 +23,7 @@ namespace tessera
 
         float yaw = -90.0f;
         float pitch = 0.0f;
-        float speed = 10.5f;
+        float speed = 20.5f;
         float sensitivity = 0.25f;
 
         float speedAccelerationMultiplier = 3.5f;
