@@ -13,6 +13,12 @@ namespace tessera::math
     /*==================================
      * Vector2 
      *==================================*/
+    struct TrivialVector2
+    {
+        float x;
+        float y;
+    };
+    
     struct Vector2
     {
         float x, y;
@@ -38,20 +44,51 @@ namespace tessera::math
         // Move assignment operator
         Vector2& operator=(Vector2&& other) noexcept;
 
+        // Add two vectors
+        Vector2 operator+(const Vector2& other) const;
+        
+        // Subtract two vectors
+        Vector2 operator-(const Vector2& other) const;
+
+        // Addition assignment (+=)
+        Vector2& operator+=(const Vector2& other);
+
+        // Subtraction assignment (-=)
+        Vector2& operator-=(const Vector2& other);
+
+        // Scalar multiplication (*)
+        Vector2 operator*(float scalar) const;
+
+        // Scalar multiplication assignment (*=)
+        Vector2& operator*=(float scalar);
+
         // Equality operator
         bool operator==(const Vector2& other) const;
 
         // Inequality operator
         bool operator!=(const Vector2& other) const;
+
+        // Make trivially copyable copy of Vector3
+        [[nodiscard]] TrivialVector2 trivial() const noexcept { return { .x= x, .y= y }; }
     };
 
     /*==================================
      * Vector3
      *==================================*/
+    struct alignas(16) TrivialVector3
+    {
+        float x;
+        float y;
+        float z;
+        float pad = 0.0f;
+    };
+    
     struct Vector3
     {
-        float x, y, z;
-
+        float x;
+        float y;
+        float z;
+        
         // Default constructor
         Vector3() : x(0), y(0), z(0) {}
 
@@ -66,7 +103,7 @@ namespace tessera::math
 
         // Move constructor
         Vector3(Vector3&& other) noexcept : x(other.x), y(other.y), z(other.z) {}
-
+        
         // Copy assignment operator
         Vector3& operator=(const Vector3& other);
 
@@ -106,12 +143,22 @@ namespace tessera::math
         // Dot product
         [[nodiscard]] float dot(const Vector3& other) const;
 
+        // Default up vector
         static Vector3 up() { return { 0.0f, 1.0f, 0.0f }; }
+
+        // Make trivially copyable copy of Vector3
+        [[nodiscard]] TrivialVector3 trivial() const noexcept { return { .x= x, .y= y, .z= z }; }
     };
 
     /*==================================
      * Matrix4x4
      *==================================*/
+    // ReSharper disable once CppInconsistentNaming
+    struct alignas(16) TrivialMatrix4x4
+    {
+        float values[4][4];
+    };
+    
     // ReSharper disable once CppInconsistentNaming
     struct Matrix4x4
     {
@@ -158,11 +205,14 @@ namespace tessera::math
         // Transpose matrix
         [[nodiscard]] Matrix4x4 transpose() const;
 
+        [[nodiscard]] TrivialMatrix4x4 trivial() const noexcept;
+        
         static Matrix4x4 perspective(const float fovRadians, const float aspectRatio, const float near, const float far);
 
         static Matrix4x4 lookAt(const Vector3& eye, const Vector3& target, const Vector3& up);
 
         static Matrix4x4 identity() { return {}; }
+
     private:
         std::array<std::array<float, 4>, 4> values;
     };
@@ -170,12 +220,23 @@ namespace tessera::math
     /*==================================
      * Vertex
      *==================================*/
+    struct TrivialVertex
+    {
+        TrivialVector3 position;
+        TrivialVector3 normal;
+        TrivialVector3 tangent;
+        TrivialVector2 textureCoordinates;
+    };
+    
     struct Vertex
     {
         Vector3 position;
-        Vector3 color;
+        Vector3 normal;
+        Vector3 tangent;
         Vector2 textureCoordinates;
 
+        [[nodiscard]] TrivialVertex trivial() const noexcept;
+        
         bool operator==(const Vertex& other) const;
     };
     
@@ -211,13 +272,12 @@ namespace std
     };
 
     template <>
-    struct hash<tessera::math::Vertex>
-    {
-        size_t operator()(const tessera::math::Vertex& v) const noexcept
-        {
+    struct hash<tessera::math::Vertex> {
+        size_t operator()(const tessera::math::Vertex& v) const noexcept {
             return ((std::hash<tessera::math::Vector3>()(v.position) ^
-                     (std::hash<tessera::math::Vector3>()(v.color) << 1)) >> 1) ^
-                   (std::hash<tessera::math::Vector2>()(v.textureCoordinates) << 1);
+                    (std::hash<tessera::math::Vector3>()(v.normal) << 1)) >> 1) ^
+                   ((std::hash<tessera::math::Vector2>()(v.textureCoordinates) ^
+                    (std::hash<tessera::math::Vector3>()(v.tangent) << 1)) >> 1);
         }
     };
 }

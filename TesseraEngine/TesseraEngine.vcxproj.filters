@@ -64,13 +64,44 @@
     <ClCompile Include="source\graphics\imgui\ImGuiLibrary.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="source\graphics\gui\ConsoleGui.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="source\math\Math.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="source\renderer\vulkan\light\Light.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="source\renderer\vulkan\material\Material.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="source\renderer\vulkan\mesh\Mesh.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="source\renderer\vulkan\mesh\MeshInstance.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="source\renderer\vulkan\texture\VulkanTexture.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="source\threading\ThreadPool.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="source\world\camera\SpectatorCamera.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="source\world\Storage.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="source\world\World.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="source\Application.h" />
     <ClInclude Include="source\utils\TesseraLog.h" />
     <ClInclude Include="source\utils\Utils.h" />
-    <ClInclude Include="source\entities\Vertex.h" />
-    <ClInclude Include="source\entities\UniformBufferObject.h" />
     <ClInclude Include="source\renderer\Renderer.h" />
     <ClInclude Include="source\renderer\vulkan\VulkanRenderer.h" />
     <ClInclude Include="source\graphics\GraphicsLibrary.h" />
@@ -88,5 +119,25 @@
     <ClInclude Include="source\third-party\imgui\imstb_textedit.h" />
     <ClInclude Include="source\third-party\imgui\imstb_truetype.h" />
     <ClInclude Include="source\graphics\imgui\ImGuiLibrary.h" />
+    <ClInclude Include="source\graphics\gui\ConsoleGui.h" />
+    <ClInclude Include="source\math\Math.h" />
+    <ClInclude Include="source\math\UniformBufferObjects.h" />
+    <ClInclude Include="source\renderer\vulkan\light\Light.h" />
+    <ClInclude Include="source\renderer\vulkan\material\Material.h" />
+    <ClInclude Include="source\renderer\vulkan\mesh\Mesh.h" />
+    <ClInclude Include="source\renderer\vulkan\mesh\MeshInstance.h" />
+    <ClInclude Include="source\renderer\vulkan\texture\VulkanTexture.h" />
+    <ClInclude Include="source\threading\ThreadPool.h" />
+    <ClInclude Include="source\world\camera\SpectatorCamera.h" />
+    <ClInclude Include="source\world\Storage.h" />
+    <ClInclude Include="source\world\World.h" />
+    <ClInclude Include="resource.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="TesseraEngine.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="..\..\..\..\Users\BogdanPutintsev\Downloads\favicon\ms-icon-310x310.png" />
+    <Image Include="..\..\..\..\Users\BogdanPutintsev\Downloads\favicon\ms-icon-310x310.ico" />
   </ItemGroup>
 </Project>
