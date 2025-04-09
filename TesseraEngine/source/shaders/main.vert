@@ -24,7 +24,6 @@ layout(location = 2) out mat3 fragTBN;
 
 mat3 CalculateTBN()
 {
-
     vec3 N = normalize(inNormal);
     vec3 T = normalize(inTangent);
     vec3 B = normalize(cross(N, T)); // Ensure B is orthogonal

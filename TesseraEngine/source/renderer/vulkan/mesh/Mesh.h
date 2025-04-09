@@ -2,7 +2,6 @@
 #include <memory>
 #include <vector>
 #include <filesystem>
-#include <vulkan/vulkan_core.h>
 
 #include "math/Math.h"
 #include "renderer/vulkan/material/Material.h"
@@ -10,6 +9,12 @@
 namespace tessera
 {
 
+    enum class MeshType : uint8_t
+    {
+        STATIC_MESH,
+        SKY
+    };
+    
     struct MeshPart
     {
         size_t vertexOffset;
@@ -24,6 +29,7 @@ namespace tessera
 
     struct Mesh
     {
+        MeshType meshType;
         std::vector<MeshPart> meshParts;
     };
 

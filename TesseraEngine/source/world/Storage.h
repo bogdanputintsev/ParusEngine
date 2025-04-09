@@ -23,6 +23,7 @@ namespace tessera
             const std::string& ambientOcclusionTexturePath = "");
         bool hasMaterial(const std::string& materialName) const;
         std::shared_ptr<vulkan::Material> getMaterial(const std::string& materialName);
+        std::shared_ptr<vulkan::Material> getDefaultMaterial();
         std::vector<std::shared_ptr<vulkan::Material>> getAllMaterials() const;
         
         // --- Textures ---
@@ -37,9 +38,12 @@ namespace tessera
         void addNewMesh(const std::string& path, const std::shared_ptr<Mesh>& newMesh);
         std::shared_ptr<Mesh> getMeshByPath(const std::string& path);
         std::vector<std::shared_ptr<Mesh>> getAllMeshes() const;
-        
+        std::vector<std::shared_ptr<Mesh>> getAllMeshesByType(const MeshType meshType) const;
+
     private:
         std::unordered_map<std::string, std::shared_ptr<vulkan::Material>> materials;
+        std::shared_ptr<vulkan::Material> defaultMaterial;
+
         mutable std::mutex materialMutex;
 
         
