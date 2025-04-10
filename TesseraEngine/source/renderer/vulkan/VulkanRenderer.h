@@ -64,6 +64,15 @@ namespace tessera::vulkan
 		size_t totalSkyIndices = 0;
 	};
 
+	struct VulkanCubemap
+	{
+		VkImage cubemapImage;
+		VkDeviceMemory cubemapImageMemory;
+		VkImageView cubemapImageView;
+		VkSampler cubemapSampler;
+	};
+
+	
 	class VulkanRenderer final : public Renderer
 	{
 	public:
@@ -75,6 +84,7 @@ namespace tessera::vulkan
 		friend class tessera::imgui::ImGuiLibrary;
 		friend VulkanTexture importTextureFromFile(const std::string& filePath);
 		friend VulkanTexture createSolidColorTexture(const math::Vector3& color);
+		
 	private:
 		static constexpr float Z_NEAR = 0.1f;
 		static constexpr float Z_FAR = 1500.0f;
@@ -93,6 +103,8 @@ namespace tessera::vulkan
 
 		std::queue<std::pair<std::string, std::shared_ptr<Mesh>>> modelQueue;
 		std::mutex importModelMutex;
+
+		VulkanCubemap cubemap;
 		
 		// Load model
 		void importMesh(const std::string& meshPath, const MeshType meshType = MeshType::STATIC_MESH);
@@ -163,7 +175,8 @@ namespace tessera::vulkan
 		void createInstanceDescriptorSetLayout();
 		void createMaterialDescriptorSetLayout();
 		void createLightsDescriptorSetLayout();
-		
+		void createCubemapTexture();
+
 		// Graphics Pipeline
 		void createSkyPipeline();
 		void createGraphicsPipeline();

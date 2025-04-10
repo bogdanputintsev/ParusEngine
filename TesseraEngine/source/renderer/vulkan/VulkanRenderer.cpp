@@ -69,6 +69,8 @@ namespace tessera::vulkan
 				.descriptorSets = {}
 			};
 
+		createCubemapTexture();
+
 		// Load sky mesh
 		importMesh("bin/assets/skybox/dynamic_skybox.obj", MeshType::SKY);
 		
@@ -113,6 +115,11 @@ namespace tessera::vulkan
 			vkFreeMemory(logicalDevice, texture->imageMemory, nullptr);
 		}
 
+		vkDestroySampler(logicalDevice, cubemap.cubemapSampler, nullptr);
+		vkDestroyImageView(logicalDevice, cubemap.cubemapImageView, nullptr);
+		vkDestroyImage(logicalDevice, cubemap.cubemapImage, nullptr);
+		vkFreeMemory(logicalDevice, cubemap.cubemapImageMemory, nullptr);
+		
 		vkDestroyDescriptorSetLayout(logicalDevice, globalDescriptorSetLayout, nullptr);
 		vkDestroyDescriptorSetLayout(logicalDevice, instanceDescriptorSetLayout, nullptr);
 		vkDestroyDescriptorSetLayout(logicalDevice, materialDescriptorSetLayout, nullptr);
@@ -1085,7 +1092,7 @@ namespace tessera::vulkan
 					.descriptorType= VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 					.descriptorCount= 1,
 					.stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
-					.pImmutableSamplers= nullptr
+					.pImmutableSamplers= nullptr\
 				},
 			}};
 
@@ -1165,7 +1172,7 @@ namespace tessera::vulkan
 	void VulkanRenderer::createLightsDescriptorSetLayout()
 	{
 		// Descriptor Set 3 - Lights
-		const std::array<VkDescriptorSetLayoutBinding, 1> lightBindings = 
+		const std::array<VkDescriptorSetLayoutBinding, 2> lightBindings = 
 			{{
 				// Binding 0: Light UBO
 				{
@@ -1175,6 +1182,14 @@ namespace tessera::vulkan
 					.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
 					.pImmutableSamplers= nullptr
 				},
+				// Binding 1: Cube map
+				{
+					.binding= 1,
+					.descriptorType= VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+					.descriptorCount= 1,
+					.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+					.pImmutableSamplers= nullptr
+				}
 			}};
 
 		const VkDescriptorSetLayoutCreateInfo layoutInfo =
@@ -1189,6 +1204,95 @@ namespace tessera::vulkan
 		ASSERT(vkCreateDescriptorSetLayout(logicalDevice, &layoutInfo, nullptr, &lightsDescriptorSetLayout) == VK_SUCCESS,
 			   "failed to create lights descriptor set layout.");
 	}
+
+	void VulkanRenderer::createCubemapTexture()
+	{
+		
+		VkImageCreateInfo imageInfo{};
+		imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+		imageInfo.imageType = VK_IMAGE_TYPE_2D;
+		imageInfo.extent.width = 512; // Ширина каждой грани
+		imageInfo.extent.height = 512; // Высота каждой грани
+		imageInfo.extent.depth = 1;
+		imageInfo.mipLevels = 1; // Для кубмапы не будем использовать mip-уровни
+		imageInfo.arrayLayers = 6; // 6 граней для кубмапы
+		imageInfo.format = VK_FORMAT_R32G32B32A32_SFLOAT; // Формат данных
+		imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+		imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+		imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+		imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+		imageInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT; // Кубмапа
+
+		VkImage cubemapImage;
+		if (vkCreateImage(logicalDevice, &imageInfo, nullptr, &cubemapImage) != VK_SUCCESS) {
+			throw std::runtime_error("failed to create cubemap image!");
+		}
+
+		cubemap.cubemapImage = cubemapImage;
+
+		VkMemoryRequirements memRequirements;
+		vkGetImageMemoryRequirements(logicalDevice, cubemapImage, &memRequirements);
+
+		VkMemoryAllocateInfo allocInfo{};
+		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+		allocInfo.allocationSize = memRequirements.size;
+		allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+		VkDeviceMemory cubemapImageMemory;
+		if (vkAllocateMemory(logicalDevice, &allocInfo, nullptr, &cubemapImageMemory) != VK_SUCCESS) {
+			throw std::runtime_error("failed to allocate cubemap image memory!");
+		}
+		cubemap.cubemapImageMemory = cubemapImageMemory;
+
+
+		vkBindImageMemory(logicalDevice, cubemapImage, cubemapImageMemory, 0);
+
+		VkImageViewCreateInfo viewInfo{};
+		viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+		viewInfo.image = cubemapImage;
+		viewInfo.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
+		viewInfo.format = VK_FORMAT_R32G32B32A32_SFLOAT;
+		viewInfo.components.r = VK_COMPONENT_SWIZZLE_R;
+		viewInfo.components.g = VK_COMPONENT_SWIZZLE_G;
+		viewInfo.components.b = VK_COMPONENT_SWIZZLE_B;
+		viewInfo.components.a = VK_COMPONENT_SWIZZLE_A;
+		viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		viewInfo.subresourceRange.baseMipLevel = 0;
+		viewInfo.subresourceRange.levelCount = 1;
+		viewInfo.subresourceRange.baseArrayLayer = 0;
+		viewInfo.subresourceRange.layerCount = 6;
+
+		VkImageView cubemapImageView;
+		if (vkCreateImageView(logicalDevice, &viewInfo, nullptr, &cubemapImageView) != VK_SUCCESS) {
+			throw std::runtime_error("failed to create cubemap image view!");
+		}
+		cubemap.cubemapImageView = cubemapImageView;
+
+		VkSamplerCreateInfo samplerInfo{};
+		samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+		samplerInfo.magFilter = VK_FILTER_LINEAR;
+		samplerInfo.minFilter = VK_FILTER_LINEAR;
+		samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+		samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+		samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+		samplerInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+		samplerInfo.unnormalizedCoordinates = VK_FALSE;
+		samplerInfo.compareEnable = VK_FALSE;
+		samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+		samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+		samplerInfo.mipLodBias = 0.0f;
+		samplerInfo.minLod = 0.0f;
+		samplerInfo.maxLod = 1.0f;
+
+		VkSampler cubemapSampler;
+		if (vkCreateSampler(logicalDevice, &samplerInfo, nullptr, &cubemapSampler) != VK_SUCCESS) {
+			throw std::runtime_error("failed to create cubemap sampler!");
+		}
+
+		cubemap.cubemapSampler = cubemapSampler;
+	}
+
 
 	void VulkanRenderer::createSkyPipeline()
 	{
@@ -2620,6 +2724,8 @@ namespace tessera::vulkan
 
 		for (size_t frameIndex = 0; frameIndex < MAX_FRAMES_IN_FLIGHT; frameIndex++)
 		{
+			std::array<VkWriteDescriptorSet, 2> descriptorWrites;
+
 			// Light UBO descriptor set
 			const VkDescriptorBufferInfo directionalLightBufferInfo =
 				{
@@ -2628,7 +2734,7 @@ namespace tessera::vulkan
 					.range = sizeof(math::DirectionalLightUbo)
 				};
 
-			const VkWriteDescriptorSet descriptorWrite =
+			descriptorWrites[0] =
 				{
 					.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
 					.pNext = nullptr,
@@ -2642,7 +2748,26 @@ namespace tessera::vulkan
 					.pTexelBufferView = nullptr
 				};
 
-			vkUpdateDescriptorSets(logicalDevice, 1, &descriptorWrite, 0, nullptr);
+			VkDescriptorImageInfo descriptorImageInfo = {};
+			descriptorImageInfo.imageView = cubemap.cubemapImageView;
+			descriptorImageInfo.sampler = cubemap.cubemapSampler;
+			descriptorImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+			descriptorWrites[1] =
+				{
+					.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+					.pNext = nullptr,
+					.dstSet = directionalLight.descriptorSets[frameIndex],
+					.dstBinding = 1,
+					.dstArrayElement = 0,
+					.descriptorCount = 1,
+					.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+					.pImageInfo = &descriptorImageInfo,
+					.pBufferInfo = nullptr,
+					.pTexelBufferView = nullptr
+				};
+			
+			vkUpdateDescriptorSets(logicalDevice, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 		}
 	}
 
@@ -2757,4 +2882,5 @@ namespace tessera::vulkan
 		}
 		frames[frameToClean].buffersToDelete.clear();
 	}
+	
 }
