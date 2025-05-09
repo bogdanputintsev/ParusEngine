@@ -1,4 +1,6 @@
 #pragma once
+#include "ApplicationInfo.h"
+
 
 namespace tessera
 {
@@ -11,8 +13,11 @@ namespace tessera
 		void loop();
 		void clean();
 
+		[[nodiscard]] ApplicationInfo getApplicationInfo() const { return applicationInfo; }
 	private:
 		bool isRunning = false;
+
+		ApplicationInfo applicationInfo{};
 	};
 
 }

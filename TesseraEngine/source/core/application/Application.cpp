@@ -8,6 +8,8 @@ namespace tessera
 {
 	void Application::init()
 	{
+		applicationInfo.readAll();
+		
 		CORE->platform->init();
 		CORE->threadPool.init();
 		CORE->renderer->init();

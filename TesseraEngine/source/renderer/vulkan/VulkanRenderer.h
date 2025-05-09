@@ -77,6 +77,7 @@ namespace tessera::vulkan
 	{
 	public:
 		void init() override;
+		void registerEvents() override;
 		void clean() override;
 		void drawFrame() override;
 		void deviceWaitIdle() override;

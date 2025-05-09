@@ -48,12 +48,12 @@ namespace tessera
 	#define GET_FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #endif
 
-#define LOG_DEBUG(msg) tessera::TesseraLog::send(tessera::LogType::DEBUG, GET_FILENAME, __LINE__, msg)
-#define LOG_INFO(msg) tessera::TesseraLog::send(tessera::LogType::INFO, GET_FILENAME, __LINE__, msg)
-#define LOG_WARNING(msg) tessera::TesseraLog::send(tessera::LogType::WARNING, GET_FILENAME, __LINE__, msg)
-#define LOG_ERROR(msg) tessera::TesseraLog::send(tessera::LogType::TE_ERROR, GET_FILENAME, __LINE__, msg)
-#define LOG_FATAL(msg) tessera::TesseraLog::send(tessera::LogType::FATAL, GET_FILENAME, __LINE__, msg)
-#define LOG(type, msg) tessera::TesseraLog::send(type, GET_FILENAME, __LINE__, msg)
+#define LOG_DEBUG(msg) ::tessera::TesseraLog::send(::tessera::LogType::DEBUG, GET_FILENAME, __LINE__, msg)
+#define LOG_INFO(msg) ::tessera::TesseraLog::send(::tessera::LogType::INFO, GET_FILENAME, __LINE__, msg)
+#define LOG_WARNING(msg) ::tessera::TesseraLog::send(::tessera::LogType::WARNING, GET_FILENAME, __LINE__, msg)
+#define LOG_ERROR(msg) ::tessera::TesseraLog::send(::tessera::LogType::TE_ERROR, GET_FILENAME, __LINE__, msg)
+#define LOG_FATAL(msg) ::tessera::TesseraLog::send(::tessera::LogType::FATAL, GET_FILENAME, __LINE__, msg)
+#define LOG(type, msg) ::tessera::TesseraLog::send(type, GET_FILENAME, __LINE__, msg)
 
 /**
  * \brief This macro assures that the condition is true. Otherwise, it logs an error and throw an exception.

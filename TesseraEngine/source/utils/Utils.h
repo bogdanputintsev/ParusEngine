@@ -5,6 +5,8 @@
 #include <fstream>
 #include <limits>
 
+#include "Core.h"
+
 namespace tessera::utils
 {
 	
@@ -12,7 +14,7 @@ namespace tessera::utils
 	{
 		std::ifstream file(filename, std::ios::ate | std::ios::binary);
 
-		ASSERT(file.is_open(), "failed to open file " + filename);
+		ASSERT(file && file.is_open() && file.good(), "Failed to open file " + filename);
 
 		const auto fileSize = static_cast<std::streamsize>(file.tellg());
 		std::vector<char> buffer(fileSize);
@@ -23,6 +25,28 @@ namespace tessera::utils
 
 		return buffer;
 	}
+
+	inline void readFile(const std::string& filename, const std::function<void(std::ifstream&)>& readCallback)
+	{
+		std::ifstream file(filename, std::ios::ate | std::ios::binary);
+
+		ASSERT(file && file.is_open() && file.good(), "Failed to open file " + filename);
+
+		readCallback(file);
+
+		file.close();
+	}
+
+
+	inline void writeFile(const std::string& filename, const std::function<void(std::ofstream&)>& writeCallback)
+	{
+		std::ofstream file(filename, std::ios::binary);
+		
+		writeCallback(file);
+		
+		file.close();
+	}
+
 
 	namespace string
 	{

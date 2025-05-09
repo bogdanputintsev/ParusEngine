@@ -21,26 +21,7 @@ namespace tessera::vulkan
 {
 	void VulkanRenderer::init()
 	{
-		REGISTER_EVENT(EventType::EVENT_WINDOW_RESIZED, [&](const int newWidth, const int newHeight)
-		{
-			// FIXME: #19 Crash when resizing or minimizing window in default scene
-			
-			LOG_INFO("Vulkan initiated window resize. New dimensions: " + std::to_string(newWidth) + " " + std::to_string(newHeight));
-			onResize();
-		});
-
-		REGISTER_EVENT(EventType::EVENT_KEY_PRESSED, [&](const KeyButton key)
-		{
-			if (key == KeyButton::KEY_Z)
-			{
-				isDrawDebugEnabled = !isDrawDebugEnabled;
-			}
-		});
-
-		REGISTER_EVENT(EventType::EVENT_APPLICATION_QUIT, [&]([[maybe_unused]]const int exitCode)
-		{
-			isRunning = false;
-		});
+		registerEvents();
 		
 		createInstance();
 		createDebugManager();
@@ -83,6 +64,29 @@ namespace tessera::vulkan
 		createSyncObjects();
 
 		isRunning = true;
+	}
+
+	void VulkanRenderer::registerEvents()
+	{
+		REGISTER_EVENT(EventType::EVENT_WINDOW_RESIZED, [&](const int newWidth, const int newHeight)
+		{
+			// FIXME: #19 Crash when resizing or minimizing window in default scene
+			LOG_INFO("Vulkan initiated window resize. New dimensions: " + std::to_string(newWidth) + " " + std::to_string(newHeight));
+			onResize();
+		});
+
+		REGISTER_EVENT(EventType::EVENT_KEY_PRESSED, [&](const KeyButton key)
+		{
+			if (key == KeyButton::KEY_Z)
+			{
+				isDrawDebugEnabled = !isDrawDebugEnabled;
+			}
+		});
+
+		REGISTER_EVENT(EventType::EVENT_APPLICATION_QUIT, [&]([[maybe_unused]]const int exitCode)
+		{
+			isRunning = false;
+		});
 	}
 
 	void VulkanRenderer::clean()
