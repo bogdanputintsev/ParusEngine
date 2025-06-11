@@ -5,10 +5,12 @@
 #include <thread>
 #include <vector>
 
+#include "services/Service.h"
+
 namespace tessera
 {
     
-    class ThreadPool final
+    class ThreadPool final : public Service
     {
     public:
         ThreadPool() = default;
@@ -34,5 +36,7 @@ namespace tessera
         std::condition_variable conditionVariable;
         bool isPendingStop = false;
     };
+
+#define RUN_ASYNC(function) Services::get<ThreadPool>()->enqueue([&]{function})
     
 }

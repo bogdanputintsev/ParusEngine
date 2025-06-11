@@ -1,12 +1,15 @@
 ﻿#include "SpectatorCamera.h"
 
+#include <algorithm>
+
 #include "core/Input.h"
+#include "services/Services.h"
 
 namespace tessera
 {
     void SpectatorCamera::updateTransform(const float deltaTime)
     {
-        const auto input = CORE->inputSystem;
+        const auto input = Services::get<Input>();
         
         // Process keyboard
         float velocity = speed * deltaTime;

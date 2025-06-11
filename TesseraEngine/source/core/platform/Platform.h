@@ -3,6 +3,7 @@
 #include <vulkan/vulkan_core.h>
 
 #include "core/Defines.h"
+#include "services/Service.h"
 
 #ifdef WITH_WINDOWS_PLATFORM
 #define NOMINMAX
@@ -17,13 +18,13 @@ namespace tessera::imgui
 namespace tessera
 {
     
-    class Platform
+    class Platform final : public Service
     {
     public:
         void init();
         void clean();
 
-        static void getMessages();
+        void getMessages();
         void processOnResize();
         [[nodiscard]] VkSurfaceKHR createVulkanSurface(const VkInstance& instance) const;
 

@@ -1,20 +1,23 @@
 ﻿#include "ImGuiLibrary.h"
 
-#include "Core.h"
 #include "backends/imgui_impl_vulkan.h"
 #include "core/platform/Platform.h"
 #include "backends/imgui_impl_win32.h"
 #include "core/Input.h"
+#include "renderer/vulkan/VulkanRenderer.h"
+#include "services/Services.h"
 #include "third-party/imgui/imgui.h"
 
+#include "Core.h"
+#include "Event.h"
 
 namespace tessera::imgui
 {
 	
 	void ImGuiLibrary::init()
 	{
-		const auto& vulkanContext = CORE->renderer;
-		const auto& windowsContext = CORE->platform->platformState;
+		const auto& vulkanContext = Services::get<vulkan::VulkanRenderer>();
+		const auto& windowsContext = Services::get<Platform>()->platformState;
 
 		IMGUI_CHECKVERSION();
 		ImGui::CreateContext();

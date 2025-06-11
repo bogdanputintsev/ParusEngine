@@ -3,6 +3,7 @@
 #include <random>
 #include <string>
 #include <fstream>
+#include <functional>
 #include <limits>
 
 #include "Core.h"

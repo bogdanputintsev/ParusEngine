@@ -1,11 +1,12 @@
 ﻿#pragma once
 #include "Storage.h"
 #include "camera/SpectatorCamera.h"
+#include "services/Service.h"
 
 namespace tessera
 {
 
-    class World final
+    class World final : public Service
     {
     public:
         void tick(const float deltaTime);

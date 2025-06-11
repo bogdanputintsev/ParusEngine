@@ -1,6 +1,8 @@
 ﻿#include "Material.h"
 
 #include "Core.h"
+#include "services/Services.h"
+#include "world/World.h"
 
 namespace tessera::vulkan
 {
@@ -8,7 +10,7 @@ namespace tessera::vulkan
     {
         iterateAllTextureTypes([&](const TextureType textureType)
         {
-            textures[textureType] = CORE->world.getStorage()->getDefaultTextureOfType(textureType);
+            textures[textureType] = Services::get<World>()->getStorage()->getDefaultTextureOfType(textureType);
         });
     }
 
@@ -16,7 +18,7 @@ namespace tessera::vulkan
     {
         if (!newTexture)
         {
-            const auto defaultTexture = CORE->world.getStorage()->getDefaultTextureOfType(textureType);
+            const auto defaultTexture = Services::get<World>()->getStorage()->getDefaultTextureOfType(textureType);
             textures.insert_or_assign(textureType, defaultTexture);
             return;
         }

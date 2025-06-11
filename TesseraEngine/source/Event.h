@@ -5,14 +5,14 @@
 #include <typeindex>
 #include <vector>
 
-#include "utils/TesseraLog.h"
+#include "Core.h"
 
 namespace tessera
 {
 	enum class EventType : uint8_t;
 	inline const char* toString(const EventType eventType);
 	
-	class EventSystem final
+	class EventSystem final : public Service
 	{
 	private:
 		class EventHandlerBase

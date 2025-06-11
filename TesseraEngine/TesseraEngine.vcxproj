@@ -198,7 +198,6 @@
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="source\Core.cpp" />
     <ClCompile Include="source\core\application\Application.cpp">
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
@@ -520,6 +519,7 @@
     </ClCompile>
     <ClCompile Include="source\renderer\vulkan\texture\VulkanTexture.cpp" />
     <ClCompile Include="source\renderer\vulkan\utils\VulkanUtils.cpp" />
+    <ClCompile Include="source\services\Services.cpp" />
     <ClCompile Include="source\threading\ThreadPool.cpp" />
     <ClCompile Include="source\utils\TesseraLog.cpp" />
     <ClCompile Include="source\renderer\vulkan\VulkanRenderer.cpp" />
@@ -534,9 +534,9 @@
     <ClCompile Include="source\world\World.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="resource.h" />
     <ClInclude Include="source\core\application\Application.h" />
     <ClInclude Include="source\core\application\ApplicationInfo.h" />
+    <ClInclude Include="source\core\Asserts.h" />
     <ClInclude Include="source\core\Defines.h" />
     <ClInclude Include="source\core\Input.h" />
     <ClInclude Include="source\core\platform\Platform.h" />
@@ -556,6 +556,8 @@
     <ClInclude Include="source\renderer\vulkan\storage\VulkanStorage.h" />
     <ClInclude Include="source\renderer\vulkan\texture\VulkanTexture.h" />
     <ClInclude Include="source\renderer\vulkan\utils\VulkanUtils.h" />
+    <ClInclude Include="source\services\Service.h" />
+    <ClInclude Include="source\services\Services.h" />
     <ClInclude Include="source\threading\ThreadPool.h" />
     <ClInclude Include="source\utils\TesseraLog.h" />
     <ClInclude Include="source\utils\Utils.h" />
@@ -578,13 +580,6 @@
     <Content Include="source\shaders\sky.frag" />
     <Content Include="source\shaders\sky.vert" />
     <Content Include="source\third-party\imgui\LICENSE.txt" />
-  </ItemGroup>
-  <ItemGroup>
-    <ResourceCompile Include="TesseraEngine.rc" />
-  </ItemGroup>
-  <ItemGroup>
-    <Image Include="..\..\..\..\Users\BogdanPutintsev\Downloads\favicon\ms-icon-310x310.ico" />
-    <Image Include="..\..\..\..\Users\BogdanPutintsev\Downloads\favicon\ms-icon-310x310.png" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

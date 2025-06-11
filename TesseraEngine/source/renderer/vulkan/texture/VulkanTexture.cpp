@@ -4,6 +4,8 @@
 #include <stb_image.h>
 
 #include "Core.h"
+#include "renderer/vulkan/VulkanRenderer.h"
+#include "services/Services.h"
 
 namespace tessera::vulkan
 {
@@ -30,7 +32,7 @@ namespace tessera::vulkan
 		VkBuffer stagingBuffer;
 		VkDeviceMemory stagingBufferMemory;
 
-    	const auto& vulkanRenderer = CORE->renderer;
+    	const auto& vulkanRenderer = Services::get<VulkanRenderer>();
 		vulkanRenderer->createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
 
 		void* data;
@@ -65,7 +67,7 @@ namespace tessera::vulkan
 
 	VulkanTexture createSolidColorTexture(const math::Vector3& color)
 	{
-		const auto& vulkanRenderer = CORE->renderer;
+		const auto& vulkanRenderer = Services::get<vulkan::VulkanRenderer>();
 
 		// 1. Create VkImage
 		VkImage image;

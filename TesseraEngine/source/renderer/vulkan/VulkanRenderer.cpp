@@ -12,9 +12,15 @@
 #include "Core.h"
 #include "core/Input.h"
 #include "core/platform/Platform.h"
+#include "Event.h"
+#include "utils/Utils.h"
+#include "graphics/imgui/ImGuiLibrary.h"
 #include "math/UniformBufferObjects.h"
 #include "material/Material.h"
+#include "services/Services.h"
+#include "threading/ThreadPool.h"
 #include "utils/TesseraLog.h"
+#include "world/World.h"
 
 
 namespace tessera::vulkan
@@ -111,7 +117,7 @@ namespace tessera::vulkan
 
 		vkDestroyDescriptorPool(logicalDevice, descriptorPool, nullptr);
 		
-		for (const auto& texture : CORE->world.getStorage()->getAllTextures())
+		for (const auto& texture : Services::get<World>()->getStorage()->getAllTextures())
 		{
 			vkDestroySampler(logicalDevice, texture->sampler, nullptr);
 			vkDestroyImageView(logicalDevice, texture->imageView, nullptr);
@@ -265,7 +271,7 @@ namespace tessera::vulkan
 			modelQueue.pop();
 			lock.unlock();
 			
-			CORE->world.getStorage()->addNewMesh(meshPath, newMesh);
+			Services::get<World>()->getStorage()->addNewMesh(meshPath, newMesh);
 
 			meshInstances.push_back({
 				.mesh = newMesh,
@@ -278,7 +284,7 @@ namespace tessera::vulkan
 		std::vector<math::Vertex> allVertices;
 		std::vector<uint32_t> allIndices;
 
-		for (const auto& mesh : CORE->world.getStorage()->getAllMeshesByType(MeshType::STATIC_MESH))
+		for (const auto& mesh : Services::get<World>()->getStorage()->getAllMeshesByType(MeshType::STATIC_MESH))
 		{
 			for (auto& meshPart : mesh->meshParts)
 			{
@@ -306,10 +312,10 @@ namespace tessera::vulkan
 		std::vector<math::Vertex> allSkyVertices;
 		std::vector<uint32_t> allSkyIndices;
 
-		DEBUG_ASSERT(CORE->world.getStorage()->getAllMeshesByType(MeshType::SKY).size() == 1,
+		DEBUG_ASSERT(Services::get<World>()->getStorage()->getAllMeshesByType(MeshType::SKY).size() == 1,
 			"There must be always one and only one sky mesh.");
 		
-		for (const auto& mesh : CORE->world.getStorage()->getAllMeshesByType(MeshType::SKY))
+		for (const auto& mesh : Services::get<World>()->getStorage()->getAllMeshesByType(MeshType::SKY))
 		{
 			for (auto& meshPart : mesh->meshParts)
 			{
@@ -333,7 +339,7 @@ namespace tessera::vulkan
 		globalBuffers.totalSkyVertices = allSkyVertices.size();
 		globalBuffers.totalSkyIndices = allSkyIndices.size();
 		
-		for (auto& mesh : CORE->world.getStorage()->getAllMeshes())
+		for (auto& mesh : Services::get<World>()->getStorage()->getAllMeshes())
 		{
 			createMeshDescriptorSets(mesh);
 		}
@@ -479,7 +485,7 @@ namespace tessera::vulkan
 
 	std::vector<const char*> VulkanRenderer::getRequiredExtensions()
 	{
-		std::vector extensions = CORE->graphicsLibrary->getRequiredExtensions();
+		std::vector extensions = Services::get<imgui::ImGuiLibrary>()->getRequiredExtensions();
 
 		if (validationLayersAreEnabled())
 		{
@@ -576,7 +582,7 @@ namespace tessera::vulkan
 
 	void VulkanRenderer::createSurface()
 	{
-		surface = CORE->platform->createVulkanSurface(instance);
+		surface = Services::get<Platform>()->createVulkanSurface(instance);
 	}
 
 	QueueFamilyIndices findQueueFamilies(const VkPhysicalDevice& physicalDevice, const VkSurfaceKHR& surface)
@@ -876,7 +882,7 @@ namespace tessera::vulkan
 			return capabilities.currentExtent;
 		}
 
-		const auto windowInfo = CORE->platform->getWindowInfo();
+		const auto windowInfo = Services::get<Platform>()->getWindowInfo();
 		const int width = windowInfo.width;
 		const int height = windowInfo.height;
 
@@ -911,8 +917,8 @@ namespace tessera::vulkan
 
 	void VulkanRenderer::recreateSwapChain()
 	{
-		CORE->graphicsLibrary->handleMinimization();
-		CORE->renderer->deviceWaitIdle();
+		Services::get<imgui::ImGuiLibrary>()->handleMinimization();
+		Services::get<VulkanRenderer>()->deviceWaitIdle();
 
 		cleanupSwapChain();
 
@@ -1778,7 +1784,7 @@ namespace tessera::vulkan
 		vkCmdBeginRenderPass(commandBufferToRecord, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 			drawSkyboxPass(commandBufferToRecord);
 			drawMainScenePass(commandBufferToRecord);
-			CORE->graphicsLibrary->renderDrawData(commandBufferToRecord);
+			Services::get<imgui::ImGuiLibrary>()->renderDrawData(commandBufferToRecord);
 		vkCmdEndRenderPass(commandBufferToRecord);
 		
 		ASSERT(vkEndCommandBuffer(commandBufferToRecord) == VK_SUCCESS, "Failed to fend recording command buffer.");
@@ -1787,10 +1793,10 @@ namespace tessera::vulkan
 	void VulkanRenderer::drawSkyboxPass(const VkCommandBuffer commandBufferToRecord) const
 	{
 		// ==== [ SKYBOX PASS ] ====
-		ASSERT(!CORE->world.getStorage()->getAllMeshesByType(MeshType::SKY).empty(),
+		ASSERT(!Services::get<World>()->getStorage()->getAllMeshesByType(MeshType::SKY).empty(),
 			   "Sky mesh must always exist");
 
-		const std::shared_ptr<Mesh> skyMesh = CORE->world.getStorage()->getAllMeshesByType(MeshType::SKY)[0];
+		const std::shared_ptr<Mesh> skyMesh = Services::get<World>()->getStorage()->getAllMeshesByType(MeshType::SKY)[0];
 		
 		ASSERT(!skyMesh->meshParts.empty(),
 			   "Sky mesh exists, but it has zero mesh parts.");
@@ -2490,7 +2496,7 @@ namespace tessera::vulkan
 
 	void VulkanRenderer::updateUniformBuffer(const uint32_t currentImage)
 	{
-		const SpectatorCamera camera = CORE->world.getMainCamera();
+		const SpectatorCamera camera = Services::get<World>()->getMainCamera();
 
 		// Global UBO
 		math::GlobalUbo globalUbo{};

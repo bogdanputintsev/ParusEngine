@@ -1,4 +1,5 @@
 #pragma once
+
 #include "ApplicationInfo.h"
 
 
@@ -9,12 +10,14 @@ namespace tessera
 	{
 	public:
 		void init();
-		void registerEvents();
 		void loop();
 		void clean();
 
 		[[nodiscard]] ApplicationInfo getApplicationInfo() const { return applicationInfo; }
 	private:
+		static void registerServices();
+		void registerEvents();
+		
 		bool isRunning = false;
 
 		ApplicationInfo applicationInfo{};

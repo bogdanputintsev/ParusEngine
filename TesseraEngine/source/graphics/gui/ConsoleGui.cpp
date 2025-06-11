@@ -4,6 +4,8 @@
 #include "imgui.h"
 #include "imgui_internal.h"
 #include "core/Input.h"
+#include "services/Services.h"
+#include "world/World.h"
 
 namespace tessera::imgui
 {
@@ -67,7 +69,7 @@ namespace tessera::imgui
         
         if (strcmp(inputCommand.c_str(), "get camera position") == 0)
         {
-            const auto cameraPosition { CORE->world.getMainCamera().getPosition() };
+            const auto cameraPosition { Services::get<World>()->getMainCamera().getPosition() };
             consoleOutput += "Camera position:"
                 "\n\tX: " + std::to_string(cameraPosition.x) +
                 "\n\tY: " + std::to_string(cameraPosition.y) +

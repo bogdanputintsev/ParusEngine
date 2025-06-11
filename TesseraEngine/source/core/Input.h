@@ -9,7 +9,7 @@ namespace tessera
     enum class KeyButton : uint8_t;
     enum class MouseButton : uint8_t;
     
-    class Input final
+    class Input final : public Service
     {
     public:
         Input() = default;

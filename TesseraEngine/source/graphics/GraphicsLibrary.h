@@ -1,11 +1,13 @@
 #pragma once
 #include <functional>
 
+#include "services/Service.h"
+
 namespace tessera
 {
 	
 
-	class GraphicsLibrary
+	class GraphicsLibrary : public Service
 	{
 	public:
 		virtual ~GraphicsLibrary() = default;

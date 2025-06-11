@@ -4,6 +4,9 @@
 #include <tiny_obj_loader.h>
 
 #include "Core.h"
+#include "utils/Utils.h"
+#include "services/Services.h"
+#include "world/World.h"
 
 
 namespace tessera
@@ -90,7 +93,7 @@ namespace tessera
 		for (const auto& material : materials)
 		{
 			std::shared_ptr<vulkan::Material> newModelMaterial
-				= CORE->world.getStorage()->getOrLoadMaterial(
+				= Services::get<World>()->getStorage()->getOrLoadMaterial(
 					material.name,
 					baseDir + material.diffuse_texname,
 					baseDir + material.bump_texname,
@@ -125,7 +128,7 @@ namespace tessera
 
 					if (materialId == -1)
 					{
-						newMeshPart.material = CORE->world.getStorage()->getDefaultMaterial();
+						newMeshPart.material = Services::get<World>()->getStorage()->getDefaultMaterial();
 					}
 					else
 					{

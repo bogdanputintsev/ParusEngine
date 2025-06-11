@@ -1,9 +1,10 @@
 #pragma once
+#include "services/Service.h"
 
 namespace tessera
 {
 
-	class Renderer
+	class Renderer : public Service
 	{
 	public:
 		virtual ~Renderer() = default;

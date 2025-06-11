@@ -1,5 +1,7 @@
 ﻿#include "ApplicationInfo.h"
 
+#include <filesystem>
+
 
 namespace tessera
 {
@@ -30,7 +32,7 @@ namespace tessera
     {
         utils::writeFile(APPLICATION_INFO_FILE_PATH, [&](std::ofstream& out)
         {
-            const u32 nameLength = static_cast<uint32_t>(generalInfo.applicationName.size());
+            const uint32_t nameLength = static_cast<uint32_t>(generalInfo.applicationName.size());
             out.write(reinterpret_cast<const char*>(&nameLength), sizeof(nameLength));
             out.write(generalInfo.applicationName.c_str(), nameLength);
             out.write(reinterpret_cast<const char*>(&generalInfo.versionMajor), sizeof(generalInfo.versionMajor));

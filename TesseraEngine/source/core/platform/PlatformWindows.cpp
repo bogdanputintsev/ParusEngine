@@ -3,17 +3,15 @@
 
 #ifdef WITH_WINDOWS_PLATFORM
 
+#include <optional>
 #include <windows.h>
 #include <windowsx.h>
 #include <vulkan/vulkan_core.h>
-#include <vulkan/vulkan.h>
 #include <vulkan/vulkan_win32.h>
 
-#include "../resource.h"
-
-#include "Core.h"
 #include "Event.h"
 #include "core/Input.h"
+#include "services/Services.h"
 #include "utils/TesseraLog.h"
 
 namespace tessera
@@ -33,7 +31,7 @@ namespace tessera
                 PostQuitMessage(0);
                 return 0;
             case WM_SIZE: {
-                CORE->platform->processOnResize();
+                Services::get<Platform>()->processOnResize();
             } break;
             case WM_KEYDOWN:
             case WM_SYSKEYDOWN:
@@ -42,13 +40,13 @@ namespace tessera
             {
                 const bool isPressed = (msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN);
                 const auto keyButton = static_cast<KeyButton>(wParam);
-                CORE->inputSystem->processKey(keyButton, isPressed);
+                Services::get<Input>()->processKey(keyButton, isPressed);
             } break;
             case WM_MOUSEMOVE:
             {
                 const int mouseX = GET_X_LPARAM(lParam);
                 const int mouseY = GET_Y_LPARAM(lParam);
-                CORE->inputSystem->processMouseMove(mouseX, mouseY);
+                Services::get<Input>()->processMouseMove(mouseX, mouseY);
             } break;
             case WM_MOUSEWHEEL:
             {
@@ -56,7 +54,7 @@ namespace tessera
                 if (zDelta != 0)
                 {
                     zDelta = (zDelta < 0) ? -1 : 1;
-                    CORE->inputSystem->processMouseWheel(zDelta);
+                    Services::get<Input>()->processMouseWheel(zDelta);
                 }
             } break;
             case WM_LBUTTONDOWN:
@@ -88,13 +86,13 @@ namespace tessera
 
                 if (mouseButton.has_value())
                 {
-                    CORE->inputSystem->processButton(mouseButton.value(), isPressed);
+                    Services::get<Input>()->processButton(mouseButton.value(), isPressed);
                 }
             } break;
             case WM_CHAR:
             {
                 const char c = static_cast<char>(wParam);
-                CORE->inputSystem->processChar(c);
+                Services::get<Input>()->processChar(c);
             } break;
 
             default: ;
@@ -107,7 +105,7 @@ namespace tessera
     {
         platformState.hinstance = GetModuleHandleA(nullptr);
 
-        const HICON icon = LoadIcon(platformState.hinstance, MAKEINTRESOURCE(IDI_ICON1));
+        const HICON icon = LoadIcon(platformState.hinstance, IDI_APPLICATION);
         WNDCLASSA wc = {};
         wc.style = CS_DBLCLKS;  // Get double-clicks
         wc.lpfnWndProc = win32ProcessMessage;
