@@ -208,6 +208,7 @@
     <ClCompile Include="source\renderer\vulkan\VulkanRenderer.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="source\Event.h" />
     <ClInclude Include="source\Core.h" />
     <ClInclude Include="source\graphics\glfw\GlfwLibrary.h" />
     <ClInclude Include="source\graphics\GraphicsLibrary.h" />
@@ -220,8 +221,8 @@
     <ClInclude Include="source\renderer\vulkan\VulkanRenderer.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="shaders\shader.frag" />
-    <None Include="shaders\shader.vert" />
+    <Content Include="source\shaders\shader.frag" />
+    <Content Include="source\shaders\shader.vert" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

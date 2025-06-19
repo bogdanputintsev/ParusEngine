@@ -1,6 +1,7 @@
 #pragma once
 #include <memory>
 
+#include "Event.h"
 #include "utils/TesseraLog.h"
 #include "utils/Utils.h"
 #include "graphics/glfw/GlfwLibrary.h"
@@ -26,6 +27,7 @@ namespace tessera
 		{
 			std::shared_ptr<glfw::GlfwLibrary> graphicsLibrary;
 			std::shared_ptr<vulkan::VulkanRenderer> renderer;
+			std::shared_ptr<EventSystem> eventSystem = std::make_shared<EventSystem>();
 		};
 
 	public:

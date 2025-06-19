@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include <stdexcept>
 
 namespace tessera
 {
@@ -65,6 +66,9 @@ namespace tessera
 			throw std::runtime_error("Assertion failed.");		\
         }														\
     } while (0)
+
+#define REGISTER_EVENT(type, func) tessera::registerHelper(*CORE->eventSystem, type, func)
+#define FIRE_EVENT(type, args, ...) CORE->eventSystem->fireEvent(type, args, __VA_ARGS__)
 
 }
 
