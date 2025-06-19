@@ -3,7 +3,7 @@
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
-#include "TesseraLog.h"
+#include "utils/TesseraLog.h"
 
 namespace tessera::vulkan
 {

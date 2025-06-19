@@ -1,13 +1,12 @@
 #pragma once
 
-#include "GlfwInitializer.h"
-#include "VulkanDebugManager.h"
-#include "VulkanGraphicsPipelineManager.h"
-#include "VulkanImageViewManager.h"
-#include "VulkanInstanceManager.h"
-#include "VulkanSurfaceManager.h"
-#include "VulkanSwapChainManager.h"
-#include "VulkanFramebufferManager.h"
+#include "glfw/GlfwInitializer.h"
+#include "vulkan/VulkanDebugManager.h"
+#include "vulkan/VulkanFramebufferManager.h"
+#include "vulkan/VulkanGraphicsPipelineManager.h"
+#include "vulkan/VulkanImageViewManager.h"
+#include "vulkan/VulkanInstanceManager.h"
+#include "vulkan/VulkanSurfaceManager.h"
 
 namespace tessera
 {

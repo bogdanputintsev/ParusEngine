@@ -3,7 +3,7 @@
 #include <memory>
 #include <stdexcept>
 
-#include "ShaderLoader.h"
+#include "utils/ShaderLoader.h"
 
 namespace tessera::vulkan
 {
