@@ -10,6 +10,8 @@ namespace tessera::vulkan
 	
 	void VulkanGraphicsPipelineManager::init(const std::shared_ptr<const VkDevice>& device, const SwapChainImageDetails& swapChainImageDetails)
 	{
+		initRenderPath(device, swapChainImageDetails);
+
 		const auto vertexShaderCode = ShaderLoader::readFile("shaders/vert.spv");
 		vertexShaderModule = createShaderModule(vertexShaderCode, device);
 
@@ -28,10 +30,10 @@ namespace tessera::vulkan
 		fragShaderStageInfo.module = fragmentShaderModule;
 		fragShaderStageInfo.pName = "main";
 
-		VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
+		[[maybe_unused]] VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
 
 		// Dynamic state
-		std::vector<VkDynamicState> dynamicStates = {
+		std::vector dynamicStates = {
 			VK_DYNAMIC_STATE_VIEWPORT,
 			VK_DYNAMIC_STATE_SCISSOR
 		};
@@ -141,13 +143,6 @@ namespace tessera::vulkan
 		}
 	}
 
-	void VulkanGraphicsPipelineManager::clean(const std::shared_ptr<const VkDevice>& device) const
-	{
-		vkDestroyPipelineLayout(*device, pipelineLayout, nullptr);
-		vkDestroyShaderModule(*device, fragmentShaderModule, nullptr);
-		vkDestroyShaderModule(*device, vertexShaderModule, nullptr);
-	}
-
 	VkShaderModule VulkanGraphicsPipelineManager::createShaderModule(const std::vector<char>& code, const std::shared_ptr<const VkDevice>& device)
 	{
 		VkShaderModuleCreateInfo createInfo{};
@@ -162,5 +157,47 @@ namespace tessera::vulkan
 		}
 
 		return shaderModule;
+	}
+
+	void VulkanGraphicsPipelineManager::initRenderPath(const std::shared_ptr<const VkDevice>& device, const SwapChainImageDetails& swapChainImageDetails)
+	{
+		VkAttachmentDescription colorAttachment{};
+		colorAttachment.format = swapChainImageDetails.swapChainImageFormat;
+		colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+		colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+		VkAttachmentReference colorAttachmentRef{};
+		colorAttachmentRef.attachment = 0;
+		colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+		VkSubpassDescription subpass{};
+		subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+		subpass.colorAttachmentCount = 1;
+		subpass.pColorAttachments = &colorAttachmentRef;
+
+		VkRenderPassCreateInfo renderPassInfo{};
+		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+		renderPassInfo.attachmentCount = 1;
+		renderPassInfo.pAttachments = &colorAttachment;
+		renderPassInfo.subpassCount = 1;
+		renderPassInfo.pSubpasses = &subpass;
+
+		if (vkCreateRenderPass(*device, &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS) 
+		{
+			throw std::runtime_error("VulkanGraphicsPipelineManager: failed to create render pass.");
+		}
+	}
+
+	void VulkanGraphicsPipelineManager::clean(const std::shared_ptr<const VkDevice>& device) const
+	{
+		vkDestroyPipelineLayout(*device, pipelineLayout, nullptr);
+		vkDestroyRenderPass(*device, renderPass, nullptr);
+		vkDestroyShaderModule(*device, fragmentShaderModule, nullptr);
+		vkDestroyShaderModule(*device, vertexShaderModule, nullptr);
 	}
 }

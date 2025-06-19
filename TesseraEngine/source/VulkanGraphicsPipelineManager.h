@@ -14,7 +14,9 @@ namespace tessera::vulkan
 		void clean(const std::shared_ptr<const VkDevice>& device) const;
 	private:
 		static VkShaderModule createShaderModule(const std::vector<char>& code, const std::shared_ptr<const VkDevice>& device);
+		void initRenderPath(const std::shared_ptr<const VkDevice>& device, const SwapChainImageDetails& swapChainImageDetails);
 
+		VkRenderPass renderPass = VK_NULL_HANDLE;
 		VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
 		VkShaderModule vertexShaderModule = VK_NULL_HANDLE;
 		VkShaderModule fragmentShaderModule = VK_NULL_HANDLE;
