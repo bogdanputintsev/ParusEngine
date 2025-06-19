@@ -102,7 +102,9 @@ namespace tessera::vulkan
 		std::unordered_map<std::string, std::shared_ptr<Mesh>> meshes;
 		std::unordered_map<std::string, std::shared_ptr<Texture>> textures;
 		std::vector<Model> models;
-		
+
+		void cleanupFrameResources();
+
 		void loaderJob();
 		void requestMeshImport(const std::string& newMeshPath);
 		std::queue<std::string> loadRequests;
@@ -111,6 +113,8 @@ namespace tessera::vulkan
 		std::thread loaderThread;
 		std::condition_variable conditionVariableLoader;
 
+
+		
 		// Load model
 		void importMeshAsync(const std::string& meshPath);
 		void processLoadedMeshes();
@@ -311,6 +315,16 @@ namespace tessera::vulkan
 		static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 		static constexpr int IMAGE_SAMPLER_POOL_SIZE = 1000;
 		static constexpr uint32_t DESCRIPTOR_SET_COUNT = MAX_FRAMES_IN_FLIGHT + IMAGE_SAMPLER_POOL_SIZE;
+
+		struct FrameData {
+			VkCommandPool commandPool;
+			VkCommandBuffer commandBuffer;
+			VkFence fence;
+			std::vector<std::pair<VkBuffer, VkDeviceMemory>> buffersToDelete;
+		};
+
+		std::array<FrameData, MAX_FRAMES_IN_FLIGHT> frames;
+
 	};
 
 }

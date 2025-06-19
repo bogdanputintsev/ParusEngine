@@ -120,6 +120,11 @@ namespace tessera::vulkan
 
 	void VulkanRenderer::drawFrame()
 	{
+		currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+
+		// Clean up resources from N frames ago (where N = MAX_FRAMES_IN_FLIGHT)
+		cleanupFrameResources();
+		
 		vkWaitForFences(logicalDevice, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
 
 		const std::optional<uint32_t> imageIndex = acquireNextImage();
@@ -180,7 +185,6 @@ namespace tessera::vulkan
 			ASSERT(result == VK_SUCCESS, "failed to present swap chain image.");
 		}
 
-		currentFrame = (currentFrame + 1) % VulkanRenderer::MAX_FRAMES_IN_FLIGHT;
 	}
 
 	void VulkanRenderer::deviceWaitIdle()
@@ -1816,6 +1820,14 @@ namespace tessera::vulkan
 
 	void VulkanRenderer::createVertexBuffer(const std::vector<math::Vertex>& vertices)
 	{
+		if (globalBuffers.vertexBuffer != VK_NULL_HANDLE)
+		{
+			frames[currentFrame].buffersToDelete.emplace_back(
+			   globalBuffers.vertexBuffer, 
+			   globalBuffers.vertexBufferMemory
+			);
+		}
+		
 		const VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
 		
 		VkBuffer stagingBuffer;
@@ -1907,6 +1919,14 @@ namespace tessera::vulkan
 
 	void VulkanRenderer::createIndexBuffer(const std::vector<uint32_t>& indices)
 	{
+		if (globalBuffers.indexBuffer != VK_NULL_HANDLE)
+		{
+			frames[currentFrame].buffersToDelete.emplace_back(
+			   globalBuffers.indexBuffer, 
+			   globalBuffers.indexBufferMemory
+			);
+		}
+		
 		const VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
 
 		VkBuffer stagingBuffer;
@@ -2187,5 +2207,16 @@ namespace tessera::vulkan
 		return attributeDescriptions;
 	}
 
-
+	void VulkanRenderer::cleanupFrameResources()
+	{
+		// Destroy buffers scheduled for deletion from N frames ago
+		const uint32_t frameToClean = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+    
+		for (auto& [buffer, memory] : frames[frameToClean].buffersToDelete)
+		{
+			vkDestroyBuffer(logicalDevice, buffer, nullptr);
+			vkFreeMemory(logicalDevice, memory, nullptr);
+		}
+		frames[frameToClean].buffersToDelete.clear();
+	}
 }
