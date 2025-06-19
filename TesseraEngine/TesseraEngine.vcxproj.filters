@@ -16,9 +16,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="source\utils\ShaderLoader.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="source\Application.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -45,7 +42,6 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="source\utils\ShaderLoader.h" />
     <ClInclude Include="source\Application.h" />
     <ClInclude Include="source\utils\TesseraLog.h" />
     <ClInclude Include="source\utils\Utils.h" />

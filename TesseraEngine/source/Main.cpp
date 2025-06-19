@@ -1,7 +1,10 @@
 #include <iostream>
 
+#include "Core.h"
 #include "Application.h"
 #include "utils/TesseraLog.h"
+
+// FIXME: Fix issue with shaders directory.
 
 int main()
 {
@@ -13,8 +16,7 @@ int main()
 	}
 	catch (const std::exception& exception)
 	{
-		// TODO: Create custom exception with title.
-		tessera::TesseraLog::send(tessera::LogType::FATAL, "", exception.what());
+		FATAL(exception.what());
 		return EXIT_FAILURE;
 	}
 

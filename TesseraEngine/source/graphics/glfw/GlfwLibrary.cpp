@@ -12,15 +12,12 @@ namespace tessera::glfw
 	{
 		glfwInit();
 		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-		//glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
+		glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 
 		const auto [title, width, height] = getWindowSettings();
 
 		GLFWwindow* windowObject = glfwCreateWindow(width, height, title.data(), nullptr, nullptr);
-		if (!windowObject)
-		{
-			throw std::runtime_error("GlfwInitializer: failed to initialize window.");
-		}
+		ASSERT(windowObject, "failed to initialize window");
 
 		glfwSetWindowUserPointer(windowObject, this);
 		glfwSetFramebufferSizeCallback(windowObject, framebufferResizeCallback);
@@ -58,7 +55,9 @@ namespace tessera::glfw
 		uint32_t glfwExtensionCount = 0;
 		const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
 
-		return std::vector(glfwExtensions, glfwExtensions + glfwExtensionCount);
+		std::vector result(glfwExtensions, glfwExtensions + glfwExtensionCount);
+
+		return result;
 	}
 
 	void GlfwLibrary::clean()
@@ -70,6 +69,6 @@ namespace tessera::glfw
 	void framebufferResizeCallback([[maybe_unused]] GLFWwindow* window, const int width, const int height)
 	{
 		CORE->renderer->onResize();
-		TesseraLog::send(LogType::INFO, "GlfwInitializer", "User has resized the window. Window dimension: (" + std::to_string(width) + ", " + std::to_string(height) + ").");
+		DEBUG("Window resized. New size: (" + std::to_string(width) + ", " + std::to_string(height) + ").");
 	}
 }

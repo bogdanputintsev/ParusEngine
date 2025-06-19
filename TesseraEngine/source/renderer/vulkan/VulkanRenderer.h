@@ -75,7 +75,7 @@ namespace tessera::vulkan
 		static VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
 		[[nodiscard]] std::optional<uint32_t> acquireNextImage();
 		void recreateSwapChain();
-		void cleanupSwapChain();
+		void cleanupSwapChain() const;
 
 		// Image View
 		void createImageView();
@@ -89,7 +89,6 @@ namespace tessera::vulkan
 		// Graphics Pipeline
 		void createGraphicsPipeline();
 		static VkShaderModule createShaderModule(const std::vector<char>& code, const VkDevice& device);
-
 
 		// Framebuffer
 		void createFramebuffer();
@@ -112,7 +111,7 @@ namespace tessera::vulkan
 		void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) const;
 		void createIndexBuffer();
 		void createUniformBuffer();
-		void updateUniformBuffer(uint32_t currentImage);
+		void updateUniformBuffer(uint32_t currentImage) const;
 
 		void createDescriptorPool();
 		void createDescriptorSets();

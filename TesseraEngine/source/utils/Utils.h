@@ -2,6 +2,7 @@
 #include <chrono>
 #include <random>
 #include <string>
+#include <fstream>
 
 namespace tessera
 {
@@ -23,6 +24,22 @@ namespace tessera
 		oss << std::hex << std::setfill('0') << std::setw(16) << nanoseconds << std::setw(16) << randomNumber;
 
 		return oss.str();
+	}
+
+	inline std::vector<char> readFile(const std::string& filename)
+	{
+		std::ifstream file(filename, std::ios::ate | std::ios::binary);
+
+		ASSERT(file.is_open(), "failed to open file " + filename);
+
+		const auto fileSize = static_cast<std::streamsize>(file.tellg());
+		std::vector<char> buffer(fileSize);
+
+		file.seekg(0);
+		file.read(buffer.data(), fileSize);
+		file.close();
+
+		return buffer;
 	}
 
 

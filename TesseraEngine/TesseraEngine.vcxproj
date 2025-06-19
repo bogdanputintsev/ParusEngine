@@ -71,6 +71,22 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <OutDir>$(SolutionDir)build\</OutDir>
+    <IntDir>$(SolutionDir)intermediate\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <OutDir>$(SolutionDir)build\</OutDir>
+    <IntDir>$(SolutionDir)intermediate\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <OutDir>$(SolutionDir)build\</OutDir>
+    <IntDir>$(SolutionDir)intermediate\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <OutDir>$(SolutionDir)build\</OutDir>
+    <IntDir>$(SolutionDir)intermediate\</IntDir>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level4</WarningLevel>
@@ -89,6 +105,10 @@
       <AdditionalLibraryDirectories>C:\Libraries\glfw-3.3.9.bin.WIN64\lib-vc2022;C:\VulkanSDK\1.3.250.1\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>vulkan-1.lib;glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -111,6 +131,16 @@
       <AdditionalLibraryDirectories>C:\Libraries\glfw-3.3.9.bin.WIN64\lib-vc2022;C:\VulkanSDK\1.3.250.1\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>vulkan-1.lib;glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
+    <PreBuildEvent>
+      <Command>start ..\compile_shaders.bat</Command>
+    </PreBuildEvent>
+    <PreBuildEvent>
+      <Message>Shader Compilation Step</Message>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -130,6 +160,10 @@
       <AdditionalLibraryDirectories>C:\Libraries\glfw-3.3.9.bin.WIN64\lib-vc2022;C:\VulkanSDK\1.3.250.1\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>vulkan-1.lib;glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -152,13 +186,22 @@
       <AdditionalLibraryDirectories>C:\Libraries\glfw-3.3.9.bin.WIN64\lib-vc2022;C:\VulkanSDK\1.3.250.1\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>vulkan-1.lib;glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
+    <PreBuildEvent>
+      <Command>start ..\compile_shaders.bat</Command>
+    </PreBuildEvent>
+    <PreBuildEvent>
+      <Message>Shader Compilation Step</Message>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="source\Core.cpp" />
     <ClCompile Include="source\graphics\glfw\GlfwLibrary.cpp" />
     <ClCompile Include="source\graphics\GraphicsLibrary.cpp" />
     <ClCompile Include="source\renderer\Renderer.cpp" />
-    <ClCompile Include="source\utils\ShaderLoader.cpp" />
     <ClCompile Include="source\Application.cpp" />
     <ClCompile Include="source\Main.cpp" />
     <ClCompile Include="source\utils\TesseraLog.cpp" />
@@ -170,7 +213,6 @@
     <ClInclude Include="source\graphics\GraphicsLibrary.h" />
     <ClInclude Include="source\renderer\Renderer.h" />
     <ClInclude Include="source\entities\UniformBufferObject.h" />
-    <ClInclude Include="source\utils\ShaderLoader.h" />
     <ClInclude Include="source\Application.h" />
     <ClInclude Include="source\utils\TesseraLog.h" />
     <ClInclude Include="source\utils\Utils.h" />

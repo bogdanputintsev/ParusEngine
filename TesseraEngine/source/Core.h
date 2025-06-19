@@ -1,6 +1,8 @@
 #pragma once
 #include <memory>
 
+#include "utils/TesseraLog.h"
+#include "utils/Utils.h"
 #include "graphics/glfw/GlfwLibrary.h"
 #include "renderer/vulkan/VulkanRenderer.h"
 

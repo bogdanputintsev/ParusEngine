@@ -1,13 +1,11 @@
 #include "VulkanRenderer.h"
 
-#define GLM_FORCE_RADIANS
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
 #include <algorithm>
 #include <cassert>
 #include <chrono>
-#include <iostream>
 #include <set>
 #include <stdexcept>
 #include <unordered_set>
@@ -16,7 +14,6 @@
 #include "Core.h"
 #include "entities/UniformBufferObject.h"
 #include "graphics/glfw/GlfwLibrary.h"
-#include "utils/ShaderLoader.h"
 #include "utils/TesseraLog.h"
 
 namespace tessera::vulkan
@@ -58,13 +55,12 @@ namespace tessera::vulkan
 		else
 		{
 			createInfo.enabledLayerCount = 0;
+			populate(debugCreateInfo);
+
 			createInfo.pNext = nullptr;
 		}
 
-		if (vkCreateInstance(&createInfo, nullptr, &instance) != VK_SUCCESS)
-		{
-			throw std::runtime_error("VulkanInstanceManager: failed to create instance.");
-		}
+		ASSERT(vkCreateInstance(&createInfo, nullptr, &instance) == VK_SUCCESS, "failed to create instance");
 	}
 
 	void VulkanContext::checkValidationLayerSupport()
@@ -102,10 +98,8 @@ namespace tessera::vulkan
 			}
 		}
 
-		if (!result)
-		{
-			throw std::runtime_error("VulkanInitializer: validation layers requested, but not available.");
-		}
+		ASSERT(result, "validation layers requested, but not available.");
+
 	}
 
 	bool VulkanContext::validationLayersAreEnabled()
@@ -134,10 +128,12 @@ namespace tessera::vulkan
 		std::vector<VkExtensionProperties> extensions(extensionCount);
 		vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, extensions.data());
 
+		DEBUG("List of all available extensions:");
+
 		for (const auto& [extensionName, specVersion] : extensions)
 		{
-			// TODO: Custom setting for printing extensions.
-			//std::cout << extensionName << " " << requiredExtensionsSet.contains(extensionName) << std::endl;
+			DEBUG("Extension " + std::string(extensionName) + " "
+				+ (requiredExtensionsSet.contains(extensionName) ? "REQUIRED" : ""));
 
 			if (requiredExtensionsSet.contains(std::string(extensionName)))
 			{
@@ -145,10 +141,7 @@ namespace tessera::vulkan
 			}
 		}
 
-		if (matches != requiredExtensions.size())
-		{
-			throw std::runtime_error("VulkanInitializer: GLFW window extension is not supported.");
-		}
+		ASSERT(matches == requiredExtensions.size(), "GLFW window extension is not supported.");
 	}
 
 	void VulkanContext::destroyDebugUtilsMessengerExt(VkDebugUtilsMessengerEXT debugMessengerToDestroy, const VkAllocationCallbacks* pAllocator) const
@@ -176,7 +169,7 @@ namespace tessera::vulkan
 		[[maybe_unused]] VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
 		[[maybe_unused]] void* pUserData)
 	{
-		TesseraLog::send(getLogType(messageSeverity), "Vulkan", pCallbackData->pMessage);
+		LOG(getLogType(messageSeverity), pCallbackData->pMessage);
 		return VK_FALSE;
 	}
 
@@ -218,10 +211,7 @@ namespace tessera::vulkan
 		VkDebugUtilsMessengerCreateInfoEXT createInfo{};
 		populate(createInfo);
 
-		if (createDebugUtilsMessengerExt(&createInfo, nullptr, &debugMessenger) != VK_SUCCESS)
-		{
-			throw std::runtime_error("VulkanDebugManager: failed to set up debug messenger!");
-		}
+		ASSERT(createDebugUtilsMessengerExt(&createInfo, nullptr, &debugMessenger) == VK_SUCCESS, "failed to set up debug messenger.");
 	}
 
 	VkResult VulkanContext::createDebugUtilsMessengerExt(const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
@@ -240,10 +230,7 @@ namespace tessera::vulkan
 	{
 		const std::shared_ptr<GLFWwindow>& window = CORE->graphicsLibrary->getWindow();
 
-		if (glfwCreateWindowSurface(instance, window.get(), nullptr, &surface) != VK_SUCCESS)
-		{
-			throw std::runtime_error("VulkanSurfaceManager: failed to create window surface.");
-		}
+		ASSERT(glfwCreateWindowSurface(instance, window.get(), nullptr, &surface) == VK_SUCCESS, "failed to create window surface.");
 	}
 
 	QueueFamilyIndices findQueueFamilies(const VkPhysicalDevice& physicalDevice, const VkSurfaceKHR& surface)
@@ -311,13 +298,10 @@ namespace tessera::vulkan
 		pickAnySuitableDevice();
 
 		// Create logical device.
-		assert(physicalDevice);
+		ASSERT(physicalDevice, "Devices hasn't been picked successfully.");
 
 		const auto [graphicsFamily, presentFamily] = findQueueFamilies(physicalDevice, surface);
-		if (!graphicsFamily.has_value() || !presentFamily.has_value())
-		{
-			throw std::runtime_error("VulkanLogicalDeviceManager: queue family indices are not complete.");
-		}
+		ASSERT(graphicsFamily.has_value() && presentFamily.has_value(), "queue family indices are not complete.");
 
 		std::set uniqueQueueFamilies = { graphicsFamily.value(), presentFamily.value() };
 
@@ -359,10 +343,7 @@ namespace tessera::vulkan
 			createInfo.enabledLayerCount = 0;
 		}
 
-		if (vkCreateDevice(physicalDevice, &createInfo, nullptr, &logicalDevice) != VK_SUCCESS)
-		{
-			throw std::runtime_error("VulkanLogicalDeviceManager: failed to create logical device.");
-		}
+		ASSERT(vkCreateDevice(physicalDevice, &createInfo, nullptr, &logicalDevice) == VK_SUCCESS, "failed to create logical device.");
 	}
 
 	void VulkanContext::pickAnySuitableDevice()
@@ -370,10 +351,7 @@ namespace tessera::vulkan
 		uint32_t deviceCount = 0;
 		vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
 
-		if (deviceCount == 0)
-		{
-			throw std::runtime_error("VulkanPhysicalDeviceManager: failed to find GPUs with Vulkan support!");
-		}
+		ASSERT(deviceCount != 0, "failed to find GPUs with Vulkan support.");
 
 		std::vector<VkPhysicalDevice> devices(deviceCount);
 		vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
@@ -383,11 +361,10 @@ namespace tessera::vulkan
 			if (isDeviceSuitable(device, surface))
 			{
 				physicalDevice = device;
-				return;
 			}
 		}
 
-		throw std::runtime_error("VulkanPhysicalDeviceManager: failed to find a suitable GPU!");
+		ASSERT(physicalDevice != VK_NULL_HANDLE, "failed to find a suitable GPU.");
 	}
 
 	bool VulkanContext::isDeviceSuitable(const VkPhysicalDevice& device, const VkSurfaceKHR& surface)
@@ -443,10 +420,7 @@ namespace tessera::vulkan
 	{
 		const auto [graphicsFamily, presentFamily] = findQueueFamilies(physicalDevice, surface);
 
-		if (!graphicsFamily.has_value() || !presentFamily.has_value())
-		{
-			throw std::runtime_error("Queue Family is undefined.");
-		}
+		ASSERT(graphicsFamily.has_value() && presentFamily.has_value(), "queue family is undefined.");
 
 		vkGetDeviceQueue(logicalDevice, graphicsFamily.value(), 0, &graphicsQueue);
 		vkGetDeviceQueue(logicalDevice, presentFamily.value(), 0, &presentQueue);
@@ -496,10 +470,7 @@ namespace tessera::vulkan
 		createInfo.clipped = VK_TRUE;
 		createInfo.oldSwapchain = VK_NULL_HANDLE;
 
-		if (vkCreateSwapchainKHR(logicalDevice, &createInfo, nullptr, &swapChain) != VK_SUCCESS)
-		{
-			throw std::runtime_error("VulkanSwapChainManager: failed to create swap chain.");
-		}
+		ASSERT(vkCreateSwapchainKHR(logicalDevice, &createInfo, nullptr, &swapChain) == VK_SUCCESS, "failed to create swap chain.");
 
 		std::vector<VkImage> swapChainImages;
 		vkGetSwapchainImagesKHR(logicalDevice, swapChain, &imageCount, nullptr);
@@ -562,10 +533,7 @@ namespace tessera::vulkan
 
 	std::optional<uint32_t> VulkanContext::acquireNextImage()
 	{
-		if (static_cast<size_t>(currentFrame) >= imageAvailableSemaphores.size() || currentFrame < 0)
-		{
-			throw std::out_of_range("SyncObjectsManager: current frame number is larger than number of fences.");
-		}
+		ASSERT(static_cast<size_t>(currentFrame) < imageAvailableSemaphores.size() && currentFrame >= 0, "current frame number is larger than number of fences.");
 
 		uint32_t imageIndex;
 		const VkResult result = vkAcquireNextImageKHR(logicalDevice, swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
@@ -576,10 +544,7 @@ namespace tessera::vulkan
 			return std::nullopt;
 		}
 
-		if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
-		{
-			throw std::runtime_error("SyncObjectsManager: failed to acquire swap chain image.");
-		}
+		ASSERT(result == VK_SUCCESS || result == VK_SUBOPTIMAL_KHR, "failed to acquire swap chain image.");
 
 		return imageIndex;
 	}
@@ -596,13 +561,13 @@ namespace tessera::vulkan
 		createFramebuffer();
 	}
 
-	void VulkanContext::cleanupSwapChain()
+	void VulkanContext::cleanupSwapChain() const
 	{
-		for (auto framebuffer : swapChainFramebuffers) {
+		for (const auto framebuffer : swapChainFramebuffers) {
 			vkDestroyFramebuffer(logicalDevice, framebuffer, nullptr);
 		}
 
-		for (auto imageView : swapChainImageViews) {
+		for (const auto imageView : swapChainImageViews) {
 			vkDestroyImageView(logicalDevice, imageView, nullptr);
 		}
 
@@ -633,10 +598,7 @@ namespace tessera::vulkan
 			createInfo.subresourceRange.baseArrayLayer = 0;
 			createInfo.subresourceRange.layerCount = 1;
 
-			if (vkCreateImageView(logicalDevice, &createInfo, nullptr, &swapChainImageViews[i]) != VK_SUCCESS)
-			{
-				throw std::runtime_error("VulkanImageViewManager: failed to create image views.");
-			}
+			ASSERT(vkCreateImageView(logicalDevice, &createInfo, nullptr, &swapChainImageViews[i]) == VK_SUCCESS, "failed to create image views.");
 		}
 	}
 
@@ -678,9 +640,7 @@ namespace tessera::vulkan
 		renderPassInfo.dependencyCount = 1;
 		renderPassInfo.pDependencies = &dependency;
 
-		if (vkCreateRenderPass(logicalDevice, &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS) {
-			throw std::runtime_error("failed to create render pass!");
-		}
+		ASSERT(vkCreateRenderPass(logicalDevice, &renderPassInfo, nullptr, &renderPass) == VK_SUCCESS, "failed to create render pass.");
 	}
 
 	void VulkanContext::createDescriptorSetLayout()
@@ -697,18 +657,15 @@ namespace tessera::vulkan
 		layoutInfo.bindingCount = 1;
 		layoutInfo.pBindings = &uboLayoutBinding;
 
-		if (vkCreateDescriptorSetLayout(logicalDevice, &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS)
-		{
-			throw std::runtime_error("DescriptorSetLayoutManager: failed to create descriptor set layout!");
-		}
+		ASSERT(vkCreateDescriptorSetLayout(logicalDevice, &layoutInfo, nullptr, &descriptorSetLayout) == VK_SUCCESS, "failed to create descriptor set layout.");
 	}
 
 	void VulkanContext::createGraphicsPipeline()
 	{
-		const auto vertexShaderCode = ShaderLoader::readFile("shaders/vert.spv");
+		const auto vertexShaderCode = readFile("bin/vert.spv");
 		vertexShaderModule = createShaderModule(vertexShaderCode, logicalDevice);
 
-		const auto fragmentShaderCode = ShaderLoader::readFile("shaders/frag.spv");
+		const auto fragmentShaderCode = readFile("bin/frag.spv");
 		fragmentShaderModule = createShaderModule(fragmentShaderCode, logicalDevice);
 
 		VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
@@ -742,28 +699,10 @@ namespace tessera::vulkan
 		inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 		inputAssembly.primitiveRestartEnable = VK_FALSE;
 
-		//// Viewport.
-		//VkViewport viewport{};
-
-		//const auto& [width, height] = swapChainDetails.swapChainExtent;
-		//viewport.x = 0.0f;
-		//viewport.y = 0.0f;
-		//viewport.width = static_cast<float>(width);
-		//viewport.height = static_cast<float>(height);
-		//viewport.minDepth = 0.0f;
-		//viewport.maxDepth = 1.0f;
-
-		//// Scissor.
-		//VkRect2D scissor{};
-		//scissor.offset = { 0, 0 };
-		//scissor.extent = swapChainDetails.swapChainExtent;
-
 		VkPipelineViewportStateCreateInfo viewportState{};
 		viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
 		viewportState.viewportCount = 1;
-		//viewportState.pViewports = &viewport;
 		viewportState.scissorCount = 1;
-		//viewportState.pScissors = &scissor;
 
 		// Rasterizer
 		VkPipelineRasterizationStateCreateInfo rasterizer{};
@@ -833,10 +772,7 @@ namespace tessera::vulkan
 		pipelineLayoutInfo.pushConstantRangeCount = 0;
 		pipelineLayoutInfo.pPushConstantRanges = nullptr;
 
-		if (vkCreatePipelineLayout(logicalDevice, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS)
-		{
-			throw std::runtime_error("VulkanGraphicsPipelineManager: failed to create pipeline layout.");
-		}
+		ASSERT(vkCreatePipelineLayout(logicalDevice, &pipelineLayoutInfo, nullptr, &pipelineLayout) == VK_SUCCESS, "failed to create pipeline layout.");
 
 		VkGraphicsPipelineCreateInfo pipelineInfo{};
 		pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -856,10 +792,7 @@ namespace tessera::vulkan
 		pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 		pipelineInfo.basePipelineIndex = -1;
 
-		if (vkCreateGraphicsPipelines(logicalDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) != VK_SUCCESS)
-		{
-			throw std::runtime_error("VulkanGraphicsPipelineManager: failed to create graphics pipeline.");
-		}
+		ASSERT(vkCreateGraphicsPipelines(logicalDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) == VK_SUCCESS, "failed to create graphics pipeline.");
 	}
 
 	VkShaderModule VulkanContext::createShaderModule(const std::vector<char>& code, const VkDevice& device)
@@ -870,10 +803,7 @@ namespace tessera::vulkan
 		createInfo.pCode = reinterpret_cast<const uint32_t*>(code.data());
 
 		VkShaderModule shaderModule;
-		if (vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS)
-		{
-			throw std::runtime_error("VulkanGraphicsPipelineManager: failed to create shader module.");
-		}
+		ASSERT(vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule) == VK_SUCCESS, "failed to create shader module.");
 
 		return shaderModule;
 	}
@@ -899,10 +829,7 @@ namespace tessera::vulkan
 			framebufferInfo.height = height;
 			framebufferInfo.layers = 1;
 
-			if (vkCreateFramebuffer(logicalDevice, &framebufferInfo, nullptr, &swapChainFramebuffers[i]) != VK_SUCCESS)
-			{
-				throw std::runtime_error("VulkanFramebufferManager: failed to create framebuffer.");
-			}
+			ASSERT(vkCreateFramebuffer(logicalDevice, &framebufferInfo, nullptr, &swapChainFramebuffers[i]) == VK_SUCCESS, "failed to create framebuffer.");
 		}
 	}
 
@@ -916,18 +843,13 @@ namespace tessera::vulkan
 		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 		allocInfo.commandBufferCount = static_cast<uint32_t>(commandBuffers.size());
 
-		if (vkAllocateCommandBuffers(logicalDevice, &allocInfo, commandBuffers.data()) != VK_SUCCESS)
-		{
-			throw std::runtime_error("CommandPoolManager: failed to allocate command buffers.");
-		}
+		ASSERT(vkAllocateCommandBuffers(logicalDevice, &allocInfo, commandBuffers.data()) == VK_SUCCESS, "failed to allocate command buffers.");
 	}
 
 	void VulkanContext::resetCommandBuffer(const int bufferId) const
 	{
-		if (static_cast<size_t>(bufferId) >= commandBuffers.size() || bufferId < 0)
-		{
-			throw std::out_of_range("VkCommandBuffer: current frame number is larger than number of fences.");
-		}
+		ASSERT(static_cast<size_t>(bufferId) < commandBuffers.size() && bufferId >= 0, "current frame number is larger than number of fences.");
+
 		vkResetCommandBuffer(commandBuffers[bufferId], 0);
 	}
 
@@ -938,10 +860,7 @@ namespace tessera::vulkan
 		beginInfo.flags = 0;
 		beginInfo.pInheritanceInfo = nullptr;
 
-		if (vkBeginCommandBuffer(commandBufferToRecord, &beginInfo) != VK_SUCCESS)
-		{
-			throw std::runtime_error("CommandPoolManager: failed to begin recording command buffer.");
-		}
+		ASSERT(vkBeginCommandBuffer(commandBufferToRecord, &beginInfo) == VK_SUCCESS, "failed to begin recording command buffer.");
 
 		// Start the rendering pass
 		VkRenderPassBeginInfo renderPassInfo{};
@@ -983,19 +902,13 @@ namespace tessera::vulkan
 
 		vkCmdDrawIndexed(commandBufferToRecord, numberOfIndices, 1, 0, 0, 0);
 		vkCmdEndRenderPass(commandBufferToRecord);
-
-		if (vkEndCommandBuffer(commandBufferToRecord) != VK_SUCCESS)
-		{
-			throw std::runtime_error("CommandPoolManager: failed to record command buffer");
-		}
+		ASSERT(vkEndCommandBuffer(commandBufferToRecord) == VK_SUCCESS, " failed to record command buffer.");
 	}
 
 	VkCommandBuffer VulkanContext::getCommandBuffer(const int bufferId) const
 	{
-		if (static_cast<size_t>(bufferId) >= commandBuffers.size() || bufferId < 0)
-		{
-			throw std::out_of_range("VkCommandBuffer: current frame number is larger than number of fences.");
-		}
+		ASSERT(static_cast<size_t>(bufferId) < commandBuffers.size() && bufferId >= 0, "current frame number is larger than number of fences.");
+
 		return commandBuffers[bufferId];
 	}
 
@@ -1007,10 +920,7 @@ namespace tessera::vulkan
 		poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 		poolInfo.queueFamilyIndex = graphicsFamily.value();
 
-		if (vkCreateCommandPool(logicalDevice, &poolInfo, nullptr, &commandPool) != VK_SUCCESS)
-		{
-			throw std::runtime_error("CommandPoolManager: failed to create command pool.");
-		}
+		ASSERT(vkCreateCommandPool(logicalDevice, &poolInfo, nullptr, &commandPool) == VK_SUCCESS, "failed to create command pool.");
 	}
 
 	void VulkanContext::createBufferManager()
@@ -1049,10 +959,7 @@ namespace tessera::vulkan
 		bufferInfo.usage = usage;
 		bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-		if (vkCreateBuffer(logicalDevice, &bufferInfo, nullptr, &buffer) != VK_SUCCESS)
-		{
-			throw std::runtime_error("VertexBufferManager: failed to create buffer.");
-		}
+		ASSERT(vkCreateBuffer(logicalDevice, &bufferInfo, nullptr, &buffer) == VK_SUCCESS, "failed to create buffer.");
 
 		// Calculate memory requirements.
 		VkMemoryRequirements memRequirements;
@@ -1064,10 +971,7 @@ namespace tessera::vulkan
 		allocInfo.allocationSize = memRequirements.size;
 		allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
 
-		if (vkAllocateMemory(logicalDevice, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS)
-		{
-			throw std::runtime_error("VertexBufferManager: failed to allocate buffer memory.");
-		}
+		ASSERT(vkAllocateMemory(logicalDevice, &allocInfo, nullptr, &bufferMemory) == VK_SUCCESS, "failed to allocate buffer memory.");
 
 		vkBindBufferMemory(logicalDevice, buffer, bufferMemory, 0);
 	}
@@ -1077,15 +981,19 @@ namespace tessera::vulkan
 		VkPhysicalDeviceMemoryProperties memProperties;
 		vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
 
+		std::optional<uint32_t> memoryIndex;
+
 		for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++)
 		{
 			if (typeFilter & 1 << i && (memProperties.memoryTypes[i].propertyFlags & properties) == properties)
 			{
-				return i;
+				memoryIndex = i;
+				break;
 			}
 		}
 
-		throw std::runtime_error("VertexBufferManager: failed to find suitable memory type.");
+		ASSERT(memoryIndex.has_value(), "failed to find suitable memory type.");
+		return memoryIndex.value();
 	}
 
 	void VulkanContext::copyBuffer(const VkBuffer srcBuffer, const VkBuffer dstBuffer, const VkDeviceSize size) const
@@ -1158,17 +1066,19 @@ namespace tessera::vulkan
 		}
 	}
 
-	void VulkanContext::updateUniformBuffer(uint32_t currentImage)
+	void VulkanContext::updateUniformBuffer(const uint32_t currentImage) const
 	{
 		static auto startTime = std::chrono::high_resolution_clock::now();
 
-		auto currentTime = std::chrono::high_resolution_clock::now();
-		float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+		const auto currentTime = std::chrono::high_resolution_clock::now();
+		const float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
 		UniformBufferObject ubo{};
-		ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-		ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-		ubo.proj = glm::perspective(glm::radians(45.0f), swapChainDetails.swapChainExtent.width / (float)swapChainDetails.swapChainExtent.height, 0.1f, 10.0f);
+		ubo.model = rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+		ubo.view = lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+		ubo.proj = glm::perspective(glm::radians(45.0f),
+			static_cast<float>(swapChainDetails.swapChainExtent.width) / static_cast<float>(swapChainDetails.swapChainExtent.height),
+			0.1f, 10.0f);
 		ubo.proj[1][1] *= -1;
 
 		memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
@@ -1186,9 +1096,7 @@ namespace tessera::vulkan
 		poolInfo.pPoolSizes = &poolSize;
 		poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
 
-		if (vkCreateDescriptorPool(logicalDevice, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
-			throw std::runtime_error("failed to create descriptor pool!");
-		}
+		ASSERT(vkCreateDescriptorPool(logicalDevice, &poolInfo, nullptr, &descriptorPool) == VK_SUCCESS, "failed to create descriptor pool.");
 	}
 
 	void VulkanContext::createDescriptorSets()
@@ -1201,9 +1109,7 @@ namespace tessera::vulkan
 		allocInfo.pSetLayouts = layouts.data();
 
 		descriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
-		if (vkAllocateDescriptorSets(logicalDevice, &allocInfo, descriptorSets.data()) != VK_SUCCESS) {
-			throw std::runtime_error("failed to allocate descriptor sets!");
-		}
+		ASSERT(vkAllocateDescriptorSets(logicalDevice, &allocInfo, descriptorSets.data()) == VK_SUCCESS, "failed to allocate descriptor sets.");
 
 		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 			VkDescriptorBufferInfo bufferInfo{};
@@ -1239,21 +1145,16 @@ namespace tessera::vulkan
 
 		for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
 		{
-			if (vkCreateSemaphore(logicalDevice, &semaphoreInfo, nullptr, &imageAvailableSemaphores[i]) != VK_SUCCESS ||
-				vkCreateSemaphore(logicalDevice, &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]) != VK_SUCCESS ||
-				vkCreateFence(logicalDevice, &fenceInfo, nullptr, &inFlightFences[i]) != VK_SUCCESS)
-			{
-				throw std::runtime_error("SyncObjectsManager: failed to create semaphores.");
-			}
+			ASSERT(vkCreateSemaphore(logicalDevice, &semaphoreInfo, nullptr, &imageAvailableSemaphores[i]) == VK_SUCCESS &&
+				vkCreateSemaphore(logicalDevice, &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]) == VK_SUCCESS &&
+				vkCreateFence(logicalDevice, &fenceInfo, nullptr, &inFlightFences[i]) == VK_SUCCESS,
+				"failed to create semaphores.");
 		}
 	}
 
 	void VulkanContext::waitForFences() const
 	{
-		if (static_cast<size_t>(currentFrame) >= inFlightFences.size() || currentFrame < 0)
-		{
-			throw std::out_of_range("SyncObjectsManager: current frame number is larger than number of fences.");
-		}
+		ASSERT(static_cast<size_t>(currentFrame) < inFlightFences.size() && currentFrame >= 0, "current frame number is larger than number of fences.");
 
 		vkWaitForFences(logicalDevice, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
 		vkResetFences(logicalDevice, 1, &inFlightFences[currentFrame]);
@@ -1261,10 +1162,7 @@ namespace tessera::vulkan
 
 	void VulkanContext::resetFences() const
 	{
-		if (static_cast<size_t>(currentFrame) >= inFlightFences.size() || currentFrame < 0)
-		{
-			throw std::out_of_range("SyncObjectsManager: current frame number is larger than number of fences.");
-		}
+		ASSERT(static_cast<size_t>(currentFrame) < inFlightFences.size() && currentFrame >= 0, "current frame number is larger than number of fences.");
 
 		vkResetFences(logicalDevice, 1, &inFlightFences[currentFrame]);
 	}
@@ -1367,10 +1265,7 @@ namespace tessera::vulkan
 		submitInfo.signalSemaphoreCount = 1;
 		submitInfo.pSignalSemaphores = signalSemaphores;
 
-		if (vkQueueSubmit(context.graphicsQueue, 1, &submitInfo, context.inFlightFences[context.currentFrame]) != VK_SUCCESS)
-		{
-			throw std::runtime_error("QueueManager: failed to submit draw command buffer.");
-		}
+		ASSERT(vkQueueSubmit(context.graphicsQueue, 1, &submitInfo, context.inFlightFences[context.currentFrame]) == VK_SUCCESS, "failed to submit draw command buffer.");
 
 		// Submit result back to swap chain to have it eventually show up on the screen. 
 		VkPresentInfoKHR presentInfo{};
@@ -1392,10 +1287,8 @@ namespace tessera::vulkan
 			context.framebufferResized = false;
 			context.recreateSwapChain();
 		}
-		else if (result != VK_SUCCESS)
-		{
-			throw std::runtime_error("QueueManager: failed to present swap chain image.");
-		}
+
+		ASSERT(result == VK_SUCCESS, "failed to present swap chain image.");
 
 		context.currentFrame = (context.currentFrame + 1) % VulkanContext::MAX_FRAMES_IN_FLIGHT;
 	}
