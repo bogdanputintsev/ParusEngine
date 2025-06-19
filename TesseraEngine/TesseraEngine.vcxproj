@@ -79,7 +79,7 @@
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>C:\Libraries\glfw-3.3.9.bin.WIN64\include;C:\Libraries\glm;C:\VulkanSDK\1.3.250.1\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <MultiProcessorCompilation>false</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -98,7 +98,7 @@
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>C:\Libraries\glfw-3.3.9.bin.WIN64\include;C:\Libraries\glm;C:\VulkanSDK\1.3.250.1\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <MultiProcessorCompilation>false</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -117,7 +117,7 @@
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>C:\Libraries\glfw-3.3.9.bin.WIN64\include;C:\Libraries\glm;C:\VulkanSDK\1.3.250.1\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <MultiProcessorCompilation>false</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -136,7 +136,7 @@
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>C:\Libraries\glfw-3.3.9.bin.WIN64\include;C:\Libraries\glm;C:\VulkanSDK\1.3.250.1\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <MultiProcessorCompilation>false</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -168,6 +168,7 @@
     <ClCompile Include="VulkanExtensionManager.cpp" />
     <ClCompile Include="VulkanInitializer.cpp" />
     <ClCompile Include="VulkanDebugManager.cpp" />
+    <ClCompile Include="VulkanLogicalDeviceManager.cpp" />
     <ClCompile Include="VulkanPhysicalDeviceManager.cpp" />
     <ClCompile Include="VulkanQueueFamiliesManager.cpp" />
   </ItemGroup>
@@ -178,6 +179,7 @@
     <ClInclude Include="VulkanExtensionManager.h" />
     <ClInclude Include="VulkanInitializer.h" />
     <ClInclude Include="VulkanDebugManager.h" />
+    <ClInclude Include="VulkanLogicalDeviceManager.h" />
     <ClInclude Include="VulkanPhysicalDeviceManager.h" />
     <ClInclude Include="VulkanQueueFamiliesManager.h" />
   </ItemGroup>

@@ -37,6 +37,15 @@
     <ClCompile Include="TesseraLog.cpp">
       <Filter>Source Files\Logging</Filter>
     </ClCompile>
+    <ClCompile Include="VulkanLogicalDeviceManager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="VulkanPhysicalDeviceManager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="VulkanQueueFamiliesManager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h">
@@ -56,6 +65,15 @@
     </ClInclude>
     <ClInclude Include="TesseraLog.h">
       <Filter>Source Files\Logging</Filter>
+    </ClInclude>
+    <ClInclude Include="VulkanPhysicalDeviceManager.h">
+      <Filter>Source Files\Vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="VulkanLogicalDeviceManager.h">
+      <Filter>Source Files\Vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="VulkanQueueFamiliesManager.h">
+      <Filter>Source Files\Vulkan</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

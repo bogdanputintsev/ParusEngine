@@ -7,8 +7,7 @@
 
 namespace tessera::vulkan
 {
-	
-	void VulkanPhysicalDeviceManager::pickAnySuitableDevice(const VkInstance& instance)
+	VkPhysicalDevice VulkanPhysicalDeviceManager::pickAnySuitableDevice(const VkInstance& instance)
 	{
 		uint32_t deviceCount = 0;
 		vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
@@ -25,15 +24,11 @@ namespace tessera::vulkan
 		{
 			if (isDeviceSuitable(device)) 
 			{
-				physicalDevice = device;
-				break;
+				return device;
 			}
 		}
 
-		if (physicalDevice == VK_NULL_HANDLE) 
-		{
-			throw std::runtime_error("VulkanPhysicalDeviceManager: failed to find a suitable GPU!");
-		}
+		throw std::runtime_error("VulkanPhysicalDeviceManager: failed to find a suitable GPU!");
 	}
 
 	bool VulkanPhysicalDeviceManager::isDeviceSuitable(const VkPhysicalDevice& device)

@@ -12,7 +12,7 @@ namespace tessera::vulkan
 	{
 		createInstance();
 		debugManager.init(instance);
-		physicalDeviceManager.pickAnySuitableDevice(instance);
+		logicalDeviceManager.init(instance);
 	}
 
 	void VulkanInitializer::createInstance()
@@ -62,6 +62,7 @@ namespace tessera::vulkan
 
 	void VulkanInitializer::clean() const
 	{
+		logicalDeviceManager.clean();
 		debugManager.clean(instance);
 		vkDestroyInstance(instance, nullptr);
 	}
