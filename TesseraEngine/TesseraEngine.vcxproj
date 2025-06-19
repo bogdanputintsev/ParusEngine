@@ -170,6 +170,7 @@
     </ClCompile>
     <ClCompile Include="TesseraLog.cpp" />
     <ClCompile Include="VulkanExtensionManager.cpp" />
+    <ClCompile Include="VulkanImageViewManager.cpp" />
     <ClCompile Include="VulkanInstanceManager.cpp" />
     <ClCompile Include="VulkanDebugManager.cpp" />
     <ClCompile Include="VulkanDeviceManager.cpp" />
@@ -183,6 +184,7 @@
     <ClInclude Include="GlfwInitializer.h" />
     <ClInclude Include="TesseraLog.h" />
     <ClInclude Include="VulkanExtensionManager.h" />
+    <ClInclude Include="VulkanImageViewManager.h" />
     <ClInclude Include="VulkanInstanceManager.h" />
     <ClInclude Include="VulkanDebugManager.h" />
     <ClInclude Include="VulkanDeviceManager.h" />
