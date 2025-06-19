@@ -22,85 +22,40 @@
     <ClCompile Include="source\Application.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="source\glfw\GlfwInitializer.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="source\Main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="source\utils\TesseraLog.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="source\vulkan\DebugManager.cpp">
+    <ClCompile Include="source\renderer\Renderer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="source\vulkan\DeviceManager.cpp">
+    <ClCompile Include="source\renderer\vulkan\VulkanRenderer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="source\vulkan\ExtensionManager.cpp">
+    <ClCompile Include="source\graphics\GraphicsLibrary.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="source\vulkan\GraphicsPipelineManager.cpp">
+    <ClCompile Include="source\graphics\glfw\GlfwLibrary.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="source\vulkan\ImageViewManager.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="source\vulkan\InstanceManager.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="source\vulkan\PhysicalDeviceManager.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="source\vulkan\QueueManager.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="source\vulkan\SurfaceManager.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="source\vulkan\SwapChainManager.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="source\vulkan\FramebufferManager.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="source\vulkan\CommandBufferManager.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="source\utils\interfaces\ServiceLocator.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="source\vulkan\SyncObjectsManager.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="source\vulkan\BufferManager.cpp">
+    <ClCompile Include="source\Core.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="source\utils\ShaderLoader.h" />
     <ClInclude Include="source\Application.h" />
-    <ClInclude Include="source\glfw\GlfwInitializer.h" />
     <ClInclude Include="source\utils\TesseraLog.h" />
-    <ClInclude Include="source\vulkan\DebugManager.h" />
-    <ClInclude Include="source\vulkan\DeviceManager.h" />
-    <ClInclude Include="source\vulkan\ExtensionManager.h" />
-    <ClInclude Include="source\vulkan\GraphicsPipelineManager.h" />
-    <ClInclude Include="source\vulkan\ImageViewManager.h" />
-    <ClInclude Include="source\vulkan\InstanceManager.h" />
-    <ClInclude Include="source\vulkan\PhysicalDeviceManager.h" />
-    <ClInclude Include="source\vulkan\QueueManager.h" />
-    <ClInclude Include="source\vulkan\SurfaceManager.h" />
-    <ClInclude Include="source\vulkan\SwapChainManager.h" />
-    <ClInclude Include="source\vulkan\FramebufferManager.h" />
-    <ClInclude Include="source\vulkan\CommandBufferManager.h" />
-    <ClInclude Include="source\utils\interfaces\ServiceLocator.h" />
-    <ClInclude Include="source\utils\interfaces\Service.h" />
-    <ClInclude Include="source\utils\interfaces\Initializable.h" />
     <ClInclude Include="source\utils\Utils.h" />
-    <ClInclude Include="source\vulkan\SyncObjectsManager.h" />
     <ClInclude Include="source\entities\Vertex.h" />
-    <ClInclude Include="source\vulkan\BufferManager.h" />
+    <ClInclude Include="source\entities\UniformBufferObject.h" />
+    <ClInclude Include="source\renderer\Renderer.h" />
+    <ClInclude Include="source\renderer\vulkan\VulkanRenderer.h" />
+    <ClInclude Include="source\graphics\GraphicsLibrary.h" />
+    <ClInclude Include="source\graphics\glfw\GlfwLibrary.h" />
+    <ClInclude Include="source\Core.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\shader.frag" />
