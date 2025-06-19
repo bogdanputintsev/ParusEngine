@@ -38,10 +38,29 @@ namespace tessera::vulkan
 		[[nodiscard]] bool isComplete() const { return graphicsFamily.has_value() && presentFamily.has_value(); }
 	};
 
+	struct Texture
+	{
+		VkImage textureImage;
+		VkDeviceMemory textureImageMemory;
+		VkImageView textureImageView;
+		VkSampler textureSampler;
+		uint32_t maxMipLevels;
+	};
+
+	struct Model
+	{
+		std::vector<Vertex> vertices;
+		std::vector<uint32_t> indices;
+		Texture texture;
+		std::vector<VkDescriptorSet> descriptorSets;
+		size_t vertexOffset; // Offset into the combined vertex buffer
+		size_t indexOffset;  // Offset into the combined index buffer
+	};
+
 	struct VulkanContext final
 	{
 		// Load model
-		void loadModel();
+		Model loadModel(const std::string& modelPath, const std::string& texturePath);
 
 		// Instance
 		void createInstance();
@@ -122,30 +141,33 @@ namespace tessera::vulkan
 		static bool hasStencilComponent(VkFormat format);
 
 		// Texture image
-		void createTextureImage();
-		void generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipMapLevel);
+		Texture loadTexture(const std::string& texturePath);
+		void generateMipmaps(const Texture& texture, VkFormat imageFormat,
+		                     int32_t texWidth,
+		                     int32_t texHeight) const;
 		void createImage(uint32_t width, uint32_t height, uint32_t numberOfMipLevels, VkSampleCountFlagBits numberOfSamples, VkFormat format, VkImageTiling
 			tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags
 			properties, VkImage& image, VkDeviceMemory& imageMemory) const;
 		void transitionImageLayout(const VkImage image, VkFormat format, const VkImageLayout oldLayout, const VkImageLayout newLayout, uint32_t mipLevels) const;
 		void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height) const;
+		void createTextureImageView(Texture& texture) const;
 
-		void createTextureImageView();
-		void createTextureSampler();
+		void createTextureImageView(const Texture& textureImage);
+		VkSampler createTextureSampler(uint32_t maxMipLevels) const;
 		void createColorResources();
 
 		// Buffer manager
 		void createBufferManager();
-		void createVertexBuffer();
+		void createVertexBuffer(const std::vector<Vertex>& vertices);
 		void createBuffer(const VkDeviceSize size, const VkBufferUsageFlags usage, const VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) const;
 		[[nodiscard]] uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const;
 		void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) const;
-		void createIndexBuffer();
+		void createIndexBuffer(const std::vector<uint32_t>& indices);
 		void createUniformBuffer();
 		void updateUniformBuffer(uint32_t currentImage) const;
 
 		void createDescriptorPool();
-		void createDescriptorSets();
+		void createDescriptorSets(Model& model) const;
 
 		// Sync objects
 		void createSyncObjects();
@@ -171,7 +193,6 @@ namespace tessera::vulkan
 		SwapChainImageDetails swapChainDetails{};
 		std::vector<VkImageView> swapChainImageViews{};
 		VkDescriptorPool descriptorPool;
-		std::vector<VkDescriptorSet> descriptorSets;
 		VkDescriptorSetLayout descriptorSetLayout = VK_NULL_HANDLE;
 		VkRenderPass renderPass = VK_NULL_HANDLE;
 		VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
@@ -183,11 +204,9 @@ namespace tessera::vulkan
 		VkDeviceMemory vertexBufferMemory = VK_NULL_HANDLE;
 		VkBuffer indexBuffer = VK_NULL_HANDLE;
 		VkDeviceMemory indexBufferMemory = VK_NULL_HANDLE;
-		uint32_t maxMipLevels;
-		VkImage textureImage;
-		VkDeviceMemory textureImageMemory;
-		VkImageView textureImageView;
-		VkSampler textureSampler;
+		
+		std::vector<Model> models;
+		
 		VkImage depthImage;
 		VkDeviceMemory depthImageMemory;
 		VkImageView depthImageView;
@@ -207,10 +226,9 @@ namespace tessera::vulkan
 		bool framebufferResized = false;
 
 		static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
-		static constexpr int IMAGE_SAMPLER_POOL_SIZE = 1;
+		static constexpr int IMAGE_SAMPLER_POOL_SIZE = 1000;
+		static constexpr uint32_t DESCRIPTOR_SET_COUNT = MAX_FRAMES_IN_FLIGHT + IMAGE_SAMPLER_POOL_SIZE;
 
-		std::vector<Vertex> vertices;
-		std::vector<uint32_t> indices;
 	};
 
 	class VulkanRenderer final : public Renderer

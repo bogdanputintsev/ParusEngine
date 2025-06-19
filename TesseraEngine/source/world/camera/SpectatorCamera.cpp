@@ -38,8 +38,9 @@ namespace tessera
             const float offsetY = static_cast<float>(mouseOffsetY) * sensitivity;
 
             yaw += offsetX;
-            pitch += offsetY;
+            pitch = std::clamp(pitch + offsetY, -90.0f, 90.0f);
         }
+        
         // Calculate new direction vector.
         glm::vec3 direction;
         direction.x = sin(glm::radians(yaw)) * cos(glm::radians(pitch));

@@ -25,19 +25,24 @@
 
 namespace tessera::vulkan
 {
-	void VulkanContext::loadModel()
+	Model VulkanContext::loadModel(const std::string& modelPath, const std::string& texturePath)
 	{
+		Model model{};
+
+		// Load the model (vertices and indices)
 		tinyobj::attrib_t attrib;
 		std::vector<tinyobj::shape_t> shapes;
 		std::vector<tinyobj::material_t> materials;
 		std::string warn, err;
 
-		ASSERT(tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, "bin/assets/skybox/skybox.obj"), warn + err);
+		ASSERT(tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, modelPath.c_str()), warn + err);
 
 		std::unordered_map<Vertex, uint32_t> uniqueVertices{};
 
-		for (const auto& shape : shapes) {
-			for (const auto& index : shape.mesh.indices) {
+		for (const auto& shape : shapes) 
+		{
+			for (const auto& index : shape.mesh.indices)
+			{
 				Vertex vertex{};
 
 				vertex.position = {
@@ -55,13 +60,17 @@ namespace tessera::vulkan
 
 				if (!uniqueVertices.contains(vertex))
 				{
-					uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
-					vertices.push_back(vertex);
+					uniqueVertices[vertex] = static_cast<uint32_t>(model.vertices.size());
+					model.vertices.push_back(vertex);
 				}
 
-				indices.push_back(uniqueVertices[vertex]);
+				model.indices.push_back(uniqueVertices[vertex]);
 			}
 		}
+
+		// Load the texture for this model
+		model.texture = loadTexture(texturePath);
+		return model;
 	}
 
 	void VulkanContext::createInstance()
@@ -200,10 +209,7 @@ namespace tessera::vulkan
 
 	std::vector<const char*> VulkanContext::getRequiredInstanceExtensions()
 	{
-		std::vector<const char*> extensions;
-		extensions.emplace_back("VK_KHR_surface");
-		extensions.emplace_back("VK_KHR_win32_surface");
-		//std::vector extensions = CORE->graphicsLibrary->getRequiredExtensions();
+		std::vector extensions = CORE->graphicsLibrary->getRequiredExtensions();
 
 		if (validationLayersAreEnabled())
 		{
@@ -498,6 +504,8 @@ namespace tessera::vulkan
 			imageCount = capabilities.maxImageCount;
 		}
 
+		ASSERT(extent.width != 0 && extent.height != 0, "Swap chain extent is invalid (window may be minimized)");
+
 		VkSwapchainCreateInfoKHR createInfo{};
 		createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
 		createInfo.surface = surface;
@@ -509,6 +517,7 @@ namespace tessera::vulkan
 		createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
 		const auto [graphicsFamily, presentFamily] = findQueueFamilies(physicalDevice, surface);
+		ASSERT(graphicsFamily.has_value() && presentFamily.has_value(), "Queue families are not complete.");
 		const uint32_t queueFamilyIndices[] = { graphicsFamily.value(), presentFamily.value() };
 
 		if (graphicsFamily != presentFamily) {
@@ -1025,11 +1034,21 @@ namespace tessera::vulkan
 		constexpr VkDeviceSize offsets[] = { 0 };
 		vkCmdBindVertexBuffers(commandBufferToRecord, 0, 1, vertexBuffers, offsets);
 		vkCmdBindIndexBuffer(commandBufferToRecord, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-		vkCmdBindDescriptorSets(commandBufferToRecord, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[currentFrame], 0, nullptr);
 
-		const auto numberOfIndices = static_cast<uint32_t>(indices.size());
+		for (const auto& model : models)
+		{
+			// Bind the model's descriptor set.
+			vkCmdBindDescriptorSets(commandBufferToRecord, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1,
+				&model.descriptorSets[currentFrame], 0, nullptr);
 
-		vkCmdDrawIndexed(commandBufferToRecord, numberOfIndices, 1, 0, 0, 0);
+			vkCmdDrawIndexed(commandBufferToRecord,
+				static_cast<uint32_t>(model.indices.size()),
+				1,
+				static_cast<uint32_t>(model.indexOffset),
+				static_cast<int32_t>(model.vertexOffset),
+				0);
+		}
+		
 		CORE->graphicsLibrary->renderDrawData(commandBufferToRecord);
 		vkCmdEndRenderPass(commandBufferToRecord);
 		ASSERT(vkEndCommandBuffer(commandBufferToRecord) == VK_SUCCESS, " failed to record command buffer.");
@@ -1139,12 +1158,14 @@ namespace tessera::vulkan
 		return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
 	}
 
-	void VulkanContext::createTextureImage()
+	Texture VulkanContext::loadTexture(const std::string& texturePath)
 	{
+		Texture newTexture{};
+		
 		int texWidth, texHeight, texChannels;
-		stbi_uc* pixels = stbi_load("bin/assets/skybox/skybox.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+		stbi_uc* pixels = stbi_load(texturePath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
 		const VkDeviceSize imageSize = texWidth * texHeight * 4;
-		maxMipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
+		newTexture.maxMipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
 
 		ASSERT(pixels, "failed to load texture image.");
 
@@ -1157,20 +1178,33 @@ namespace tessera::vulkan
 		vkMapMemory(logicalDevice, stagingBufferMemory, 0, imageSize, 0, &data);
 		memcpy(data, pixels, static_cast<size_t>(imageSize));
 		vkUnmapMemory(logicalDevice, stagingBufferMemory);
-
+		
 		stbi_image_free(pixels);
 
-		createImage(texWidth, texHeight, maxMipLevels, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory);
-		transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, maxMipLevels);
-		copyBufferToImage(stagingBuffer, textureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
+		createImage(texWidth, texHeight,
+			newTexture.maxMipLevels,
+			VK_SAMPLE_COUNT_1_BIT,
+			VK_FORMAT_R8G8B8A8_SRGB,
+			VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+			newTexture.textureImage,
+			newTexture.textureImageMemory);
+		
+		transitionImageLayout(newTexture.textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, newTexture.maxMipLevels);
+		copyBufferToImage(stagingBuffer, newTexture.textureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
 
 		vkDestroyBuffer(logicalDevice, stagingBuffer, nullptr);
 		vkFreeMemory(logicalDevice, stagingBufferMemory, nullptr);
 
-		generateMipmaps(textureImage, VK_FORMAT_R8G8B8A8_SRGB, texWidth, texHeight, maxMipLevels);
+		generateMipmaps(newTexture, VK_FORMAT_R8G8B8A8_SRGB, texWidth, texHeight);
+
+		newTexture.textureImageView = createImageView(newTexture.textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, newTexture.maxMipLevels);
+		newTexture.textureSampler = createTextureSampler(newTexture.maxMipLevels);
+
+		return newTexture;
 	}
 
-	void VulkanContext::generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipMapLevel)
+	void VulkanContext::generateMipmaps(const Texture& texture, const VkFormat imageFormat, const int32_t texWidth, const int32_t texHeight) const
 	{
 		// Check if image format supports linear blitting
 		VkFormatProperties formatProperties;
@@ -1182,7 +1216,7 @@ namespace tessera::vulkan
 
 		VkImageMemoryBarrier barrier{};
 		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-		barrier.image = image;
+		barrier.image = texture.textureImage;
 		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -1193,7 +1227,7 @@ namespace tessera::vulkan
 		int32_t mipWidth = texWidth;
 		int32_t mipHeight = texHeight;
 
-		for (uint32_t i = 1; i < mipMapLevel; i++) {
+		for (uint32_t i = 1; i < texture.maxMipLevels; i++) {
 			barrier.subresourceRange.baseMipLevel = i - 1;
 			barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 			barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
@@ -1221,8 +1255,8 @@ namespace tessera::vulkan
 			blit.dstSubresource.layerCount = 1;
 
 			vkCmdBlitImage(commandBuffer,
-				image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-				image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+				texture.textureImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+				texture.textureImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 				1, &blit,
 				VK_FILTER_LINEAR);
 
@@ -1241,7 +1275,7 @@ namespace tessera::vulkan
 			if (mipHeight > 1) mipHeight /= 2;
 		}
 
-		barrier.subresourceRange.baseMipLevel = mipMapLevel - 1;
+		barrier.subresourceRange.baseMipLevel = texture.maxMipLevels - 1;
 		barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 		barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
@@ -1267,6 +1301,8 @@ namespace tessera::vulkan
 		VkImage& image,
 		VkDeviceMemory& imageMemory) const
 	{
+		ASSERT(width != 0 && height != 0, "Attempted to create image with invalid dimensions");
+		
 		VkImageCreateInfo imageInfo{};
 		imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 		imageInfo.imageType = VK_IMAGE_TYPE_2D;
@@ -1372,13 +1408,10 @@ namespace tessera::vulkan
 		endSingleTimeCommands(commandBuffer);
 	}
 
-	void VulkanContext::createTextureImageView()
+	VkSampler VulkanContext::createTextureSampler(const uint32_t maxMipLevels) const
 	{
-		textureImageView = createImageView(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, maxMipLevels);
-	}
-
-	void VulkanContext::createTextureSampler()
-	{
+		VkSampler textureSampler;
+		
 		VkPhysicalDeviceProperties properties{};
 		vkGetPhysicalDeviceProperties(physicalDevice, &properties);
 
@@ -1401,27 +1434,42 @@ namespace tessera::vulkan
 		samplerInfo.mipLodBias = 0.0f; // Optional
 
 		ASSERT(vkCreateSampler(logicalDevice, &samplerInfo, nullptr, &textureSampler) == VK_SUCCESS, "failed to create texture sampler.");
+
+		return textureSampler;
 	}
 
 	void VulkanContext::createColorResources()
 	{
 		const VkFormat colorFormat = swapChainDetails.swapChainImageFormat;
-
+		const auto test = swapChainDetails;
 		createImage(swapChainDetails.swapChainExtent.width, swapChainDetails.swapChainExtent.height, 1, msaaSamples, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, colorImage, colorImageMemory);
 		colorImageView = createImageView(colorImage, colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
 	}
 
 	void VulkanContext::createBufferManager()
 	{
-		createVertexBuffer();
-		createIndexBuffer();
+		// Combine all vertex and index data
+		std::vector<Vertex> allVertices;
+		std::vector<uint32_t> allIndices;
+
+		for (auto& model : models)
+		{
+			model.vertexOffset = allVertices.size();
+			model.indexOffset = allIndices.size();
+
+			allVertices.insert(allVertices.end(), model.vertices.begin(), model.vertices.end());
+			allIndices.insert(allIndices.end(), model.indices.begin(), model.indices.end());
+		}
+		
+		createVertexBuffer(allVertices);
+		createIndexBuffer(allIndices);
 		createUniformBuffer();
 	}
 
-	void VulkanContext::createVertexBuffer()
+	void VulkanContext::createVertexBuffer(const std::vector<Vertex>& vertices)
 	{
 		const VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
-
+		
 		VkBuffer stagingBuffer;
 		VkDeviceMemory stagingBufferMemory;
 		createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
@@ -1440,6 +1488,8 @@ namespace tessera::vulkan
 
 	void VulkanContext::createBuffer(const VkDeviceSize size, const VkBufferUsageFlags usage, const VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) const
 	{
+		ASSERT(size > 0, "Attempt to create buffer with empty size.");
+		
 		// Create buffer structure.
 		VkBufferCreateInfo bufferInfo{};
 		bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -1495,7 +1545,7 @@ namespace tessera::vulkan
 		endSingleTimeCommands(commandBuffer);
 	}
 
-	void VulkanContext::createIndexBuffer()
+	void VulkanContext::createIndexBuffer(const std::vector<uint32_t>& indices)
 	{
 		const VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
 
@@ -1555,21 +1605,21 @@ namespace tessera::vulkan
 	{
 		std::array<VkDescriptorPoolSize, 2> poolSizes{};
 		poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		poolSizes[0].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
-		poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		poolSizes[1].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT + IMAGE_SAMPLER_POOL_SIZE);
+		poolSizes[0].descriptorCount = static_cast<uint32_t>(models.size() * MAX_FRAMES_IN_FLIGHT);
+		poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;	
+		poolSizes[1].descriptorCount = static_cast<uint32_t>(models.size() * MAX_FRAMES_IN_FLIGHT) + IMAGE_SAMPLER_POOL_SIZE;
 		
 		VkDescriptorPoolCreateInfo poolInfo{};
 		poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 		poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
 		poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
 		poolInfo.pPoolSizes = poolSizes.data();
-		poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT + IMAGE_SAMPLER_POOL_SIZE);
+		poolInfo.maxSets = static_cast<uint32_t>(models.size() * MAX_FRAMES_IN_FLIGHT) + IMAGE_SAMPLER_POOL_SIZE;
 
 		ASSERT(vkCreateDescriptorPool(logicalDevice, &poolInfo, nullptr, &descriptorPool) == VK_SUCCESS, "failed to create descriptor pool.");
 	}
 
-	void VulkanContext::createDescriptorSets()
+	void VulkanContext::createDescriptorSets(Model& model) const
 	{
 		const std::vector layouts(MAX_FRAMES_IN_FLIGHT, descriptorSetLayout);
 		VkDescriptorSetAllocateInfo allocInfo{};
@@ -1578,10 +1628,11 @@ namespace tessera::vulkan
 		allocInfo.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
 		allocInfo.pSetLayouts = layouts.data();
 
-		descriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
-		ASSERT(vkAllocateDescriptorSets(logicalDevice, &allocInfo, descriptorSets.data()) == VK_SUCCESS, "failed to allocate descriptor sets.");
+		model.descriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
+		ASSERT(vkAllocateDescriptorSets(logicalDevice, &allocInfo, model.descriptorSets.data()) == VK_SUCCESS, "failed to allocate descriptor sets.");
 
-		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+		{
 			VkDescriptorBufferInfo bufferInfo{};
 			bufferInfo.buffer = uniformBuffers[i];
 			bufferInfo.offset = 0;
@@ -1589,13 +1640,13 @@ namespace tessera::vulkan
 
 			VkDescriptorImageInfo imageInfo{};
 			imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-			imageInfo.imageView = textureImageView;
-			imageInfo.sampler = textureSampler;
+			imageInfo.imageView = model.texture.textureImageView;
+			imageInfo.sampler = model.texture.textureSampler;
 
 			std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
 
 			descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			descriptorWrites[0].dstSet = descriptorSets[i];
+			descriptorWrites[0].dstSet = model.descriptorSets[i];
 			descriptorWrites[0].dstBinding = 0;
 			descriptorWrites[0].dstArrayElement = 0;
 			descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -1603,7 +1654,7 @@ namespace tessera::vulkan
 			descriptorWrites[0].pBufferInfo = &bufferInfo;
 
 			descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			descriptorWrites[1].dstSet = descriptorSets[i];
+			descriptorWrites[1].dstSet = model.descriptorSets[i];
 			descriptorWrites[1].dstBinding = 1;
 			descriptorWrites[1].dstArrayElement = 0;
 			descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -1713,7 +1764,6 @@ namespace tessera::vulkan
 			context.onResize();
 		});
 		
-		context.loadModel();
 		context.createInstance();
 		context.createDebugManager();
 		context.createSurface();
@@ -1728,12 +1778,15 @@ namespace tessera::vulkan
 		context.createColorResources();
 		context.createDepthResources();
 		context.createFramebuffers();
-		context.createTextureImage();
-		context.createTextureImageView();
-		context.createTextureSampler();
+		context.models.push_back(context.loadModel("bin/assets/skybox/skybox.obj", "bin/assets/skybox/skybox.png"));
+		context.models.push_back(context.loadModel("bin/assets/terrain/floor.obj", "bin/assets/terrain/grass.jpg"));
 		context.createBufferManager();
 		context.createDescriptorPool();
-		context.createDescriptorSets();
+		// Create descriptor sets for this model
+		for (auto& model : context.models)
+		{
+			context.createDescriptorSets(model);
+		}
 		context.createCommandBuffer();
 		context.createSyncObjects();
 	}
@@ -1754,11 +1807,13 @@ namespace tessera::vulkan
 
 		vkDestroyDescriptorPool(context.logicalDevice, context.descriptorPool, nullptr);
 
-		vkDestroySampler(context.logicalDevice, context.textureSampler, nullptr);
-		vkDestroyImageView(context.logicalDevice, context.textureImageView, nullptr);
-
-		vkDestroyImage(context.logicalDevice, context.textureImage, nullptr);
-		vkFreeMemory(context.logicalDevice, context.textureImageMemory, nullptr);
+		for (const auto& model : context.models)
+		{
+			vkDestroySampler(context.logicalDevice, model.texture.textureSampler, nullptr);
+			vkDestroyImageView(context.logicalDevice, model.texture.textureImageView, nullptr);
+			vkDestroyImage(context.logicalDevice, model.texture.textureImage, nullptr);
+			vkFreeMemory(context.logicalDevice, model.texture.textureImageMemory, nullptr);
+		}
 
 		vkDestroyDescriptorSetLayout(context.logicalDevice, context.descriptorSetLayout, nullptr);
 
