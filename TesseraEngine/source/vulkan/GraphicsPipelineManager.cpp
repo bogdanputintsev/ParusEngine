@@ -1,6 +1,5 @@
 #include "GraphicsPipelineManager.h"
 
-#include <memory>
 #include <stdexcept>
 
 #include "utils/ShaderLoader.h"
@@ -140,7 +139,7 @@ namespace tessera::vulkan
 		pipelineLayoutInfo.pushConstantRangeCount = 0;
 		pipelineLayoutInfo.pPushConstantRanges = nullptr;
 
-		if (vkCreatePipelineLayout(*device, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) 
+		if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) 
 		{
 			throw std::runtime_error("VulkanGraphicsPipelineManager: failed to create pipeline layout.");
 		}
@@ -158,18 +157,18 @@ namespace tessera::vulkan
 		pipelineInfo.pColorBlendState = &colorBlending;
 		pipelineInfo.pDynamicState = &dynamicState;
 		pipelineInfo.layout = pipelineLayout;
-		pipelineInfo.renderPass = *renderPass;
+		pipelineInfo.renderPass = renderPass;
 		pipelineInfo.subpass = 0;
 		pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 		pipelineInfo.basePipelineIndex = -1;
 
-		if (vkCreateGraphicsPipelines(*device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) != VK_SUCCESS) 
+		if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) != VK_SUCCESS) 
 		{
 			throw std::runtime_error("VulkanGraphicsPipelineManager: failed to create graphics pipeline.");
 		}
 	}
 
-	VkShaderModule GraphicsPipelineManager::createShaderModule(const std::vector<char>& code, const std::shared_ptr<const VkDevice>& device)
+	VkShaderModule GraphicsPipelineManager::createShaderModule(const std::vector<char>& code, const VkDevice& device)
 	{
 		VkShaderModuleCreateInfo createInfo{};
 		createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -177,7 +176,7 @@ namespace tessera::vulkan
 		createInfo.pCode = reinterpret_cast<const uint32_t*>(code.data());
 
 		VkShaderModule shaderModule;
-		if (vkCreateShaderModule(*device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) 
+		if (vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) 
 		{
 			throw std::runtime_error("VulkanGraphicsPipelineManager: failed to create shader module.");
 		}
@@ -185,7 +184,7 @@ namespace tessera::vulkan
 		return shaderModule;
 	}
 
-	void GraphicsPipelineManager::initRenderPath(const std::shared_ptr<const VkDevice>& device, const SwapChainImageDetails& swapChainImageDetails)
+	void GraphicsPipelineManager::initRenderPath(const VkDevice& device, const SwapChainImageDetails& swapChainImageDetails)
 	{
 		VkAttachmentDescription colorAttachment{};
 		colorAttachment.format = swapChainImageDetails.swapChainImageFormat;
@@ -223,23 +222,20 @@ namespace tessera::vulkan
 		renderPassInfo.dependencyCount = 1;
 		renderPassInfo.pDependencies = &dependency;
 
-		VkRenderPass renderPathInstance;
-		if (vkCreateRenderPass(*device, &renderPassInfo, nullptr, &renderPathInstance) != VK_SUCCESS)
+		if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS)
 		{
 			throw std::runtime_error("VulkanGraphicsPipelineManager: failed to create render pass.");
 		}
-
-		renderPass = std::make_shared<VkRenderPass>(renderPathInstance);
 	}
 
 	void GraphicsPipelineManager::clean()
 	{
 		const auto& device = ServiceLocator::getService<DeviceManager>()->getLogicalDevice();
 
-		vkDestroyPipeline(*device, graphicsPipeline, nullptr);
-		vkDestroyPipelineLayout(*device, pipelineLayout, nullptr);
-		vkDestroyRenderPass(*device, *renderPass, nullptr);
-		vkDestroyShaderModule(*device, fragmentShaderModule, nullptr);
-		vkDestroyShaderModule(*device, vertexShaderModule, nullptr);
+		vkDestroyPipeline(device, graphicsPipeline, nullptr);
+		vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
+		vkDestroyRenderPass(device, renderPass, nullptr);
+		vkDestroyShaderModule(device, fragmentShaderModule, nullptr);
+		vkDestroyShaderModule(device, vertexShaderModule, nullptr);
 	}
 }

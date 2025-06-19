@@ -3,23 +3,15 @@
 
 #include "PhysicalDeviceManager.h"
 
-// TODO: Maybe consider using functions instead of methods.
-
 namespace tessera::vulkan
 {
+	// Instance extensions.
+	std::vector<const char*> getRequiredInstanceExtensions();
+	void checkIfAllGlsfRequiredExtensionsAreSupported();
 
-	class ExtensionManager
-	{
-	public:
-		// Instance extensions.
-		static std::vector<const char*> getRequiredInstanceExtensions();
-		static void checkIfAllGlsfRequiredExtensionsAreSupported();
-
-		// Logical device extensions.
-		static std::vector<const char*> getRequiredDeviceExtensions();
-		static bool isDeviceExtensionSupported(const VkPhysicalDevice& device);
-	};
-
+	// Logical device extensions.
+	std::vector<const char*> getRequiredDeviceExtensions();
+	bool isDeviceExtensionSupported(const VkPhysicalDevice& device);
 }
 
 

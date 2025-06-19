@@ -30,9 +30,9 @@ namespace tessera::vulkan
 		createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 		createInfo.pApplicationInfo = &appInfo;
 
-		ExtensionManager::checkIfAllGlsfRequiredExtensionsAreSupported();
+		checkIfAllGlsfRequiredExtensionsAreSupported();
 
-		const std::vector<const char*> requiredExtensions = ExtensionManager::getRequiredInstanceExtensions();
+		const std::vector<const char*> requiredExtensions = getRequiredInstanceExtensions();
 		createInfo.enabledExtensionCount = static_cast<uint32_t>(requiredExtensions.size());
 		createInfo.ppEnabledExtensionNames = requiredExtensions.data();
 
@@ -53,18 +53,15 @@ namespace tessera::vulkan
 			createInfo.pNext = nullptr;
 		}
 
-		VkInstance instanceObject = VK_NULL_HANDLE;
-		if (vkCreateInstance(&createInfo, nullptr, &instanceObject) != VK_SUCCESS)
+		if (vkCreateInstance(&createInfo, nullptr, &instance) != VK_SUCCESS)
 		{
 			throw std::runtime_error("VulkanInstanceManager: failed to create instance.");
 		}
-
-		instance = std::make_shared<VkInstance>(instanceObject);
 	}
 
 	void InstanceManager::clean()
 	{
-		vkDestroyInstance(*instance, nullptr);
+		vkDestroyInstance(instance, nullptr);
 	}
 
 }

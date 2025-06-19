@@ -15,7 +15,7 @@ namespace tessera::vulkan
 	void CommandBufferManager::init()
 	{
 		initCommandPool();
-		initCommandBuffer();
+		initCommandBuffers();
 	}
 
 	void CommandBufferManager::initCommandPool()
@@ -25,38 +25,35 @@ namespace tessera::vulkan
 		const auto& device = deviceManager->getLogicalDevice();
 		const auto& surface = ServiceLocator::getService<SurfaceManager>()->getSurface();
 
-		const auto [graphicsFamily, presentFamily] = findQueueFamilies(*physicalDevice, surface);
+		const auto [graphicsFamily, presentFamily] = findQueueFamilies(physicalDevice, surface);
 		VkCommandPoolCreateInfo poolInfo{};
 		poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 		poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 		poolInfo.queueFamilyIndex = graphicsFamily.value();
-
-		VkCommandPool commandPoolInstance;
-		if (vkCreateCommandPool(*device, &poolInfo, nullptr, &commandPoolInstance) != VK_SUCCESS)
+		
+		if (vkCreateCommandPool(device, &poolInfo, nullptr, &commandPool) != VK_SUCCESS)
 		{
 			throw std::runtime_error("CommandPoolManager: failed to create command pool.");
 		}
-
-		commandPool = std::make_shared<VkCommandPool>(commandPoolInstance);
 	}
 
-	void CommandBufferManager::initCommandBuffer()
+	void CommandBufferManager::initCommandBuffers()
 	{
 		const auto& device = ServiceLocator::getService<DeviceManager>()->getLogicalDevice();
 
+		//commandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+
 		VkCommandBufferAllocateInfo allocInfo{};
 		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-		allocInfo.commandPool = *commandPool;
+		allocInfo.commandPool = commandPool;
 		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 		allocInfo.commandBufferCount = 1;
+		//allocInfo.commandBufferCount = static_cast<uint32_t>(commandBuffers.size());
 
-		VkCommandBuffer commandBufferInstance;
-		if (vkAllocateCommandBuffers(*device, &allocInfo, &commandBufferInstance) != VK_SUCCESS)
+		if (vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer) != VK_SUCCESS)
 		{
 			throw std::runtime_error("CommandPoolManager: failed to allocate command buffers.");
 		}
-
-		commandBuffer = std::make_shared<VkCommandBuffer>(commandBufferInstance);
 	}
 
 	void CommandBufferManager::recordCommandBuffer(const VkCommandBuffer commandBufferToRecord, const uint32_t imageIndex)
@@ -81,7 +78,7 @@ namespace tessera::vulkan
 		// Start the rendering pass
 		VkRenderPassBeginInfo renderPassInfo{};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-		renderPassInfo.renderPass = *renderPass;
+		renderPassInfo.renderPass = renderPass;
 		renderPassInfo.framebuffer = swapChainFramebuffers[imageIndex];
 		renderPassInfo.renderArea.offset = { 0, 0 };
 		renderPassInfo.renderArea.extent = swapChainExtent;
@@ -119,14 +116,14 @@ namespace tessera::vulkan
 
 	void CommandBufferManager::resetCommandBuffer() const
 	{
-		vkResetCommandBuffer(*commandBuffer, 0);
+		vkResetCommandBuffer(commandBuffer, 0);
 	}
 
 	void CommandBufferManager::clean()
 	{
 		const auto& device = ServiceLocator::getService<DeviceManager>()->getLogicalDevice();
 
-		vkDestroyCommandPool(*device, *commandPool, nullptr);
+		vkDestroyCommandPool(device, commandPool, nullptr);
 	}
 
 }

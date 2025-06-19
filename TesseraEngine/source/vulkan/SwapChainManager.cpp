@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <cassert>
-#include <memory>
 #include <stdexcept>
 #include <GLFW/glfw3.h>
 
@@ -26,7 +25,7 @@ namespace tessera::vulkan
 		const auto logicalDevice = deviceManager->getLogicalDevice();
 		assert(logicalDevice);
 
-		const auto [capabilities, formats, presentModes] = querySwapChainSupport(*physicalDevice, surface);
+		const auto [capabilities, formats, presentModes] = querySwapChainSupport(physicalDevice, surface);
 
 		const auto [format, colorSpace] = chooseSwapSurfaceFormat(formats);
 		const VkPresentModeKHR presentMode = chooseSwapPresentMode(presentModes);
@@ -40,7 +39,7 @@ namespace tessera::vulkan
 
 		VkSwapchainCreateInfoKHR createInfo{};
 		createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-		createInfo.surface = *surface;
+		createInfo.surface = surface;
 		createInfo.minImageCount = imageCount;
 		createInfo.imageFormat = format;
 		createInfo.imageColorSpace = colorSpace;
@@ -48,7 +47,7 @@ namespace tessera::vulkan
 		createInfo.imageArrayLayers = 1;
 		createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-		const auto [graphicsFamily, presentFamily] = findQueueFamilies(*physicalDevice, surface);
+		const auto [graphicsFamily, presentFamily] = findQueueFamilies(physicalDevice, surface);
 		const uint32_t queueFamilyIndices[] = { graphicsFamily.value(), presentFamily.value() };
 
 		if (graphicsFamily != presentFamily) {
@@ -68,15 +67,15 @@ namespace tessera::vulkan
 		createInfo.clipped = VK_TRUE;
 		createInfo.oldSwapchain = VK_NULL_HANDLE;
 
-		if (vkCreateSwapchainKHR(*logicalDevice, &createInfo, nullptr, &swapChain) != VK_SUCCESS)
+		if (vkCreateSwapchainKHR(logicalDevice, &createInfo, nullptr, &swapChain) != VK_SUCCESS)
 		{
 			throw std::runtime_error("VulkanSwapChainManager: failed to create swap chain.");
 		}
 
 		std::vector<VkImage> swapChainImages;
-		vkGetSwapchainImagesKHR(*logicalDevice, swapChain, &imageCount, nullptr);
+		vkGetSwapchainImagesKHR(logicalDevice, swapChain, &imageCount, nullptr);
 		swapChainImages.resize(imageCount);
-		vkGetSwapchainImagesKHR(*logicalDevice, swapChain, &imageCount, swapChainImages.data());
+		vkGetSwapchainImagesKHR(logicalDevice, swapChain, &imageCount, swapChainImages.data());
 
 		swapChainDetails = { format, extent, swapChainImages };
 	}
@@ -87,7 +86,7 @@ namespace tessera::vulkan
 		const auto& imageAvailableSemaphore = ServiceLocator::getService<SyncObjectsManager>()->getImageAvailableSemaphore()	;
 
 		uint32_t imageIndex;
-		vkAcquireNextImageKHR(*device, swapChain, UINT64_MAX, *imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
+		vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
 
 		return imageIndex;
 	}
@@ -96,31 +95,31 @@ namespace tessera::vulkan
 	{
 		const auto& device = ServiceLocator::getService<DeviceManager>()->getLogicalDevice();
 
-		vkDestroySwapchainKHR(*device, swapChain, nullptr);
+		vkDestroySwapchainKHR(device, swapChain, nullptr);
 	}
 
-	SwapChainSupportDetails SwapChainManager::querySwapChainSupport(const VkPhysicalDevice& device, const std::shared_ptr<const VkSurfaceKHR>& surface)
+	SwapChainSupportDetails SwapChainManager::querySwapChainSupport(const VkPhysicalDevice& device, const VkSurfaceKHR& surface)
 	{
 		SwapChainSupportDetails details;
 
-		vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, *surface, &details.capabilities);
+		vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &details.capabilities);
 
 		uint32_t formatCount;
-		vkGetPhysicalDeviceSurfaceFormatsKHR(device, *surface, &formatCount, nullptr);
+		vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, nullptr);
 
 		if (formatCount != 0) 
 		{
 			details.formats.resize(formatCount);
-			vkGetPhysicalDeviceSurfaceFormatsKHR(device, *surface, &formatCount, details.formats.data());
+			vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, details.formats.data());
 		}
 
 		uint32_t presentModeCount;
-		vkGetPhysicalDeviceSurfacePresentModesKHR(device, *surface, &presentModeCount, nullptr);
+		vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentModeCount, nullptr);
 
 		if (presentModeCount != 0) 
 		{
 			details.presentModes.resize(presentModeCount);
-			vkGetPhysicalDeviceSurfacePresentModesKHR(device, *surface, &presentModeCount, details.presentModes.data());
+			vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentModeCount, details.presentModes.data());
 		}
 
 		return details;

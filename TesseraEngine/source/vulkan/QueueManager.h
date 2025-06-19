@@ -1,6 +1,5 @@
 #pragma once
 #include <cstdint>
-#include <memory>
 #include <optional>
 #include <GLFW/glfw3.h>
 
@@ -18,7 +17,7 @@ namespace tessera::vulkan
 		[[nodiscard]] inline bool isComplete() const;
 	};
 
-	QueueFamilyIndices findQueueFamilies(const VkPhysicalDevice& physicalDevice, const std::shared_ptr<const VkSurfaceKHR>& surface);
+	QueueFamilyIndices findQueueFamilies(const VkPhysicalDevice& physicalDevice, const VkSurfaceKHR& surface);
 
 	class QueueManager final : public Initializable
 	{
@@ -26,11 +25,11 @@ namespace tessera::vulkan
 		void init() override;
 		void drawFrame() const;
 		void clean() override {}
-		[[nodiscard]] std::shared_ptr<const VkQueue> getGraphicsQueue() const { return graphicsQueue; }
-		[[nodiscard]] std::shared_ptr<const VkQueue> getPresentQueue() const { return presentQueue; }
+		[[nodiscard]] VkQueue getGraphicsQueue() const { return graphicsQueue; }
+		[[nodiscard]] VkQueue getPresentQueue() const { return presentQueue; }
 	private:
-		std::shared_ptr<VkQueue> graphicsQueue = VK_NULL_HANDLE;
-		std::shared_ptr<VkQueue> presentQueue = VK_NULL_HANDLE;
+		VkQueue graphicsQueue = VK_NULL_HANDLE;
+		VkQueue presentQueue = VK_NULL_HANDLE;
 	};
 
 }
