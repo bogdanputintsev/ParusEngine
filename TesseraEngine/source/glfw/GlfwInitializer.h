@@ -3,7 +3,6 @@
 #include <functional>
 #include <GLFW/glfw3.h>
 #include <memory>
-#include <string>
 
 #include "utils/interfaces/Initializable.h"
 
@@ -11,6 +10,8 @@
 
 namespace tessera::glfw
 {
+	// TODO: Encapsulate into different interface.
+
 	class GlfwInitializer final : public Initializable
 	{
 	public:
@@ -25,7 +26,7 @@ namespace tessera::glfw
 
 		static constexpr int WINDOW_WIDTH = 800;
 		static constexpr int WINDOW_HEIGHT = 600;
-		static constexpr std::string WINDOW_TITLE = "Tessera Engine";
+		static constexpr std::string_view WINDOW_TITLE = "Tessera Engine";
 	};
 
 	void framebufferResizeCallback(GLFWwindow* window, const int width, const int height);

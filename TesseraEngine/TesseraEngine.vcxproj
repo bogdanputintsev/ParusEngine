@@ -154,6 +154,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="source\vulkan\DescriptorSetLayoutManager.cpp" />
     <ClCompile Include="source\utils\interfaces\ServiceLocator.cpp" />
     <ClCompile Include="source\utils\ShaderLoader.cpp" />
     <ClCompile Include="source\Application.cpp" />
@@ -176,6 +177,8 @@
     <ClCompile Include="source\vulkan\BufferManager.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="source\vulkan\DescriptorSetLayoutManager.h" />
+    <ClInclude Include="source\entities\UniformBufferObject.h" />
     <ClInclude Include="source\utils\interfaces\Service.h" />
     <ClInclude Include="source\utils\interfaces\ServiceLocator.h" />
     <ClInclude Include="source\utils\ShaderLoader.h" />

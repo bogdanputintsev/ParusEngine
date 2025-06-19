@@ -2,6 +2,7 @@
 
 #include <vector>
 
+#include "BufferManager.h"
 #include "CommandBufferManager.h"
 #include "DeviceManager.h"
 #include "SurfaceManager.h"
@@ -35,6 +36,7 @@ namespace tessera::vulkan
 		const auto& swapChain = swapChainManager->getSwapChain();
 		const auto& commandBufferManager = ServiceLocator::getService<CommandBufferManager>();
 		const auto& commandBuffer = commandBufferManager->getCommandBuffer(currentFrame);
+		const auto& bufferManager = ServiceLocator::getService<BufferManager>();
 
 		syncObjectsManager->waitForFences(currentFrame);
 
@@ -46,6 +48,8 @@ namespace tessera::vulkan
 
 		commandBufferManager->resetCommandBuffer(currentFrame);
 		recordCommandBuffer(commandBuffer, *imageIndex);
+
+		bufferManager->updateUniformBuffer(currentFrame);
 
 		VkSubmitInfo submitInfo{};
 		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
