@@ -12,11 +12,12 @@ namespace tessera::vulkan
 	{
 		createInstance();
 		debugManager.init(instance);
+		physicalDeviceManager.pickAnySuitableDevice(instance);
 	}
 
 	void VulkanInitializer::createInstance()
 	{
-		debugManager.checkValidationLayerSupport();
+		VulkanDebugManager::checkValidationLayerSupport();
 
 		VkApplicationInfo appInfo{};
 		appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;

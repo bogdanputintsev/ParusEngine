@@ -168,6 +168,7 @@
     <ClCompile Include="VulkanExtensionManager.cpp" />
     <ClCompile Include="VulkanInitializer.cpp" />
     <ClCompile Include="VulkanDebugManager.cpp" />
+    <ClCompile Include="VulkanPhysicalDeviceManager.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h" />
@@ -176,6 +177,7 @@
     <ClInclude Include="VulkanExtensionManager.h" />
     <ClInclude Include="VulkanInitializer.h" />
     <ClInclude Include="VulkanDebugManager.h" />
+    <ClInclude Include="VulkanPhysicalDeviceManager.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
