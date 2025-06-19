@@ -1,9 +1,7 @@
 #pragma once
-#include <cstdint>
 #include <vulkan/vulkan_core.h>
 
-#include "VulkanExtensionManager.h"
-#include "VulkanValidationLayersManager.h"
+#include "VulkanDebugManager.h"
 
 namespace tessera::vulkan
 {
@@ -16,11 +14,9 @@ namespace tessera::vulkan
 
 	private:
 		void createInstance();
-		static void checkIfAllRequiredExtensionsAreSupported(const char** requiredExtensions, const uint32_t requiredExtensionCount);
 
 		VkInstance instance = nullptr;
-		VulkanExtensionManager extensionManager;
-		VulkanValidationLayersManager validationLayersManager;
+		VulkanDebugManager debugManager;
 	};
 }
 
