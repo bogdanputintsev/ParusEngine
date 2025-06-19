@@ -78,7 +78,8 @@ namespace tessera::vulkan
 		void cleanupSwapChain() const;
 
 		// Image View
-		void createImageView();
+		void createImageViews();
+		VkImageView createImageView(VkImage image, VkFormat format) const;
 
 		// Render Pass
 		void createRenderPass();
@@ -102,6 +103,18 @@ namespace tessera::vulkan
 
 		// Command pool
 		void createCommandPool();
+		VkCommandBuffer beginSingleTimeCommands() const;
+		void endSingleTimeCommands(VkCommandBuffer commandBuffer) const;
+
+		// Texture image
+		void createTextureImage();
+		void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory) const;
+		void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout) const;
+		void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height) const;
+
+		void createTextureImageView();
+
+		void createTextureSampler();
 
 		// Buffer manager
 		void createBufferManager();
@@ -146,6 +159,10 @@ namespace tessera::vulkan
 		VkDeviceMemory vertexBufferMemory = VK_NULL_HANDLE;
 		VkBuffer indexBuffer = VK_NULL_HANDLE;
 		VkDeviceMemory indexBufferMemory = VK_NULL_HANDLE;
+		VkImage textureImage;
+		VkDeviceMemory textureImageMemory;
+		VkImageView textureImageView;
+		VkSampler textureSampler;
 		std::vector<VkBuffer> uniformBuffers{};
 		std::vector<VkDeviceMemory> uniformBuffersMemory{};
 		std::vector<void*> uniformBuffersMapped{};
@@ -155,18 +172,6 @@ namespace tessera::vulkan
 
 		int currentFrame = 0;
 		bool framebufferResized = false;
-
-		// TODO: Temporary.
-		const std::vector<Vertex> vertices = {
-			{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-			{{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
-			{{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
-			{{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}
-		};
-
-		const std::vector<uint16_t> indices = {
-			0, 1, 2, 2, 3, 0
-		};
 
 		static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 	};
