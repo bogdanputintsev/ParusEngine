@@ -169,8 +169,6 @@ namespace tessera::vulkan
 		VkRenderPass renderPass = VK_NULL_HANDLE;
 		VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
 		VkPipeline graphicsPipeline = VK_NULL_HANDLE;
-		VkShaderModule vertexShaderModule = VK_NULL_HANDLE;
-		VkShaderModule fragmentShaderModule = VK_NULL_HANDLE;
 		std::vector<VkFramebuffer> swapChainFramebuffers{};
 		std::vector<VkCommandBuffer> commandBuffers{};
 		VkCommandPool commandPool = VK_NULL_HANDLE;
