@@ -25,7 +25,171 @@
 
 namespace tessera::vulkan
 {
-	Model VulkanContext::loadModel(const std::string& modelPath, const std::string& texturePaths)
+	void VulkanRenderer::init()
+	{
+		REGISTER_EVENT(EventType::EVENT_WINDOW_RESIZED, [&](const int newWidth, const int newHeight)
+		{
+			LOG_INFO("Vulkan initiated window resize. New dimensions: " + std::to_string(newWidth) + " " + std::to_string(newHeight));
+			onResize();
+		});
+		
+		createInstance();
+		createDebugManager();
+		createSurface();
+		createDevices();
+		createQueues();
+		createSwapChain();
+		createImageViews();
+		createRenderPass();
+		createDescriptorSetLayout();
+		createGraphicsPipeline();
+		createCommandPool();
+		createColorResources();
+		createDepthResources();
+		createFramebuffers();
+		
+		models.push_back(loadModel("bin/assets/skybox/skybox.obj"));
+		models.push_back(loadModel("bin/assets/terrain/floor.obj"));
+		models.push_back(loadModel("bin/assets/indoor/indoor.obj"));
+		models.push_back(loadModel("bin/assets/indoor/threshold.obj"));
+		models.push_back(loadModel("bin/assets/indoor/torch.obj"));
+
+		createBufferManager();
+		createDescriptorPool();
+		
+		// Create descriptor sets for this model
+		for (auto& model : models)
+		{
+			createDescriptorSets(model);
+		}
+		createCommandBuffer();
+		createSyncObjects();
+	}
+
+	void VulkanRenderer::clean()
+	{
+		cleanupSwapChain();
+
+		vkDestroyPipeline(logicalDevice, graphicsPipeline, nullptr);
+		vkDestroyPipelineLayout(logicalDevice, pipelineLayout, nullptr);
+		vkDestroyRenderPass(logicalDevice, renderPass, nullptr);
+
+		for (size_t i = 0; i < VulkanRenderer::MAX_FRAMES_IN_FLIGHT; i++)
+		{
+			vkDestroyBuffer(logicalDevice, uniformBuffers[i], nullptr);
+			vkFreeMemory(logicalDevice, uniformBuffersMemory[i], nullptr);
+		}
+
+		vkDestroyDescriptorPool(logicalDevice, descriptorPool, nullptr);
+
+		for (const auto& model : models)
+		{
+			for (const auto& texture : model.textures)
+			{
+				vkDestroySampler(logicalDevice, texture.textureSampler, nullptr);
+				vkDestroyImageView(logicalDevice, texture.textureImageView, nullptr);
+				vkDestroyImage(logicalDevice, texture.textureImage, nullptr);
+				vkFreeMemory(logicalDevice, texture.textureImageMemory, nullptr);
+			}
+		}
+
+		vkDestroyDescriptorSetLayout(logicalDevice, descriptorSetLayout, nullptr);
+
+		vkDestroyBuffer(logicalDevice, indexBuffer, nullptr);
+		vkFreeMemory(logicalDevice, indexBufferMemory, nullptr);
+
+		vkDestroyBuffer(logicalDevice, vertexBuffer, nullptr);
+		vkFreeMemory(logicalDevice, vertexBufferMemory, nullptr);
+
+		for (size_t i = 0; i < VulkanRenderer::MAX_FRAMES_IN_FLIGHT; i++)
+		{
+			vkDestroySemaphore(logicalDevice, renderFinishedSemaphores[i], nullptr);
+			vkDestroySemaphore(logicalDevice, imageAvailableSemaphores[i], nullptr);
+			vkDestroyFence(logicalDevice, inFlightFences[i], nullptr);
+		}
+
+		vkDestroyCommandPool(logicalDevice, commandPool, nullptr);
+
+		vkDestroyDevice(logicalDevice, nullptr);
+
+		if (VulkanRenderer::validationLayersAreEnabled())
+		{
+			destroyDebugUtilsMessengerExt(debugMessenger, nullptr);
+		}
+
+		vkDestroySurfaceKHR(instance, surface, nullptr);
+		vkDestroyInstance(instance, nullptr);
+	}
+
+	void VulkanRenderer::drawFrame()
+	{
+		vkWaitForFences(logicalDevice, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
+
+		const std::optional<uint32_t> imageIndex = acquireNextImage();
+		if (!imageIndex.has_value())
+		{
+			return;
+		}
+
+		updateUniformBuffer(currentFrame);
+		vkResetFences(logicalDevice, 1, &inFlightFences[currentFrame]);
+
+		const auto commandBuffer = getCommandBuffer(currentFrame);
+
+		resetCommandBuffer(currentFrame);
+		recordCommandBuffer(commandBuffer, imageIndex.value());
+
+		VkSubmitInfo submitInfo{};
+		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+		const VkSemaphore waitSemaphores[] = { imageAvailableSemaphores[currentFrame] };
+		constexpr VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+		submitInfo.waitSemaphoreCount = 1;
+		submitInfo.pWaitSemaphores = waitSemaphores;
+		submitInfo.pWaitDstStageMask = waitStages;
+		submitInfo.commandBufferCount = 1;
+		submitInfo.pCommandBuffers = &commandBuffers[currentFrame];
+
+		const VkSemaphore signalSemaphores[] = { renderFinishedSemaphores[currentFrame] };
+		submitInfo.signalSemaphoreCount = 1;
+		submitInfo.pSignalSemaphores = signalSemaphores;
+
+		ASSERT(vkQueueSubmit(graphicsQueue, 1, &submitInfo, inFlightFences[currentFrame]) == VK_SUCCESS, "failed to submit draw command buffer.");
+
+		// Submit result back to swap chain to have it eventually show up on the screen. 
+		VkPresentInfoKHR presentInfo{};
+		presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+
+		presentInfo.waitSemaphoreCount = 1;
+		presentInfo.pWaitSemaphores = signalSemaphores;
+
+		const VkSwapchainKHR swapChains[] = { swapChain };
+		presentInfo.swapchainCount = 1;
+		presentInfo.pSwapchains = swapChains;
+		presentInfo.pImageIndices = &imageIndex.value();
+		presentInfo.pResults = nullptr;
+
+		const VkResult result = vkQueuePresentKHR(presentQueue, &presentInfo);
+
+		if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebufferResized)
+		{
+			framebufferResized = false;
+			recreateSwapChain();
+		}
+		else
+		{
+			ASSERT(result == VK_SUCCESS, "failed to present swap chain image.");
+		}
+
+		currentFrame = (currentFrame + 1) % VulkanRenderer::MAX_FRAMES_IN_FLIGHT;
+	}
+
+	void VulkanRenderer::deviceWaitIdle()
+	{
+		vkDeviceWaitIdle(logicalDevice);
+	}
+	
+	Model VulkanRenderer::loadModel(const std::string& modelPath) const
 	{
 		Model model{};
 
@@ -38,7 +202,6 @@ namespace tessera::vulkan
 		size_t lastSlash = modelPath.find_last_of("/\\");
 		std::string baseDir = modelPath.substr(0, lastSlash + 1);
 
-		// ЭЙ, тут осталось проверить, если текстуры имеют правильное название!! ПроверЬ!
 		ASSERT(tinyobj::LoadObj(
 			&attrib, &shapes, &materials, &warn, &err,
 			modelPath.c_str(),
@@ -131,7 +294,7 @@ namespace tessera::vulkan
 		return model;
 	}
 
-	void VulkanContext::createInstance()
+	void VulkanRenderer::createInstance()
 	{
 		checkValidationLayerSupport();
 
@@ -175,7 +338,7 @@ namespace tessera::vulkan
 		ASSERT(vkCreateInstance(&createInfo, nullptr, &instance) == VK_SUCCESS, "failed to create instance");
 	}
 
-	void VulkanContext::checkValidationLayerSupport()
+	void VulkanRenderer::checkValidationLayerSupport()
 	{
 		if (!validationLayersAreEnabled())
 		{
@@ -214,7 +377,7 @@ namespace tessera::vulkan
 
 	}
 
-	bool VulkanContext::validationLayersAreEnabled()
+	bool VulkanRenderer::validationLayersAreEnabled()
 	{
 #ifdef NDEBUG
 		return false;
@@ -223,12 +386,12 @@ namespace tessera::vulkan
 #endif
 	}
 
-	std::vector<const char*> VulkanContext::getValidationLayers()
+	std::vector<const char*> VulkanRenderer::getValidationLayers()
 	{
 		return { "VK_LAYER_KHRONOS_validation" };
 	}
 
-	void VulkanContext::checkIfAllGlsfRequiredExtensionsAreSupported()
+	void VulkanRenderer::checkIfAllGlsfRequiredExtensionsAreSupported()
 	{
 		const std::vector<const char*> requiredExtensions = getRequiredInstanceExtensions();
 		const std::unordered_set<std::string> requiredExtensionsSet{ requiredExtensions.begin(), requiredExtensions.end() };
@@ -256,7 +419,7 @@ namespace tessera::vulkan
 		ASSERT(matches == requiredExtensions.size(), "GLFW window extension is not supported.");
 	}
 
-	void VulkanContext::destroyDebugUtilsMessengerExt(VkDebugUtilsMessengerEXT debugMessengerToDestroy, const VkAllocationCallbacks* pAllocator) const
+	void VulkanRenderer::destroyDebugUtilsMessengerExt(VkDebugUtilsMessengerEXT debugMessengerToDestroy, const VkAllocationCallbacks* pAllocator) const
 	{
 		const auto func = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT"));
 		if (func != nullptr)
@@ -265,7 +428,7 @@ namespace tessera::vulkan
 		}
 	}
 
-	std::vector<const char*> VulkanContext::getRequiredInstanceExtensions()
+	std::vector<const char*> VulkanRenderer::getRequiredInstanceExtensions()
 	{
 		std::vector extensions = CORE->graphicsLibrary->getRequiredExtensions();
 
@@ -277,7 +440,7 @@ namespace tessera::vulkan
 		return extensions;
 	}
 
-	VkBool32 VulkanContext::debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+	VkBool32 VulkanRenderer::debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
 		[[maybe_unused]] VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
 		[[maybe_unused]] void* pUserData)
 	{
@@ -285,7 +448,7 @@ namespace tessera::vulkan
 		return VK_FALSE;
 	}
 
-	void VulkanContext::populate(VkDebugUtilsMessengerCreateInfoEXT& createInfo)
+	void VulkanRenderer::populate(VkDebugUtilsMessengerCreateInfoEXT& createInfo)
 	{
 		createInfo = {};
 		createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
@@ -294,7 +457,7 @@ namespace tessera::vulkan
 		createInfo.pfnUserCallback = debugCallback;
 	}
 
-	LogType VulkanContext::getLogType(const VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity)
+	LogType VulkanRenderer::getLogType(const VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity)
 	{
 		switch (messageSeverity)
 		{
@@ -313,7 +476,7 @@ namespace tessera::vulkan
 		return LogType::INFO;
 	}
 
-	void VulkanContext::createDebugManager()
+	void VulkanRenderer::createDebugManager()
 	{
 		if (!validationLayersAreEnabled())
 		{
@@ -326,7 +489,7 @@ namespace tessera::vulkan
 		ASSERT(createDebugUtilsMessengerExt(&createInfo, nullptr, &debugMessenger) == VK_SUCCESS, "failed to set up debug messenger.");
 	}
 
-	VkResult VulkanContext::createDebugUtilsMessengerExt(const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
+	VkResult VulkanRenderer::createDebugUtilsMessengerExt(const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
 		const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) const
 	{
 		const auto func = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT"));
@@ -338,7 +501,7 @@ namespace tessera::vulkan
 		return VK_ERROR_EXTENSION_NOT_PRESENT;
 	}
 
-	void VulkanContext::createSurface()
+	void VulkanRenderer::createSurface()
 	{
 		//const std::shared_ptr<GLFWwindow>& window = CORE->graphicsLibrary->getWindow();
 		//ASSERT(glfwCreateWindowSurface(instance, window.get(), nullptr, &surface) == VK_SUCCESS, "failed to create window surface.");
@@ -405,7 +568,7 @@ namespace tessera::vulkan
 		return requiredExtensionsSet.empty();
 	}
 
-	void VulkanContext::createDevices()
+	void VulkanRenderer::createDevices()
 	{
 		pickAnySuitableDevice();
 
@@ -459,7 +622,7 @@ namespace tessera::vulkan
 		ASSERT(vkCreateDevice(physicalDevice, &createInfo, nullptr, &logicalDevice) == VK_SUCCESS, "failed to create logical device.");
 	}
 
-	void VulkanContext::pickAnySuitableDevice()
+	void VulkanRenderer::pickAnySuitableDevice()
 	{
 		uint32_t deviceCount = 0;
 		vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
@@ -482,7 +645,7 @@ namespace tessera::vulkan
 		ASSERT(physicalDevice != VK_NULL_HANDLE, "failed to find a suitable GPU.");
 	}
 
-	bool VulkanContext::isDeviceSuitable(const VkPhysicalDevice& device, const VkSurfaceKHR& surface)
+	bool VulkanRenderer::isDeviceSuitable(const VkPhysicalDevice& device, const VkSurfaceKHR& surface)
 	{
 		// Basic device properties like the name, type and supported Vulkan version.
 		[[maybe_unused]] VkPhysicalDeviceProperties deviceProperties;
@@ -511,7 +674,7 @@ namespace tessera::vulkan
 			&& supportedFeatures.samplerAnisotropy;
 	}
 
-	SwapChainSupportDetails VulkanContext::querySwapChainSupport(const VkPhysicalDevice& device, const VkSurfaceKHR& surface)
+	SwapChainSupportDetails VulkanRenderer::querySwapChainSupport(const VkPhysicalDevice& device, const VkSurfaceKHR& surface)
 	{
 		SwapChainSupportDetails details;
 
@@ -538,7 +701,7 @@ namespace tessera::vulkan
 		return details;
 	}
 
-	void VulkanContext::createQueues()
+	void VulkanRenderer::createQueues()
 	{
 		const auto [graphicsFamily, presentFamily] = findQueueFamilies(physicalDevice, surface);
 
@@ -548,7 +711,7 @@ namespace tessera::vulkan
 		vkGetDeviceQueue(logicalDevice, presentFamily.value(), 0, &presentQueue);
 	}
 
-	void VulkanContext::createSwapChain()
+	void VulkanRenderer::createSwapChain()
 	{
 		const auto [capabilities, formats, presentModes] = querySwapChainSupport(physicalDevice, surface);
 
@@ -605,7 +768,7 @@ namespace tessera::vulkan
 		swapChainDetails = { format, extent, swapChainImages };
 	}
 
-	VkSurfaceFormatKHR VulkanContext::chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats)
+	VkSurfaceFormatKHR VulkanRenderer::chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats)
 	{
 		assert(!availableFormats.empty());
 
@@ -620,7 +783,7 @@ namespace tessera::vulkan
 		return availableFormats[0];
 	}
 
-	VkPresentModeKHR VulkanContext::chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes)
+	VkPresentModeKHR VulkanRenderer::chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes)
 	{
 		// TODO: Replace with std::find.
 		for (const auto& availablePresentMode : availablePresentModes)
@@ -635,7 +798,7 @@ namespace tessera::vulkan
 		return VK_PRESENT_MODE_FIFO_KHR;
 	}
 
-	VkExtent2D VulkanContext::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities)
+	VkExtent2D VulkanRenderer::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities)
 	{
 		if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max())
 		{
@@ -657,7 +820,7 @@ namespace tessera::vulkan
 		return actualExtent;
 	}
 
-	std::optional<uint32_t> VulkanContext::acquireNextImage()
+	std::optional<uint32_t> VulkanRenderer::acquireNextImage()
 	{
 		ASSERT(static_cast<size_t>(currentFrame) < imageAvailableSemaphores.size() && currentFrame >= 0, "current frame number is larger than number of fences.");
 
@@ -675,7 +838,7 @@ namespace tessera::vulkan
 		return imageIndex;
 	}
 
-	void VulkanContext::recreateSwapChain()
+	void VulkanRenderer::recreateSwapChain()
 	{
 		CORE->graphicsLibrary->handleMinimization();
 		CORE->renderer->deviceWaitIdle();
@@ -689,7 +852,7 @@ namespace tessera::vulkan
 		createFramebuffers();
 	}
 
-	void VulkanContext::cleanupSwapChain() const
+	void VulkanRenderer::cleanupSwapChain() const
 	{
 		vkDestroyImageView(logicalDevice, depthImageView, nullptr);
 		vkDestroyImage(logicalDevice, depthImage, nullptr);
@@ -710,7 +873,7 @@ namespace tessera::vulkan
 		vkDestroySwapchainKHR(logicalDevice, swapChain, nullptr);
 	}
 
-	void VulkanContext::createImageViews()
+	void VulkanRenderer::createImageViews()
 	{
 		const auto& [swapChainImageFormat, swapChainExtent, swapChainImages]
 			= swapChainDetails;
@@ -723,7 +886,7 @@ namespace tessera::vulkan
 		}
 	}
 
-	VkImageView VulkanContext::createImageView(const VkImage image, const VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels) const
+	VkImageView VulkanRenderer::createImageView(const VkImage image, const VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels) const
 	{
 		VkImageViewCreateInfo viewInfo{};
 		viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -742,7 +905,7 @@ namespace tessera::vulkan
 		return imageView;
 	}
 
-	void VulkanContext::createRenderPass()
+	void VulkanRenderer::createRenderPass()
 	{
 		VkAttachmentDescription colorAttachment{};
 		colorAttachment.format = swapChainDetails.swapChainImageFormat;
@@ -815,7 +978,7 @@ namespace tessera::vulkan
 		ASSERT(vkCreateRenderPass(logicalDevice, &renderPassInfo, nullptr, &renderPass) == VK_SUCCESS, "failed to create render pass.");
 	}
 
-	void VulkanContext::createDescriptorSetLayout()
+	void VulkanRenderer::createDescriptorSetLayout()
 	{
 		VkDescriptorSetLayoutBinding uboLayoutBinding{};
 		uboLayoutBinding.binding = 0;
@@ -840,7 +1003,7 @@ namespace tessera::vulkan
 		ASSERT(vkCreateDescriptorSetLayout(logicalDevice, &layoutInfo, nullptr, &descriptorSetLayout) == VK_SUCCESS, "failed to create descriptor set layout.");
 	}
 
-	void VulkanContext::createGraphicsPipeline()
+	void VulkanRenderer::createGraphicsPipeline()
 	{
 		const auto vertexShaderCode = readFile("bin/shaders/vert.spv");
 		VkShaderModule vertexShaderModule = createShaderModule(vertexShaderCode, logicalDevice);
@@ -985,7 +1148,7 @@ namespace tessera::vulkan
 		vkDestroyShaderModule(logicalDevice, vertexShaderModule, nullptr);
 	}
 
-	VkShaderModule VulkanContext::createShaderModule(const std::vector<char>& code, const VkDevice& device)
+	VkShaderModule VulkanRenderer::createShaderModule(const std::vector<char>& code, const VkDevice& device)
 	{
 		VkShaderModuleCreateInfo createInfo{};
 		createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -998,7 +1161,7 @@ namespace tessera::vulkan
 		return shaderModule;
 	}
 
-	void VulkanContext::createFramebuffers()
+	void VulkanRenderer::createFramebuffers()
 	{
 		swapChainFramebuffers.resize(swapChainImageViews.size());
 
@@ -1025,7 +1188,7 @@ namespace tessera::vulkan
 		}
 	}
 
-	void VulkanContext::createCommandBuffer()
+	void VulkanRenderer::createCommandBuffer()
 	{
 		commandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
 
@@ -1038,14 +1201,14 @@ namespace tessera::vulkan
 		ASSERT(vkAllocateCommandBuffers(logicalDevice, &allocInfo, commandBuffers.data()) == VK_SUCCESS, "failed to allocate command buffers.");
 	}
 
-	void VulkanContext::resetCommandBuffer(const int bufferId) const
+	void VulkanRenderer::resetCommandBuffer(const int bufferId) const
 	{
 		ASSERT(static_cast<size_t>(bufferId) < commandBuffers.size() && bufferId >= 0, "current frame number is larger than number of fences.");
 
 		vkResetCommandBuffer(commandBuffers[bufferId], 0);
 	}
 
-	void VulkanContext::recordCommandBuffer(const VkCommandBuffer commandBufferToRecord, const uint32_t imageIndex) const
+	void VulkanRenderer::recordCommandBuffer(const VkCommandBuffer commandBufferToRecord, const uint32_t imageIndex) const
 	{
 		VkCommandBufferBeginInfo beginInfo{};
 		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -1115,14 +1278,14 @@ namespace tessera::vulkan
 		ASSERT(vkEndCommandBuffer(commandBufferToRecord) == VK_SUCCESS, " failed to record command buffer.");
 	}
 
-	VkCommandBuffer VulkanContext::getCommandBuffer(const int bufferId) const
+	VkCommandBuffer VulkanRenderer::getCommandBuffer(const int bufferId) const
 	{
 		ASSERT(static_cast<size_t>(bufferId) < commandBuffers.size() && bufferId >= 0, "current frame number is larger than number of fences.");
 
 		return commandBuffers[bufferId];
 	}
 
-	void VulkanContext::createCommandPool()
+	void VulkanRenderer::createCommandPool()
 	{
 		const auto [graphicsFamily, presentFamily] = findQueueFamilies(physicalDevice, surface);
 		ASSERT(graphicsFamily.has_value(), "Graphics family is incomplete.");
@@ -1134,7 +1297,7 @@ namespace tessera::vulkan
 		ASSERT(vkCreateCommandPool(logicalDevice, &poolInfo, nullptr, &commandPool) == VK_SUCCESS, "failed to create command pool.");
 	}
 
-	VkCommandBuffer VulkanContext::beginSingleTimeCommands() const
+	VkCommandBuffer VulkanRenderer::beginSingleTimeCommands() const
 	{
 		VkCommandBufferAllocateInfo allocInfo{};
 		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -1154,7 +1317,7 @@ namespace tessera::vulkan
 		return commandBuffer;
 	}
 
-	void VulkanContext::endSingleTimeCommands(const VkCommandBuffer commandBuffer) const
+	void VulkanRenderer::endSingleTimeCommands(const VkCommandBuffer commandBuffer) const
 	{
 		vkEndCommandBuffer(commandBuffer);
 
@@ -1169,7 +1332,7 @@ namespace tessera::vulkan
 		vkFreeCommandBuffers(logicalDevice, commandPool, 1, &commandBuffer);
 	}
 
-	void VulkanContext::createDepthResources()
+	void VulkanRenderer::createDepthResources()
 	{
 		const VkFormat depthFormat = findDepthFormat();
 
@@ -1185,7 +1348,7 @@ namespace tessera::vulkan
 		depthImageView = createImageView(depthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, 1);
 	}
 
-	VkFormat VulkanContext::findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features)
+	VkFormat VulkanRenderer::findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features)
 	{
 		std::optional<VkFormat> supportedFormat;
 		for (VkFormat format : candidates) {
@@ -1206,7 +1369,7 @@ namespace tessera::vulkan
 
 	}
 
-	VkFormat VulkanContext::findDepthFormat()
+	VkFormat VulkanRenderer::findDepthFormat()
 	{
 		return findSupportedFormat(
 			{ VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT },
@@ -1215,12 +1378,12 @@ namespace tessera::vulkan
 		);
 	}
 
-	bool VulkanContext::hasStencilComponent(const VkFormat format)
+	bool VulkanRenderer::hasStencilComponent(const VkFormat format)
 	{
 		return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
 	}
 
-	Texture VulkanContext::loadTexture(const std::string& texturePath) const
+	Texture VulkanRenderer::loadTexture(const std::string& texturePath) const
 	{
 		Texture newTexture{};
 		
@@ -1266,7 +1429,7 @@ namespace tessera::vulkan
 		return newTexture;
 	}
 
-	void VulkanContext::generateMipmaps(const Texture& texture, const VkFormat imageFormat, const int32_t texWidth, const int32_t texHeight) const
+	void VulkanRenderer::generateMipmaps(const Texture& texture, const VkFormat imageFormat, const int32_t texWidth, const int32_t texHeight) const
 	{
 		// Check if image format supports linear blitting
 		VkFormatProperties formatProperties;
@@ -1352,7 +1515,7 @@ namespace tessera::vulkan
 		endSingleTimeCommands(commandBuffer);
 	}
 
-	void VulkanContext::createImage(const uint32_t width,
+	void VulkanRenderer::createImage(const uint32_t width,
 		const uint32_t height,
 		const uint32_t numberOfMipLevels,
 		const VkSampleCountFlagBits numberOfSamples,
@@ -1395,7 +1558,7 @@ namespace tessera::vulkan
 		vkBindImageMemory(logicalDevice, image, imageMemory, 0);
 	}
 
-	void VulkanContext::transitionImageLayout(const VkImage image, [[maybe_unused]] VkFormat format, const VkImageLayout oldLayout, const VkImageLayout newLayout, uint32_t mipLevels) const
+	void VulkanRenderer::transitionImageLayout(const VkImage image, [[maybe_unused]] VkFormat format, const VkImageLayout oldLayout, const VkImageLayout newLayout, uint32_t mipLevels) const
 	{
 		const VkCommandBuffer commandBuffer = beginSingleTimeCommands();
 
@@ -1446,7 +1609,7 @@ namespace tessera::vulkan
 		endSingleTimeCommands(commandBuffer);
 	}
 
-	void VulkanContext::copyBufferToImage(const VkBuffer buffer, const VkImage image, const uint32_t width, const uint32_t height) const
+	void VulkanRenderer::copyBufferToImage(const VkBuffer buffer, const VkImage image, const uint32_t width, const uint32_t height) const
 	{
 		const VkCommandBuffer commandBuffer = beginSingleTimeCommands();
 
@@ -1470,7 +1633,7 @@ namespace tessera::vulkan
 		endSingleTimeCommands(commandBuffer);
 	}
 
-	VkSampler VulkanContext::createTextureSampler(const uint32_t maxMipLevels) const
+	VkSampler VulkanRenderer::createTextureSampler(const uint32_t maxMipLevels) const
 	{
 		VkSampler textureSampler;
 		
@@ -1500,7 +1663,7 @@ namespace tessera::vulkan
 		return textureSampler;
 	}
 
-	void VulkanContext::createColorResources()
+	void VulkanRenderer::createColorResources()
 	{
 		const VkFormat colorFormat = swapChainDetails.swapChainImageFormat;
 		const auto test = swapChainDetails;
@@ -1508,7 +1671,7 @@ namespace tessera::vulkan
 		colorImageView = createImageView(colorImage, colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
 	}
 
-	void VulkanContext::createBufferManager()
+	void VulkanRenderer::createBufferManager()
 	{
 		// Combine all vertex and index data
 		std::vector<Vertex> allVertices;
@@ -1531,7 +1694,7 @@ namespace tessera::vulkan
 		createUniformBuffer();
 	}
 
-	void VulkanContext::createVertexBuffer(const std::vector<Vertex>& vertices)
+	void VulkanRenderer::createVertexBuffer(const std::vector<Vertex>& vertices)
 	{
 		const VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
 		
@@ -1551,7 +1714,7 @@ namespace tessera::vulkan
 		vkFreeMemory(logicalDevice, stagingBufferMemory, nullptr);
 	}
 
-	void VulkanContext::createBuffer(const VkDeviceSize size, const VkBufferUsageFlags usage, const VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) const
+	void VulkanRenderer::createBuffer(const VkDeviceSize size, const VkBufferUsageFlags usage, const VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) const
 	{
 		ASSERT(size > 0, "Attempt to create buffer with empty size.");
 		
@@ -1579,7 +1742,7 @@ namespace tessera::vulkan
 		vkBindBufferMemory(logicalDevice, buffer, bufferMemory, 0);
 	}
 
-	uint32_t VulkanContext::findMemoryType(const uint32_t typeFilter, const VkMemoryPropertyFlags properties) const
+	uint32_t VulkanRenderer::findMemoryType(const uint32_t typeFilter, const VkMemoryPropertyFlags properties) const
 	{
 		VkPhysicalDeviceMemoryProperties memProperties;
 		vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
@@ -1599,7 +1762,7 @@ namespace tessera::vulkan
 		return memoryIndex.value();
 	}
 
-	void VulkanContext::copyBuffer(const VkBuffer srcBuffer, const VkBuffer dstBuffer, const VkDeviceSize size) const
+	void VulkanRenderer::copyBuffer(const VkBuffer srcBuffer, const VkBuffer dstBuffer, const VkDeviceSize size) const
 	{
 		const VkCommandBuffer commandBuffer = beginSingleTimeCommands();
 
@@ -1610,7 +1773,7 @@ namespace tessera::vulkan
 		endSingleTimeCommands(commandBuffer);
 	}
 
-	void VulkanContext::createIndexBuffer(const std::vector<uint32_t>& indices)
+	void VulkanRenderer::createIndexBuffer(const std::vector<uint32_t>& indices)
 	{
 		const VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
 
@@ -1631,7 +1794,7 @@ namespace tessera::vulkan
 		vkFreeMemory(logicalDevice, stagingBufferMemory, nullptr);
 	}
 
-	void VulkanContext::createUniformBuffer()
+	void VulkanRenderer::createUniformBuffer()
 	{
 		constexpr VkDeviceSize bufferSize = sizeof(UniformBufferObject);
 
@@ -1647,7 +1810,7 @@ namespace tessera::vulkan
 		}
 	}
 
-	void VulkanContext::updateUniformBuffer(const uint32_t currentImage) const
+	void VulkanRenderer::updateUniformBuffer(const uint32_t currentImage) const
 	{
 		const SpectatorCamera camera = CORE->world.getMainCamera();
 		
@@ -1666,7 +1829,7 @@ namespace tessera::vulkan
 		memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
 	}
 
-	void VulkanContext::createDescriptorPool()
+	void VulkanRenderer::createDescriptorPool()
 	{
 		size_t numberOfMeshes = 0;
 		for (const auto& [meshes, textures] : models)
@@ -1690,7 +1853,7 @@ namespace tessera::vulkan
 		ASSERT(vkCreateDescriptorPool(logicalDevice, &poolInfo, nullptr, &descriptorPool) == VK_SUCCESS, "failed to create descriptor pool.");
 	}
 
-	void VulkanContext::createDescriptorSets(Model& model) const
+	void VulkanRenderer::createDescriptorSets(Model& model) const
 	{
 		for (auto& mesh: model.meshes)
 		{
@@ -1740,7 +1903,7 @@ namespace tessera::vulkan
 		
 	}
 
-	void VulkanContext::createSyncObjects()
+	void VulkanRenderer::createSyncObjects()
 	{
 		imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
 		renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
@@ -1762,7 +1925,7 @@ namespace tessera::vulkan
 		}
 	}
 
-	void VulkanContext::waitForFences() const
+	void VulkanRenderer::waitForFences() const
 	{
 		ASSERT(static_cast<size_t>(currentFrame) < inFlightFences.size() && currentFrame >= 0, "current frame number is larger than number of fences.");
 
@@ -1770,19 +1933,19 @@ namespace tessera::vulkan
 		vkResetFences(logicalDevice, 1, &inFlightFences[currentFrame]);
 	}
 
-	void VulkanContext::resetFences() const
+	void VulkanRenderer::resetFences() const
 	{
 		ASSERT(static_cast<size_t>(currentFrame) < inFlightFences.size() && currentFrame >= 0, "current frame number is larger than number of fences.");
 
 		vkResetFences(logicalDevice, 1, &inFlightFences[currentFrame]);
 	}
 
-	void VulkanContext::onResize()
+	void VulkanRenderer::onResize()
 	{
 		framebufferResized = true;
 	}
 
-	VkSampleCountFlagBits VulkanContext::getMaxUsableSampleCount() const
+	VkSampleCountFlagBits VulkanRenderer::getMaxUsableSampleCount() const
 	{
 		VkPhysicalDeviceProperties physicalDeviceProperties;
 		vkGetPhysicalDeviceProperties(physicalDevice, &physicalDeviceProperties);
@@ -1798,7 +1961,7 @@ namespace tessera::vulkan
 		return VK_SAMPLE_COUNT_1_BIT;
 	}
 
-	VkVertexInputBindingDescription VulkanContext::getBindingDescription()
+	VkVertexInputBindingDescription VulkanRenderer::getBindingDescription()
 	{
 		VkVertexInputBindingDescription bindingDescription{};
 		bindingDescription.binding = 0;
@@ -1808,7 +1971,7 @@ namespace tessera::vulkan
 		return bindingDescription;
 	}
 
-	std::array<VkVertexInputAttributeDescription, 3> VulkanContext::getAttributeDescriptions()
+	std::array<VkVertexInputAttributeDescription, 3> VulkanRenderer::getAttributeDescriptions()
 	{
 		std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions{};
 
@@ -1830,169 +1993,5 @@ namespace tessera::vulkan
 		return attributeDescriptions;
 	}
 
-	// ===========================================================================================]
-	void VulkanRenderer::init()
-	{
-		REGISTER_EVENT(EventType::EVENT_WINDOW_RESIZED, [&](const int newWidth, const int newHeight)
-		{
-			LOG_INFO("Vulkan initiated window resize. New dimensions: " + std::to_string(newWidth) + " " + std::to_string(newHeight));
-			context.onResize();
-		});
-		
-		context.createInstance();
-		context.createDebugManager();
-		context.createSurface();
-		context.createDevices();
-		context.createQueues();
-		context.createSwapChain();
-		context.createImageViews();
-		context.createRenderPass();
-		context.createDescriptorSetLayout();
-		context.createGraphicsPipeline();
-		context.createCommandPool();
-		context.createColorResources();
-		context.createDepthResources();
-		context.createFramebuffers();
-		
-		context.models.push_back(context.loadModel("bin/assets/skybox/skybox.obj", "bin/assets/skybox/skybox.png"));
-		context.models.push_back(context.loadModel("bin/assets/terrain/floor.obj", "bin/assets/terrain/grass.jpg"));
-		// context.models.push_back(context.loadModel("bin/assets/indoor/indoor_floor.obj", "bin/assets/indoor/floor.jpg"));
-		context.models.push_back(context.loadModel("bin/assets/indoor/indoor.obj", "bin/assets/indoor/brick.jpg"));
-		context.models.push_back(context.loadModel("bin/assets/indoor/threshold.obj", "bin/assets/indoor/door.jpg"));
-		context.models.push_back(context.loadModel("bin/assets/indoor/torch.obj", "bin/assets/indoor/torch.jpg"));
 
-		context.createBufferManager();
-		context.createDescriptorPool();
-		
-		// Create descriptor sets for this model
-		for (auto& model : context.models)
-		{
-			context.createDescriptorSets(model);
-		}
-		context.createCommandBuffer();
-		context.createSyncObjects();
-	}
-
-	void VulkanRenderer::clean()
-	{
-		context.cleanupSwapChain();
-
-		vkDestroyPipeline(context.logicalDevice, context.graphicsPipeline, nullptr);
-		vkDestroyPipelineLayout(context.logicalDevice, context.pipelineLayout, nullptr);
-		vkDestroyRenderPass(context.logicalDevice, context.renderPass, nullptr);
-
-		for (size_t i = 0; i < VulkanContext::MAX_FRAMES_IN_FLIGHT; i++)
-		{
-			vkDestroyBuffer(context.logicalDevice, context.uniformBuffers[i], nullptr);
-			vkFreeMemory(context.logicalDevice, context.uniformBuffersMemory[i], nullptr);
-		}
-
-		vkDestroyDescriptorPool(context.logicalDevice, context.descriptorPool, nullptr);
-
-		for (const auto& model : context.models)
-		{
-			for (const auto& texture : model.textures)
-			{
-				vkDestroySampler(context.logicalDevice, texture.textureSampler, nullptr);
-				vkDestroyImageView(context.logicalDevice, texture.textureImageView, nullptr);
-				vkDestroyImage(context.logicalDevice, texture.textureImage, nullptr);
-				vkFreeMemory(context.logicalDevice, texture.textureImageMemory, nullptr);
-			}
-		}
-
-		vkDestroyDescriptorSetLayout(context.logicalDevice, context.descriptorSetLayout, nullptr);
-
-		vkDestroyBuffer(context.logicalDevice, context.indexBuffer, nullptr);
-		vkFreeMemory(context.logicalDevice, context.indexBufferMemory, nullptr);
-
-		vkDestroyBuffer(context.logicalDevice, context.vertexBuffer, nullptr);
-		vkFreeMemory(context.logicalDevice, context.vertexBufferMemory, nullptr);
-
-		for (size_t i = 0; i < VulkanContext::MAX_FRAMES_IN_FLIGHT; i++)
-		{
-			vkDestroySemaphore(context.logicalDevice, context.renderFinishedSemaphores[i], nullptr);
-			vkDestroySemaphore(context.logicalDevice, context.imageAvailableSemaphores[i], nullptr);
-			vkDestroyFence(context.logicalDevice, context.inFlightFences[i], nullptr);
-		}
-
-		vkDestroyCommandPool(context.logicalDevice, context.commandPool, nullptr);
-
-		vkDestroyDevice(context.logicalDevice, nullptr);
-
-		if (VulkanContext::validationLayersAreEnabled())
-		{
-			context.destroyDebugUtilsMessengerExt(context.debugMessenger, nullptr);
-		}
-
-		vkDestroySurfaceKHR(context.instance, context.surface, nullptr);
-		vkDestroyInstance(context.instance, nullptr);
-	}
-
-	void VulkanRenderer::drawFrame()
-	{
-		vkWaitForFences(context.logicalDevice, 1, &context.inFlightFences[context.currentFrame], VK_TRUE, UINT64_MAX);
-
-		const std::optional<uint32_t> imageIndex = context.acquireNextImage();
-		if (!imageIndex.has_value())
-		{
-			return;
-		}
-
-		context.updateUniformBuffer(context.currentFrame);
-		vkResetFences(context.logicalDevice, 1, &context.inFlightFences[context.currentFrame]);
-
-		const auto commandBuffer = context.getCommandBuffer(context.currentFrame);
-
-		context.resetCommandBuffer(context.currentFrame);
-		context.recordCommandBuffer(commandBuffer, imageIndex.value());
-
-		VkSubmitInfo submitInfo{};
-		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-
-		const VkSemaphore waitSemaphores[] = { context.imageAvailableSemaphores[context.currentFrame] };
-		constexpr VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-		submitInfo.waitSemaphoreCount = 1;
-		submitInfo.pWaitSemaphores = waitSemaphores;
-		submitInfo.pWaitDstStageMask = waitStages;
-		submitInfo.commandBufferCount = 1;
-		submitInfo.pCommandBuffers = &context.commandBuffers[context.currentFrame];
-
-		const VkSemaphore signalSemaphores[] = { context.renderFinishedSemaphores[context.currentFrame] };
-		submitInfo.signalSemaphoreCount = 1;
-		submitInfo.pSignalSemaphores = signalSemaphores;
-
-		ASSERT(vkQueueSubmit(context.graphicsQueue, 1, &submitInfo, context.inFlightFences[context.currentFrame]) == VK_SUCCESS, "failed to submit draw command buffer.");
-
-		// Submit result back to swap chain to have it eventually show up on the screen. 
-		VkPresentInfoKHR presentInfo{};
-		presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-
-		presentInfo.waitSemaphoreCount = 1;
-		presentInfo.pWaitSemaphores = signalSemaphores;
-
-		const VkSwapchainKHR swapChains[] = { context.swapChain };
-		presentInfo.swapchainCount = 1;
-		presentInfo.pSwapchains = swapChains;
-		presentInfo.pImageIndices = &imageIndex.value();
-		presentInfo.pResults = nullptr;
-
-		const VkResult result = vkQueuePresentKHR(context.presentQueue, &presentInfo);
-
-		if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || context.framebufferResized)
-		{
-			context.framebufferResized = false;
-			context.recreateSwapChain();
-		}
-		else
-		{
-			ASSERT(result == VK_SUCCESS, "failed to present swap chain image.");
-		}
-
-		context.currentFrame = (context.currentFrame + 1) % VulkanContext::MAX_FRAMES_IN_FLIGHT;
-	}
-
-	void VulkanRenderer::deviceWaitIdle()
-	{
-		vkDeviceWaitIdle(context.logicalDevice);
-	}
 }

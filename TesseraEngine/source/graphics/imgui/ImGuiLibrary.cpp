@@ -13,7 +13,7 @@ namespace tessera::imgui
 	
 	void ImGuiLibrary::init()
 	{
-		const auto& vulkanContext = CORE->renderer->context;
+		const auto& vulkanContext = CORE->renderer;
 		const auto& windowsContext = CORE->platform->platformState;
 
 		IMGUI_CHECKVERSION();
@@ -28,15 +28,15 @@ namespace tessera::imgui
 
 		//this initializes imgui for Vulkan
 		ImGui_ImplVulkan_InitInfo initInfo = {};
-		initInfo.Instance = vulkanContext.instance;
-		initInfo.PhysicalDevice = vulkanContext.physicalDevice;
-		initInfo.Device = vulkanContext.logicalDevice;
-		initInfo.Queue = vulkanContext.graphicsQueue;
-		initInfo.DescriptorPool = vulkanContext.descriptorPool;
-		initInfo.RenderPass = vulkanContext.renderPass;
+		initInfo.Instance = vulkanContext->instance;
+		initInfo.PhysicalDevice = vulkanContext->physicalDevice;
+		initInfo.Device = vulkanContext->logicalDevice;
+		initInfo.Queue = vulkanContext->graphicsQueue;
+		initInfo.DescriptorPool = vulkanContext->descriptorPool;
+		initInfo.RenderPass = vulkanContext->renderPass;
 		initInfo.MinImageCount = 2;
 		initInfo.ImageCount = 2;
-		initInfo.MSAASamples = vulkanContext.msaaSamples;
+		initInfo.MSAASamples = vulkanContext->msaaSamples;
 
 		ImGui_ImplVulkan_Init(&initInfo);
 
