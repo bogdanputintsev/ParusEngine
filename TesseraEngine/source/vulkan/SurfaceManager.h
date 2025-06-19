@@ -9,7 +9,7 @@
 namespace tessera::vulkan
 {
 
-	class VulkanSurfaceManager final
+	class SurfaceManager final
 	{
 	public:
 		void init(const std::shared_ptr<const VkInstance>& instance, const std::shared_ptr<GLFWwindow>& window);

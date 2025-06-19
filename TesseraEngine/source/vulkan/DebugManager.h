@@ -8,7 +8,7 @@
 namespace tessera::vulkan
 {
 
-	class VulkanDebugManager
+	class DebugManager
 	{
 	public:
 		void init(const std::shared_ptr<const VkInstance>& instance);

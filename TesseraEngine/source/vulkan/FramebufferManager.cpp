@@ -1,13 +1,13 @@
-#include "VulkanFramebufferManager.h"
+#include "FramebufferManager.h"
 
 #include <stdexcept>
 
-#include "VulkanSwapChainManager.h"
+#include "SwapChainManager.h"
 
 namespace tessera::vulkan
 {
 
-	void VulkanFramebufferManager::init(const std::vector<VkImageView>& swapChainImageViews, const std::shared_ptr<const VkDevice>& device, const std::shared_ptr<VkRenderPass>& renderPass, const SwapChainImageDetails& swapChainImageDetails)
+	void FramebufferManager::init(const std::vector<VkImageView>& swapChainImageViews, const std::shared_ptr<const VkDevice>& device, const std::shared_ptr<VkRenderPass>& renderPass, const SwapChainImageDetails& swapChainImageDetails)
 	{
 		swapChainFramebuffers.resize(swapChainImageViews.size());
 
@@ -35,7 +35,7 @@ namespace tessera::vulkan
         }
 	}
 
-	void VulkanFramebufferManager::clean(const std::shared_ptr<const VkDevice>& device) const
+	void FramebufferManager::clean(const std::shared_ptr<const VkDevice>& device) const
 	{
         for (const auto& framebuffer : swapChainFramebuffers) 
         {

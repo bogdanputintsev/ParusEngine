@@ -1,15 +1,15 @@
 #pragma once
 #include <vulkan/vulkan_core.h>
 
-#include "VulkanDeviceManager.h"
+#include "DeviceManager.h"
 
 namespace tessera::vulkan
 {
 
-	class VulkanInstanceManager final
+	class InstanceManager final
 	{
 	public:
-		VulkanInstanceManager() = default;
+		InstanceManager() = default;
 		void init();
 		void clean() const;
 

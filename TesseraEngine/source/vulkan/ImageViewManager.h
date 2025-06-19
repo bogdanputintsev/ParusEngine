@@ -3,12 +3,12 @@
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
-#include "VulkanSwapChainManager.h"
+#include "SwapChainManager.h"
 
 namespace tessera::vulkan
 {
 
-	class VulkanImageViewManager final
+	class ImageViewManager final
 	{
 	public:
 		void init(const SwapChainImageDetails& swapChainImageDetails, const std::shared_ptr<const VkDevice>& device);

@@ -1,22 +1,22 @@
-#include "VulkanInstanceManager.h"
+#include "InstanceManager.h"
 
 #include <stdexcept>
 #include <GLFW/glfw3.h>
 
-#include "VulkanDebugManager.h"
-#include "VulkanExtensionManager.h"
+#include "DebugManager.h"
+#include "ExtensionManager.h"
 
 namespace tessera::vulkan
 {
 
-	void VulkanInstanceManager::init()
+	void InstanceManager::init()
 	{
 		createInstance();
 	}
 
-	void VulkanInstanceManager::createInstance()
+	void InstanceManager::createInstance()
 	{
-		VulkanDebugManager::checkValidationLayerSupport();
+		DebugManager::checkValidationLayerSupport();
 
 		VkApplicationInfo appInfo{};
 		appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
@@ -30,21 +30,21 @@ namespace tessera::vulkan
 		createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 		createInfo.pApplicationInfo = &appInfo;
 
-		VulkanExtensionManager::checkIfAllGlsfRequiredExtensionsAreSupported();
+		ExtensionManager::checkIfAllGlsfRequiredExtensionsAreSupported();
 
-		const std::vector<const char*> requiredExtensions = VulkanExtensionManager::getRequiredInstanceExtensions();
+		const std::vector<const char*> requiredExtensions = ExtensionManager::getRequiredInstanceExtensions();
 		createInfo.enabledExtensionCount = static_cast<uint32_t>(requiredExtensions.size());
 		createInfo.ppEnabledExtensionNames = requiredExtensions.data();
 
 		VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
 
-		const std::vector<const char*> validationLayers = VulkanDebugManager::getValidationLayers();
-		if (VulkanDebugManager::validationLayersAreEnabled()) 
+		const std::vector<const char*> validationLayers = DebugManager::getValidationLayers();
+		if (DebugManager::validationLayersAreEnabled()) 
 		{
 			createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
 			createInfo.ppEnabledLayerNames = validationLayers.data();
 
-			VulkanDebugManager::populate(debugCreateInfo);
+			DebugManager::populate(debugCreateInfo);
 			createInfo.pNext = &debugCreateInfo;
 		}
 		else 
@@ -62,7 +62,7 @@ namespace tessera::vulkan
 		instance = std::make_shared<VkInstance>(instanceObject);
 	}
 
-	void VulkanInstanceManager::clean() const
+	void InstanceManager::clean() const
 	{
 		vkDestroyInstance(*instance, nullptr);
 	}
