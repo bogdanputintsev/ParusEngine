@@ -73,6 +73,9 @@
     <ClCompile Include="source\vulkan\SyncObjectsManager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="source\vulkan\BufferManager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="source\utils\ShaderLoader.h" />
@@ -96,6 +99,8 @@
     <ClInclude Include="source\utils\interfaces\Initializable.h" />
     <ClInclude Include="source\utils\Utils.h" />
     <ClInclude Include="source\vulkan\SyncObjectsManager.h" />
+    <ClInclude Include="source\entities\Vertex.h" />
+    <ClInclude Include="source\vulkan\BufferManager.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\shader.frag" />

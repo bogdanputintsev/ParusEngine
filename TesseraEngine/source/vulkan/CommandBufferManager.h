@@ -12,8 +12,8 @@ namespace tessera::vulkan
 		void init() override;
 		void resetCommandBuffer(const int bufferId) const;
 		void clean() override;
-
 		[[nodiscard]] VkCommandBuffer getCommandBuffer(const int bufferId) const;
+		[[nodiscard]] VkCommandPool getCommandPool() const { return commandPool; }
 		static int getNumberOfBuffers() { return MAX_FRAMES_IN_FLIGHT; }
 	private:
 		void initCommandPool();
