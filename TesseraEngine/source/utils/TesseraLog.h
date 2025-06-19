@@ -10,12 +10,12 @@ namespace tessera
 		DEBUG = 1,
 		INFO = 2,
 		WARNING = 4,
-		ERROR = 8,
+		TE_ERROR = 8,
 		FATAL = 16,
 
 		// Presets:
-		DEFAULT = INFO | WARNING | ERROR | FATAL,
-		ALL = DEBUG | INFO | WARNING | ERROR | FATAL
+		DEFAULT = INFO | WARNING | TE_ERROR | FATAL,
+		ALL = DEBUG | INFO | WARNING | TE_ERROR | FATAL
 	};
 
 	inline LogType operator|(LogType a, LogType b)
@@ -45,11 +45,11 @@ namespace tessera
 #define T_FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #endif
 
-#define DEBUG(msg) tessera::TesseraLog::send(tessera::LogType::DEBUG, T_FILENAME, __LINE__, msg)
-#define INFO(msg) tessera::TesseraLog::send(tessera::LogType::INFO, T_FILENAME, __LINE__, msg)
-#define WARNING(msg) tessera::TesseraLog::send(tessera::LogType::WARNING, T_FILENAME, __LINE__, msg)
-#define ERROR(msg) tessera::TesseraLog::send(tessera::LogType::ERROR, T_FILENAME, __LINE__, msg)
-#define FATAL(msg) tessera::TesseraLog::send(tessera::LogType::FATAL, T_FILENAME, __LINE__, msg)
+#define LOG_DEBUG(msg) tessera::TesseraLog::send(tessera::LogType::DEBUG, T_FILENAME, __LINE__, msg)
+#define LOG_INFO(msg) tessera::TesseraLog::send(tessera::LogType::INFO, T_FILENAME, __LINE__, msg)
+#define LOG_WARNING(msg) tessera::TesseraLog::send(tessera::LogType::WARNING, T_FILENAME, __LINE__, msg)
+#define LOG_ERROR(msg) tessera::TesseraLog::send(tessera::LogType::TE_ERROR, T_FILENAME, __LINE__, msg)
+#define LOG_FATAL(msg) tessera::TesseraLog::send(tessera::LogType::FATAL, T_FILENAME, __LINE__, msg)
 #define LOG(type, msg) tessera::TesseraLog::send(type, T_FILENAME, __LINE__, msg)
 
 	/**
@@ -62,7 +62,7 @@ namespace tessera
 	{															\
         if (!(condition))										\
 		{														\
-            FATAL(msg);											\
+            LOG_FATAL(msg);										\
 			throw std::runtime_error("Assertion failed.");		\
         }														\
     } while (0)
