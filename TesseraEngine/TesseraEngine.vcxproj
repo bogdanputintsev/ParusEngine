@@ -173,6 +173,7 @@
     <ClCompile Include="source\vulkan\FramebufferManager.cpp" />
     <ClCompile Include="source\vulkan\CommandBufferManager.cpp" />
     <ClCompile Include="source\vulkan\SyncObjectsManager.cpp" />
+    <ClCompile Include="source\vulkan\VertexBufferManager.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="source\utils\interfaces\Service.h" />
@@ -197,6 +198,7 @@
     <ClInclude Include="source\vulkan\CommandBufferManager.h" />
     <ClInclude Include="source\utils\interfaces\Initializable.h" />
     <ClInclude Include="source\vulkan\SyncObjectsManager.h" />
+    <ClInclude Include="source\vulkan\VertexBufferManager.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\shader.frag" />
