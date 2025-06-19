@@ -1,6 +1,7 @@
 #pragma once
 #include <optional>
 #include <vector>
+#include <vulkan/vulkan_core.h>
 
 #include "entities/Vertex.h"
 #include "renderer/Renderer.h"
@@ -34,6 +35,9 @@ namespace tessera::vulkan
 
 	struct VulkanContext final
 	{
+		// Load model
+		void loadModel();
+
 		// Instance
 		void createInstance();
 		static void checkValidationLayerSupport();
@@ -140,6 +144,10 @@ namespace tessera::vulkan
 		void waitForFences() const;
 		void resetFences() const;
 
+		static VkVertexInputBindingDescription getBindingDescription();
+
+		static std::array<VkVertexInputAttributeDescription, 3> getAttributeDescriptions();
+
 		VkInstance instance = VK_NULL_HANDLE;
 		VkDebugUtilsMessengerEXT debugMessenger = nullptr;
 		VkSurfaceKHR surface = VK_NULL_HANDLE;
@@ -183,6 +191,9 @@ namespace tessera::vulkan
 		bool framebufferResized = false;
 
 		static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
+
+		std::vector<Vertex> vertices;
+		std::vector<uint32_t> indices;
 	};
 
 	class VulkanRenderer final : public Renderer

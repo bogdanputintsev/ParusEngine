@@ -93,11 +93,11 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\Projects\Personal\TesseraEngine\TesseraEngine\source;C:\Libraries\glfw-3.3.9.bin.WIN64\include;C:\Libraries\glm;C:\VulkanSDK\1.3.250.1\Include;C:\stb;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Projects\Personal\TesseraEngine\TesseraEngine\source;C:\Libraries\glfw-3.3.9.bin.WIN64\include;C:\Libraries\glm;C:\VulkanSDK\1.3.250.1\Include;C:\Libraries;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <MultiProcessorCompilation>false</MultiProcessorCompilation>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
-      <TreatWarningAsError>true</TreatWarningAsError>
+      <TreatWarningAsError>false</TreatWarningAsError>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -118,7 +118,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\Projects\Personal\TesseraEngine\TesseraEngine\source;C:\Libraries\glfw-3.3.9.bin.WIN64\include;C:\Libraries\glm;C:\VulkanSDK\1.3.250.1\Include;C:\stb;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Projects\Personal\TesseraEngine\TesseraEngine\source;C:\Libraries\glfw-3.3.9.bin.WIN64\include;C:\Libraries\glm;C:\VulkanSDK\1.3.250.1\Include;C:\Libraries;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <MultiProcessorCompilation>false</MultiProcessorCompilation>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
@@ -148,11 +148,11 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\Projects\Personal\TesseraEngine\TesseraEngine\source;C:\Libraries\glfw-3.3.9.bin.WIN64\include;C:\Libraries\glm;C:\VulkanSDK\1.3.250.1\Include;C:\stb;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Projects\Personal\TesseraEngine\TesseraEngine\source;C:\Libraries\glfw-3.3.9.bin.WIN64\include;C:\Libraries\glm;C:\VulkanSDK\1.3.250.1\Include;C:\Libraries;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <MultiProcessorCompilation>false</MultiProcessorCompilation>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
-      <TreatWarningAsError>true</TreatWarningAsError>
+      <TreatWarningAsError>false</TreatWarningAsError>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -173,7 +173,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\Projects\Personal\TesseraEngine\TesseraEngine\source;C:\Libraries\glfw-3.3.9.bin.WIN64\include;C:\Libraries\glm;C:\VulkanSDK\1.3.250.1\Include;C:\stb;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Projects\Personal\TesseraEngine\TesseraEngine\source;C:\Libraries\glfw-3.3.9.bin.WIN64\include;C:\Libraries\glm;C:\VulkanSDK\1.3.250.1\Include;C:\Libraries;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <MultiProcessorCompilation>false</MultiProcessorCompilation>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
