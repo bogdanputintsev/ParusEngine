@@ -7,7 +7,7 @@
 
 namespace tessera::vulkan
 {
-	VkPhysicalDevice VulkanPhysicalDeviceManager::pickAnySuitableDevice(const VkInstance& instance)
+	VkPhysicalDevice VulkanPhysicalDeviceManager::pickAnySuitableDevice(const VkInstance& instance, const std::shared_ptr<const VkSurfaceKHR>& surface)
 	{
 		uint32_t deviceCount = 0;
 		vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
@@ -22,7 +22,7 @@ namespace tessera::vulkan
 
 		for (const auto& device : devices) 
 		{
-			if (isDeviceSuitable(device)) 
+			if (isDeviceSuitable(device, surface)) 
 			{
 				return device;
 			}
@@ -31,7 +31,7 @@ namespace tessera::vulkan
 		throw std::runtime_error("VulkanPhysicalDeviceManager: failed to find a suitable GPU!");
 	}
 
-	bool VulkanPhysicalDeviceManager::isDeviceSuitable(const VkPhysicalDevice& device)
+	bool VulkanPhysicalDeviceManager::isDeviceSuitable(const VkPhysicalDevice& device, const std::shared_ptr<const VkSurfaceKHR>& surface)
 	{
 		// Basic device properties like the name, type and supported Vulkan version.
 		VkPhysicalDeviceProperties deviceProperties;
@@ -42,7 +42,7 @@ namespace tessera::vulkan
 		vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
 
 		// Check if device can process the commands we want to use.
-		const QueueFamilyIndices indices = VulkanQueueFamiliesManager::findQueueFamilies(device);
+		const QueueFamilyIndices indices = VulkanQueueFamiliesManager::findQueueFamilies(device, surface);
 
 		return indices.isComplete();
 	}

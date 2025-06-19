@@ -1,21 +1,20 @@
-#include "VulkanInitializer.h"
+#include "VulkanInstanceManager.h"
 
 #include <stdexcept>
 #include <GLFW/glfw3.h>
 
+#include "VulkanDebugManager.h"
 #include "VulkanExtensionManager.h"
 
 namespace tessera::vulkan
 {
 
-	void VulkanInitializer::init()
+	void VulkanInstanceManager::init()
 	{
 		createInstance();
-		debugManager.init(instance);
-		logicalDeviceManager.init(instance);
 	}
 
-	void VulkanInitializer::createInstance()
+	void VulkanInstanceManager::createInstance()
 	{
 		VulkanDebugManager::checkValidationLayerSupport();
 
@@ -54,17 +53,18 @@ namespace tessera::vulkan
 			createInfo.pNext = nullptr;
 		}
 
-		if (vkCreateInstance(&createInfo, nullptr, &instance) != VK_SUCCESS)
+		VkInstance instanceObject = VK_NULL_HANDLE;
+		if (vkCreateInstance(&createInfo, nullptr, &instanceObject) != VK_SUCCESS)
 		{
-			throw std::runtime_error("VulkanInitializer: failed to create instance.");
+			throw std::runtime_error("VulkanInstanceManager: failed to create instance.");
 		}
+
+		instance = std::make_shared<VkInstance>(instanceObject);
 	}
 
-	void VulkanInitializer::clean() const
+	void VulkanInstanceManager::clean() const
 	{
-		logicalDeviceManager.clean();
-		debugManager.clean(instance);
-		vkDestroyInstance(instance, nullptr);
+		vkDestroyInstance(*instance, nullptr);
 	}
 
 }

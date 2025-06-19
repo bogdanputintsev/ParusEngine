@@ -6,7 +6,7 @@
 
 namespace tessera::vulkan
 {
-	void VulkanDebugManager::init(const VkInstance& instance)
+	void VulkanDebugManager::init(const std::shared_ptr<const VkInstance>& instance)
 	{
         if (!validationLayersAreEnabled())
         {
@@ -31,7 +31,7 @@ namespace tessera::vulkan
         createInfo.pfnUserCallback = debugCallback;
     }
 
-	void VulkanDebugManager::clean(const VkInstance& instance) const
+	void VulkanDebugManager::clean(const std::shared_ptr<const VkInstance>& instance) const
 	{
         if(validationLayersAreEnabled())
         {
@@ -67,28 +67,26 @@ namespace tessera::vulkan
 		return LogType::INFO;
 	}
 
-	VkResult VulkanDebugManager::createDebugUtilsMessengerExt(VkInstance instance,
+	VkResult VulkanDebugManager::createDebugUtilsMessengerExt(const std::shared_ptr<const VkInstance>& instance,
 	                                                          const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, 
 	                                                          const VkAllocationCallbacks* pAllocator,
 	                                                          VkDebugUtilsMessengerEXT* pDebugMessenger)
     {
-	    const auto func = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT"));
+	    const auto func = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(*instance, "vkCreateDebugUtilsMessengerEXT"));
         if (func != nullptr) 
         {
-            return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
+            return func(*instance, pCreateInfo, pAllocator, pDebugMessenger);
         }
 
 		return VK_ERROR_EXTENSION_NOT_PRESENT;
     }
 
-    void VulkanDebugManager::destroyDebugUtilsMessengerExt(VkInstance instance,
-	    VkDebugUtilsMessengerEXT debugMessenger, 
-        const VkAllocationCallbacks* pAllocator)
+    void VulkanDebugManager::destroyDebugUtilsMessengerExt(const std::shared_ptr<const VkInstance>& instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator)
     {
-	    const auto func = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT"));
+	    const auto func = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(*instance, "vkDestroyDebugUtilsMessengerEXT"));
         if (func != nullptr) 
         {
-            func(instance, debugMessenger, pAllocator);
+            func(*instance, debugMessenger, pAllocator);
         }
     }
 
