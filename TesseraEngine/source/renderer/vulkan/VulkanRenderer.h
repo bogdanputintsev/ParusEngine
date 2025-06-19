@@ -318,6 +318,8 @@ namespace tessera::vulkan
 
 		std::array<FrameData, MAX_FRAMES_IN_FLIGHT> frames;
 
+		bool isRunning = false;
+
 	};
 
 }
