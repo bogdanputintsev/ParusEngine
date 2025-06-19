@@ -1,4 +1,5 @@
 #pragma once
+#include "world/World.h"
 
 namespace tessera
 {
@@ -7,7 +8,7 @@ namespace tessera
 	public:
 		void init();
 		void registerEvents();
-		void loop() const;
+		void loop();
 		void clean();
 
 	private:
