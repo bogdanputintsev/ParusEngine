@@ -13,6 +13,7 @@
 #include "engine/EngineCore.h"
 #include "engine/input/Input.h"
 #include "services/Services.h"
+#include "services/config/Configs.h"
 
 namespace parus
 {
@@ -131,17 +132,28 @@ namespace parus
         RECT borderRect = {0, 0, 0, 0};
         AdjustWindowRectEx(&borderRect, windowStyle, 0, windowExStyle);
 
+        const std::string title = Services::get<Configs>()->get("Window", "title");
+        
+		int positionX = Services::get<Configs>()->getAsInt("Window", "positionX").value_or(0);
+		int positionY = Services::get<Configs>()->getAsInt("Window", "positionY").value_or(0);
+        int width = Services::get<Configs>()->getAsInt("Window", "width").value_or(0);
+        int height = Services::get<Configs>()->getAsInt("Window", "height").value_or(0);
+        
         // In this case, the border rectangle is negative.
-        windowInfo.positionX += borderRect.left;
-        windowInfo.positionY += borderRect.top;
+        positionX += borderRect.left;
+        positionY += borderRect.top;
+        Services::get<Configs>()->write("Window", "positionX", std::to_string(positionX));
+        Services::get<Configs>()->write("Window", "positionY", std::to_string(positionY));
 
         // Grow by the size of the OS border.
-        windowInfo.width += borderRect.right - borderRect.left;
-        windowInfo.height += borderRect.bottom - borderRect.top;
+        width += borderRect.right - borderRect.left;
+        height += borderRect.bottom - borderRect.top;
+        Services::get<Configs>()->write("Window", "width", std::to_string(width));
+        Services::get<Configs>()->write("Window", "height", std::to_string(height));
 
         const HWND handle = CreateWindowExA(
-            windowExStyle, "parus_window_class", windowInfo.title,
-            windowStyle, windowInfo.positionX, windowInfo.positionY, windowInfo.width, windowInfo.height,
+            windowExStyle, "parus_window_class", title.c_str(),
+            windowStyle, positionX, positionY, width, height,
             nullptr, nullptr, platformState.hinstance, nullptr);
 
         ASSERT(handle, "Window creation failed!");
@@ -192,7 +204,7 @@ namespace parus
         }
     }
 
-    void Platform::processOnResize()
+    void Platform::processOnResize() const
     {
         RECT r;
         GetClientRect(platformState.hwnd, &r);
@@ -201,21 +213,22 @@ namespace parus
 
         if (newWidth == 0 || newHeight == 0)
         {
-            windowInfo.isMinimized = true;
+            Services::get<Configs>()->write("Window", "isMinimized", "true");
             LOG_INFO("Window has been minimized.");
             FIRE_EVENT(parus::EventType::EVENT_WINDOW_MINIMIZED, true);
             return;
         }
 
-        if (windowInfo.isMinimized)
+		const bool isMinimized = Services::get<Configs>()->getAsBool("Window", "isMinimized").value_or(false);
+        if (isMinimized)
         {
-            windowInfo.isMinimized = false;
+            Services::get<Configs>()->write("Window", "isMinimized", "false");
             LOG_INFO("Window has been restored.");
             FIRE_EVENT(parus::EventType::EVENT_WINDOW_MINIMIZED, false);
         }
-            
-        windowInfo.width = newWidth;
-        windowInfo.height = newHeight;
+
+        Services::get<Configs>()->write("Window", "width", std::to_string(newWidth));
+        Services::get<Configs>()->write("Window", "height", std::to_string(newWidth));
         
         FIRE_EVENT(parus::EventType::EVENT_WINDOW_RESIZED, newWidth, newHeight);
     }

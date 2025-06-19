@@ -29,7 +29,7 @@ namespace parus::utils
 
 	inline void readFile(const std::string& filename, const std::function<void(std::ifstream&)>& readCallback)
 	{
-		std::ifstream file(filename, std::ios::ate | std::ios::binary);
+		std::ifstream file(filename);
 
 		ASSERT(file && file.is_open() && file.good(), "Failed to open file " + filename);
 
@@ -76,6 +76,15 @@ namespace parus::utils
 		inline bool equalsIgnoreCase(const std::string& oneString, const std::string& anotherString)
 		{
 			return toLowerCase(oneString) == toLowerCase(anotherString);
+		}
+
+		inline std::string trim(std::string input)
+		{
+			const auto whitespace = " \t\n\r\f\v";
+			input.erase(0, input.find_first_not_of(whitespace));
+			input.erase(input.find_last_not_of(whitespace) + 1);
+
+			return input;
 		}
 		
 	}

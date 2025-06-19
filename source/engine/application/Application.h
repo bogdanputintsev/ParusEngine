@@ -1,7 +1,5 @@
 #pragma once
 
-#include "ApplicationInfo.h"
-
 
 namespace parus
 {
@@ -12,15 +10,11 @@ namespace parus
 		void init();
 		void loop();
 		void clean();
-
-		[[nodiscard]] ApplicationInfo getApplicationInfo() const { return applicationInfo; }
 	private:
 		static void registerServices();
 		void registerEvents();
 		
 		bool isRunning = false;
-
-		ApplicationInfo applicationInfo{};
 	};
 
 }

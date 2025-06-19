@@ -17,6 +17,7 @@
 #include "engine/utils/math/UniformBufferObjects.h"
 #include "material/Material.h"
 #include "services/Services.h"
+#include "services/config/Configs.h"
 #include "services/threading/ThreadPool.h"
 #include "services/world/World.h"
 
@@ -880,10 +881,11 @@ namespace parus::vulkan
 			return capabilities.currentExtent;
 		}
 
-		const auto windowInfo = Services::get<Platform>()->getWindowInfo();
-		const int width = windowInfo.width;
-		const int height = windowInfo.height;
+		const int width = Services::get<Configs>()->getAsBool("Window", "width").value_or(0);
+		const int height = Services::get<Configs>()->getAsBool("Window", "width").value_or(0);
 
+		ASSERT(width != 0 && height != 0, "Failed to get window width and height.");
+		
 		VkExtent2D actualExtent = {
 			static_cast<uint32_t>(width),
 			static_cast<uint32_t>(height)

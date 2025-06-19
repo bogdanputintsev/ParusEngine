@@ -6,6 +6,7 @@
 #include "services/graphics/imgui/ImGuiLibrary.h"
 #include "services/renderer/vulkan/VulkanRenderer.h"
 #include "services/Services.h"
+#include "services/config/Configs.h"
 #include "services/threading/ThreadPool.h"
 #include "services/world/World.h"
 
@@ -16,7 +17,7 @@ namespace parus
 		registerServices();
 		registerEvents();
 		
-		applicationInfo.readAll();
+		Services::get<Configs>()->loadAll();
 		
 		Services::get<Platform>()->init();
 		Services::get<ThreadPool>()->init();
@@ -28,6 +29,7 @@ namespace parus
 
 	void Application::registerServices()
 	{
+		const auto configs = std::make_shared<Configs>();
 		const auto platform = std::make_shared<Platform>();
 		const auto graphicsLibrary = std::make_shared<imgui::ImGuiLibrary>();
 		const auto renderer = std::make_shared<vulkan::VulkanRenderer>();
@@ -35,7 +37,8 @@ namespace parus
 		const auto inputSystem = std::make_shared<Input>();
 		const auto world = std::make_shared<World>();
 		const auto threadPool = std::make_shared<ThreadPool>();
-		
+
+		Services::registerService(configs.get(), configs);
 		Services::registerService(platform.get(), platform);
 		Services::registerService(graphicsLibrary.get(), graphicsLibrary);
 		Services::registerService(renderer.get(), renderer);
@@ -75,7 +78,8 @@ namespace parus
 			Services::get<World>()->tick(deltaTime);
 			Services::get<Platform>()->getMessages();
 
-			if (!Services::get<Platform>()->getWindowInfo().isMinimized)
+			const bool isMinimized = Services::get<Configs>()->getAsBool("Window", "isMinimized").value_or(false);
+			if (!isMinimized)
 			{
 				Services::get<imgui::ImGuiLibrary>()->drawFrame();
 				Services::get<vulkan::VulkanRenderer>()->drawFrame();
