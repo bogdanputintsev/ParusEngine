@@ -168,7 +168,7 @@
     <ClCompile Include="source\vulkan\SurfaceManager.cpp" />
     <ClCompile Include="source\vulkan\SwapChainManager.cpp" />
     <ClCompile Include="source\vulkan\FramebufferManager.cpp" />
-    <ClCompile Include="source\vulkan\CommandPoolManager.cpp" />
+    <ClCompile Include="source\vulkan\CommandBufferManager.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="source\utils\ShaderLoader.h" />
@@ -186,7 +186,7 @@
     <ClInclude Include="source\vulkan\SurfaceManager.h" />
     <ClInclude Include="source\vulkan\SwapChainManager.h" />
     <ClInclude Include="source\vulkan\FramebufferManager.h" />
-    <ClInclude Include="source\vulkan\CommandPoolManager.h" />
+    <ClInclude Include="source\vulkan\CommandBufferManager.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\shader.frag" />

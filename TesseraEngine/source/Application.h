@@ -1,7 +1,7 @@
 #pragma once
 
 #include "glfw/GlfwInitializer.h"
-#include "vulkan/CommandPoolManager.h"
+#include "vulkan/CommandBufferManager.h"
 #include "vulkan/DebugManager.h"
 #include "vulkan/FramebufferManager.h"
 #include "vulkan/GraphicsPipelineManager.h"
@@ -33,7 +33,7 @@ namespace tessera
 		vulkan::ImageViewManager imageViewManager;
 		vulkan::GraphicsPipelineManager graphicsPipelineManager;
 		vulkan::FramebufferManager framebufferManager;
-		vulkan::CommandPoolManager commandPoolManager;
+		vulkan::CommandBufferManager commandPoolManager;
 	};
 
 }
