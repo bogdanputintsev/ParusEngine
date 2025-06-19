@@ -10,6 +10,7 @@ int main()
     try
     {
         app.init();
+        app.loop();
         app.clean();
     }
     catch(const std::exception& exception)

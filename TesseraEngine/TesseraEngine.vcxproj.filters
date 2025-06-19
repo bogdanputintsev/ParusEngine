@@ -52,7 +52,7 @@
     <ClCompile Include="source\vulkan\PhysicalDeviceManager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="source\vulkan\QueueFamiliesManager.cpp">
+    <ClCompile Include="source\vulkan\QueueManager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="source\vulkan\SurfaceManager.cpp">
@@ -70,6 +70,9 @@
     <ClCompile Include="source\utils\interfaces\ServiceLocator.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="source\vulkan\SyncObjectsManager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="source\utils\ShaderLoader.h" />
@@ -83,7 +86,7 @@
     <ClInclude Include="source\vulkan\ImageViewManager.h" />
     <ClInclude Include="source\vulkan\InstanceManager.h" />
     <ClInclude Include="source\vulkan\PhysicalDeviceManager.h" />
-    <ClInclude Include="source\vulkan\QueueFamiliesManager.h" />
+    <ClInclude Include="source\vulkan\QueueManager.h" />
     <ClInclude Include="source\vulkan\SurfaceManager.h" />
     <ClInclude Include="source\vulkan\SwapChainManager.h" />
     <ClInclude Include="source\vulkan\FramebufferManager.h" />
@@ -92,6 +95,7 @@
     <ClInclude Include="source\utils\interfaces\Service.h" />
     <ClInclude Include="source\utils\interfaces\Initializable.h" />
     <ClInclude Include="source\utils\Utils.h" />
+    <ClInclude Include="source\vulkan\SyncObjectsManager.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\shader.frag" />
