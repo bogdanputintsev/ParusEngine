@@ -283,6 +283,7 @@
     <ClCompile Include="source\renderer\Renderer.cpp" />
     <ClCompile Include="source\Application.cpp" />
     <ClCompile Include="source\Main.cpp" />
+    <ClCompile Include="source\threading\ThreadPool.cpp" />
     <ClCompile Include="source\utils\TesseraLog.cpp" />
     <ClCompile Include="source\renderer\vulkan\VulkanRenderer.cpp" />
     <ClCompile Include="source\third-party\imgui\backends\imgui_impl_vulkan.cpp" />
@@ -307,6 +308,7 @@
     <ClInclude Include="source\renderer\Renderer.h" />
     <ClInclude Include="source\math\UniformBufferObjects.h" />
     <ClInclude Include="source\Application.h" />
+    <ClInclude Include="source\threading\ThreadPool.h" />
     <ClInclude Include="source\utils\TesseraLog.h" />
     <ClInclude Include="source\utils\Utils.h" />
     <ClInclude Include="source\renderer\vulkan\VulkanRenderer.h" />

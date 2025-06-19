@@ -105,18 +105,11 @@ namespace tessera::vulkan
 
 		void cleanupFrameResources();
 
-		void loaderJob();
-		void requestMeshImport(const std::string& newMeshPath);
-		std::queue<std::string> loadRequests;
 		std::queue<std::pair<std::string, std::shared_ptr<Mesh>>> modelQueue;
 		std::mutex importModelMutex;
-		std::thread loaderThread;
-		std::condition_variable conditionVariableLoader;
-
-
 		
 		// Load model
-		void importMeshAsync(const std::string& meshPath);
+		void importMesh(const std::string& meshPath);
 		void processLoadedMeshes();
 		
 		// Instance

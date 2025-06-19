@@ -16,7 +16,7 @@ namespace tessera
 		const std::string logMessage = getLogMessage(logType, filename, line, message);
 
 		// Print out to the console.
-		std::cout << logMessage << '\n';
+		printf("%s\n", logMessage.c_str());
 	}
 
 	std::string TesseraLog::getLogMessage(const LogType logType, const std::string& filename, const long line, const std::string& message)

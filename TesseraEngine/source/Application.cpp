@@ -9,6 +9,7 @@ namespace tessera
 	void Application::init()
 	{
 		CORE->platform->init();
+		CORE->threadPool.init();
 		CORE->renderer->init();
 		CORE->graphicsLibrary->init();
 
