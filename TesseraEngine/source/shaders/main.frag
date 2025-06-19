@@ -30,7 +30,7 @@ layout(set = 3, binding = 0, std140) uniform DirectionalLightUBO
 }   directionalLight;
 
 // =============================================
-// Input/Output
+// Input / Output
 // =============================================
 layout(location = 0) in vec3 inPosition;
 layout(location = 1) in vec2 inTextureCoordinate;

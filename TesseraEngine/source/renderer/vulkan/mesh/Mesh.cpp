@@ -61,20 +61,32 @@ namespace tessera
 		tinyobj::attrib_t attrib;
 		std::vector<tinyobj::shape_t> shapes;
 		std::vector<tinyobj::material_t> materials;
-		std::string warn, err;
+		std::string warningMessage;
+		std::string errorMessage;
 
 		size_t lastSlash = filePath.find_last_of("/\\");
 		std::string baseDir = filePath.substr(0, lastSlash + 1);
 
 		ASSERT(tinyobj::LoadObj(
-			&attrib, &shapes, &materials, &warn, &err,
+			&attrib, &shapes, &materials, &warningMessage, &errorMessage,
 			filePath.c_str(),
 			baseDir.c_str(),
 			true),
-			warn + err);
+			warningMessage + errorMessage);
 
+		if (!errorMessage.empty())
+		{
+			LOG_ERROR(errorMessage);
+		}
+		
+		if (!warningMessage.empty())
+		{
+			LOG_WARNING(warningMessage);
+		}
+		
 		std::vector<std::shared_ptr<vulkan::Material>> modelMaterials;
-    	
+    	modelMaterials.reserve(materials.size());
+
 		for (const auto& material : materials)
 		{
 			std::shared_ptr<vulkan::Material> newModelMaterial
@@ -92,6 +104,9 @@ namespace tessera
 
 		std::unordered_map<int, MeshPart> materialMeshes;
 		std::unordered_map<math::Vertex, uint32_t> uniqueVertices;
+
+		ASSERT(!modelMaterials.empty(),
+			"Default material is missing for mesh " + filePath);
 		
 		for (const auto& shape : shapes) 
 		{
@@ -101,11 +116,21 @@ namespace tessera
 			for (size_t faceIndex = 0; faceIndex < shape.mesh.num_face_vertices.size(); faceIndex++)
 			{
 				int materialId = shape.mesh.material_ids[faceIndex];
-
+				
 				if (!materialMeshes.contains(materialId))
 				{
 					MeshPart newMeshPart;
-					newMeshPart.material = modelMaterials[materialId];
+					ASSERT(modelMaterials.size() > static_cast<size_t>(materialId),
+						"Material with index " + std::to_string(materialId) + " must exist for mesh " + filePath);
+
+					if (materialId == -1)
+					{
+						newMeshPart.material = CORE->world.getStorage()->getDefaultMaterial();
+					}
+					else
+					{
+						newMeshPart.material = modelMaterials[materialId];
+					}
 					materialMeshes[materialId] = newMeshPart;
 				}
 
@@ -124,16 +149,19 @@ namespace tessera
 						attrib.vertices[3 * index.vertex_index + 2]
 					};
 
-					if (index.normal_index < 0)
+					if (index.normal_index >= 0)
 					{
-						LOG_ERROR("Model " + filePath + " has missing normals that require recalculation.");
+						vertex.normal = {
+							(index.normal_index >= 0) ? attrib.normals[3 * index.normal_index + 0] : 0.0f,
+							(index.normal_index >= 0) ? attrib.normals[3 * index.normal_index + 1] : 0.0f,
+							(index.normal_index >= 0) ? attrib.normals[3 * index.normal_index + 2] : 0.0f
+						};
 					}
-					
-					vertex.normal = {
-						(index.normal_index >= 0) ? attrib.normals[3 * index.normal_index + 0] : 0.0f,
-						(index.normal_index >= 0) ? attrib.normals[3 * index.normal_index + 1] : 0.0f,
-						(index.normal_index >= 0) ? attrib.normals[3 * index.normal_index + 2] : 0.0f
-					};
+					else
+					{
+						// LOG_ERROR("Model " + filePath + " has missing normals that require recalculation.");
+						vertex.normal = { 0.0f, 0.0f, 0.0f };
+					}
 					
 					if (index.texcoord_index >= 0)
 					{

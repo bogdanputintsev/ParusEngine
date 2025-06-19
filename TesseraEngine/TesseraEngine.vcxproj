@@ -413,8 +413,10 @@
     <ClInclude Include="source\world\World.h" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="source\shaders\shader.frag" />
-    <Content Include="source\shaders\shader.vert" />
+    <Content Include="source\shaders\main.frag" />
+    <Content Include="source\shaders\main.vert" />
+    <Content Include="source\shaders\sky.frag" />
+    <Content Include="source\shaders\sky.vert" />
     <Content Include="source\third-party\imgui\LICENSE.txt" />
   </ItemGroup>
   <ItemGroup>

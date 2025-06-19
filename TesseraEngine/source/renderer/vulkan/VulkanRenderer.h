@@ -51,12 +51,17 @@ namespace tessera::vulkan
 	{
 		VkBuffer vertexBuffer = VK_NULL_HANDLE;
 		VkDeviceMemory vertexBufferMemory = VK_NULL_HANDLE;
+		VkBuffer skyVertexBuffer = VK_NULL_HANDLE;
+		VkDeviceMemory skyVertexBufferMemory = VK_NULL_HANDLE;
 		VkBuffer indexBuffer = VK_NULL_HANDLE;
 		VkDeviceMemory indexBufferMemory = VK_NULL_HANDLE;
-
+		VkBuffer skyIndexBuffer = VK_NULL_HANDLE;
+		VkDeviceMemory skyIndexBufferMemory = VK_NULL_HANDLE;
 		// Total counts
 		size_t totalVertices = 0;
+		size_t totalSkyVertices = 0;
 		size_t totalIndices = 0;
+		size_t totalSkyIndices = 0;
 	};
 
 	class VulkanRenderer final : public Renderer
@@ -90,7 +95,7 @@ namespace tessera::vulkan
 		std::mutex importModelMutex;
 		
 		// Load model
-		void importMesh(const std::string& meshPath);
+		void importMesh(const std::string& meshPath, const MeshType meshType = MeshType::STATIC_MESH);
 		void processLoadedMeshes();
 		
 		// Instance
@@ -160,6 +165,7 @@ namespace tessera::vulkan
 		void createLightsDescriptorSetLayout();
 		
 		// Graphics Pipeline
+		void createSkyPipeline();
 		void createGraphicsPipeline();
 		static VkShaderModule createShaderModule(const std::vector<char>& code, const VkDevice& device);
 
@@ -169,7 +175,10 @@ namespace tessera::vulkan
 		// Command buffer
 		void createCommandBuffer();
 		void resetCommandBuffer(const int bufferId) const;
+		void drawMainScenePass(VkCommandBuffer commandBufferToRecord) const;
+		void drawSkyboxPass(VkCommandBuffer commandBufferToRecord) const;
 		void recordCommandBuffer(VkCommandBuffer commandBufferToRecord, uint32_t imageIndex) const;
+		
 		[[nodiscard]] VkCommandBuffer getCommandBuffer(const int bufferId) const;
 		[[nodiscard]] VkCommandPool getCommandPool();
 
@@ -212,11 +221,13 @@ namespace tessera::vulkan
 		void createColorResources();
 		
 		// Buffer manager
-		void createBufferManager();
+		void createSkyVertexBuffer(const std::vector<math::Vertex>& vertices);
 		void createVertexBuffer(const std::vector<math::Vertex>& vertices);
 		void createBuffer(const VkDeviceSize size, const VkBufferUsageFlags usage, const VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) const;
 		[[nodiscard]] uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const;
 		void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
+		void createSkyIndexBuffer(const std::vector<uint32_t>& indices);
+
 		void createIndexBuffer(const std::vector<uint32_t>& indices);
 		void createUniformBuffer();
 		void updateUniformBuffer(uint32_t currentImage);
@@ -269,8 +280,13 @@ namespace tessera::vulkan
 		std::vector<VkImageView> swapChainImageViews{};
 		
 		VkRenderPass renderPass = VK_NULL_HANDLE;
+		
 		VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
 		VkPipeline graphicsPipeline = VK_NULL_HANDLE;
+
+		VkPipelineLayout skyPipelineLayout = VK_NULL_HANDLE;
+		VkPipeline skyPipeline = VK_NULL_HANDLE;
+		
 		std::vector<VkFramebuffer> swapChainFramebuffers{};
 		std::vector<VkCommandBuffer> commandBuffers{};
 

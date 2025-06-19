@@ -16,7 +16,6 @@
 #include "material/Material.h"
 #include "utils/TesseraLog.h"
 
-// FIXME: Operation not permitted - race condition.
 
 namespace tessera::vulkan
 {
@@ -54,6 +53,7 @@ namespace tessera::vulkan
 		createImageViews();
 		createRenderPass();
 		createDescriptorSetLayout();
+		createSkyPipeline();
 		createGraphicsPipeline();
 		createColorResources();
 		createDepthResources();
@@ -70,9 +70,10 @@ namespace tessera::vulkan
 				},
 				.descriptorSets = {}
 			};
+
+		// Load sky mesh
+		importMesh("bin/assets/skybox/dynamic_skybox.obj", MeshType::SKY);
 		
-		importMesh("bin/assets/skybox/skybox.obj");
-		// RUN_ASYNC(importMesh("bin/assets/sphere/sphere.obj"););
 		RUN_ASYNC(importMesh("bin/assets/terrain/floor.obj"););
 		RUN_ASYNC(importMesh("bin/assets/indoor/indoor.obj"););
 		RUN_ASYNC(importMesh("bin/assets/indoor/threshold.obj"););
@@ -90,6 +91,8 @@ namespace tessera::vulkan
 
 		vkDestroyPipeline(logicalDevice, graphicsPipeline, nullptr);
 		vkDestroyPipelineLayout(logicalDevice, pipelineLayout, nullptr);
+		vkDestroyPipeline(logicalDevice, skyPipeline, nullptr);
+		vkDestroyPipelineLayout(logicalDevice, skyPipelineLayout, nullptr);
 		vkDestroyRenderPass(logicalDevice, renderPass, nullptr);
 
 		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
@@ -119,10 +122,16 @@ namespace tessera::vulkan
 
 		vkDestroyBuffer(logicalDevice, globalBuffers.indexBuffer, nullptr);
 		vkFreeMemory(logicalDevice, globalBuffers.indexBufferMemory, nullptr);
-
+		
 		vkDestroyBuffer(logicalDevice, globalBuffers.vertexBuffer, nullptr);
 		vkFreeMemory(logicalDevice, globalBuffers.vertexBufferMemory, nullptr);
 
+		vkDestroyBuffer(logicalDevice, globalBuffers.skyIndexBuffer, nullptr);
+		vkFreeMemory(logicalDevice, globalBuffers.skyIndexBufferMemory, nullptr);
+
+		vkDestroyBuffer(logicalDevice, globalBuffers.skyVertexBuffer, nullptr);
+		vkFreeMemory(logicalDevice, globalBuffers.skyVertexBufferMemory, nullptr);
+		
 		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 		{
 			vkDestroySemaphore(logicalDevice, renderFinishedSemaphores[i], nullptr);
@@ -224,9 +233,11 @@ namespace tessera::vulkan
 		vkDeviceWaitIdle(logicalDevice);
 	}
 	
-	void VulkanRenderer::importMesh(const std::string& meshPath)
+	void VulkanRenderer::importMesh(const std::string& meshPath, const MeshType meshType)
 	{
 		Mesh newMesh = importMeshFromFile(meshPath);
+		newMesh.meshType = meshType;
+		
 		std::lock_guard lock(importModelMutex);
 		modelQueue.emplace(meshPath, std::make_shared<Mesh>(newMesh));
 	}
@@ -253,11 +264,12 @@ namespace tessera::vulkan
 				.instanceDescriptorSets = {}
 			});
 		}
-		
+
+		// ==== [ MAIN SCENE BUFFERS ] ====
 		std::vector<math::Vertex> allVertices;
 		std::vector<uint32_t> allIndices;
 
-		for (const auto& mesh : CORE->world.getStorage()->getAllMeshes())
+		for (const auto& mesh : CORE->world.getStorage()->getAllMeshesByType(MeshType::STATIC_MESH))
 		{
 			for (auto& meshPart : mesh->meshParts)
 			{
@@ -268,13 +280,50 @@ namespace tessera::vulkan
 				allIndices.insert(allIndices.end(), meshPart.indices.begin(), meshPart.indices.end());
 			}
 		}
-		
-		createVertexBuffer(allVertices);
-		createIndexBuffer(allIndices);
+
+		if (!allVertices.empty())
+		{
+			createVertexBuffer(allVertices);
+		}
+		if (!allIndices.empty())
+		{
+			createIndexBuffer(allIndices);
+		}
 		
 		globalBuffers.totalVertices = allVertices.size();
 		globalBuffers.totalIndices = allIndices.size();
 
+		// ==== [ SKY BUFFERS ] ====
+		std::vector<math::Vertex> allSkyVertices;
+		std::vector<uint32_t> allSkyIndices;
+
+		DEBUG_ASSERT(CORE->world.getStorage()->getAllMeshesByType(MeshType::SKY).size() == 1,
+			"There must be always one and only one sky mesh.");
+		
+		for (const auto& mesh : CORE->world.getStorage()->getAllMeshesByType(MeshType::SKY))
+		{
+			for (auto& meshPart : mesh->meshParts)
+			{
+				meshPart.vertexOffset = allSkyVertices.size();
+				meshPart.indexOffset = allSkyIndices.size();
+
+				allSkyVertices.insert(allSkyVertices.end(), meshPart.vertices.begin(), meshPart.vertices.end());
+				allSkyIndices.insert(allSkyIndices.end(), meshPart.indices.begin(), meshPart.indices.end());
+			}
+		}
+
+		if (!allSkyVertices.empty())
+		{
+			createSkyVertexBuffer(allSkyVertices);
+		}
+		if (!allSkyVertices.empty())
+		{
+			createSkyIndexBuffer(allSkyIndices);
+		}
+		
+		globalBuffers.totalSkyVertices = allSkyVertices.size();
+		globalBuffers.totalSkyIndices = allSkyIndices.size();
+		
 		for (auto& mesh : CORE->world.getStorage()->getAllMeshes())
 		{
 			createMeshDescriptorSets(mesh);
@@ -1145,12 +1194,168 @@ namespace tessera::vulkan
 			   "failed to create lights descriptor set layout.");
 	}
 
-	void VulkanRenderer::createGraphicsPipeline()
+	void VulkanRenderer::createSkyPipeline()
 	{
-		const auto vertexShaderCode = utils::readFile("bin/shaders/vert.spv");
+		const auto vertexShaderCode = utils::readFile("bin/shaders/sky.vert.spv");
 		VkShaderModule vertexShaderModule = createShaderModule(vertexShaderCode, logicalDevice);
 
-		const auto fragmentShaderCode = utils::readFile("bin/shaders/frag.spv");
+		const auto fragmentShaderCode = utils::readFile("bin/shaders/sky.frag.spv");
+		VkShaderModule fragmentShaderModule = createShaderModule(fragmentShaderCode, logicalDevice);
+
+		VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
+		vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+		vertShaderStageInfo.module = vertexShaderModule;
+		vertShaderStageInfo.pName = "main";
+
+		VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
+		fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+		fragShaderStageInfo.module = fragmentShaderModule;
+		fragShaderStageInfo.pName = "main";
+
+		[[maybe_unused]] VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
+
+		// Vertex input
+		auto bindingDescription = getBindingDescription();
+		auto attributeDescriptions = getAttributeDescriptions();
+
+		auto requiredAttributeDescription = attributeDescriptions[0];
+		
+		VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
+		vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+		vertexInputInfo.vertexBindingDescriptionCount = 1;
+		vertexInputInfo.vertexAttributeDescriptionCount = 1;
+		vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
+		vertexInputInfo.pVertexAttributeDescriptions = &requiredAttributeDescription;
+
+		// Input assembly
+		VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
+		inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+		inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+		inputAssembly.primitiveRestartEnable = VK_FALSE;
+
+		VkPipelineViewportStateCreateInfo viewportState{};
+		viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+		viewportState.viewportCount = 1;
+		viewportState.scissorCount = 1;
+
+		// Rasterizer
+		VkPipelineRasterizationStateCreateInfo rasterizer{};
+		rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+		rasterizer.depthClampEnable = VK_FALSE;
+		rasterizer.rasterizerDiscardEnable = VK_FALSE;
+		rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
+		rasterizer.lineWidth = 1.0f;
+		rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
+		rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+		rasterizer.depthBiasEnable = VK_FALSE;
+		rasterizer.depthBiasConstantFactor = 0.0f;
+		rasterizer.depthBiasClamp = 0.0f;
+		rasterizer.depthBiasSlopeFactor = 0.0f;
+
+		// Multisampling
+		VkPipelineMultisampleStateCreateInfo multisampling{};
+		multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+		multisampling.sampleShadingEnable = VK_FALSE;
+		multisampling.minSampleShading = 1.0f;
+		multisampling.rasterizationSamples = msaaSamples;
+		multisampling.pSampleMask = nullptr;
+		multisampling.alphaToCoverageEnable = VK_FALSE;
+		multisampling.alphaToOneEnable = VK_FALSE;
+
+		// Depth stencil
+		VkPipelineDepthStencilStateCreateInfo depthStencil{};
+		depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+		depthStencil.depthTestEnable = VK_TRUE;
+		depthStencil.depthWriteEnable = VK_FALSE;
+		depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
+		depthStencil.depthBoundsTestEnable = VK_FALSE;
+		depthStencil.stencilTestEnable = VK_FALSE;
+
+		// Color blending.
+		VkPipelineColorBlendAttachmentState colorBlendAttachment{};
+		colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+		colorBlendAttachment.blendEnable = VK_FALSE;
+		colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
+		colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
+		colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+		colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+		colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+		colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+
+		VkPipelineColorBlendStateCreateInfo colorBlending{};
+		colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+		colorBlending.logicOpEnable = VK_FALSE;
+		colorBlending.logicOp = VK_LOGIC_OP_COPY;
+		colorBlending.attachmentCount = 1;
+		colorBlending.pAttachments = &colorBlendAttachment;
+		colorBlending.blendConstants[0] = 0.0f;
+		colorBlending.blendConstants[1] = 0.0f;
+		colorBlending.blendConstants[2] = 0.0f;
+		colorBlending.blendConstants[3] = 0.0f;
+
+		// Dynamic state
+		std::vector dynamicStates = {
+			VK_DYNAMIC_STATE_VIEWPORT,
+			VK_DYNAMIC_STATE_SCISSOR
+		};
+
+		VkPipelineDynamicStateCreateInfo dynamicState{};
+		dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+		dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
+		dynamicState.pDynamicStates = dynamicStates.data();
+
+		std::array descriptorSetsLayouts = {
+			globalDescriptorSetLayout
+		};
+		
+		// Pipeline layout.
+		const VkPipelineLayoutCreateInfo pipelineLayoutInfo =
+			{
+				.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+				.pNext = nullptr,
+				.flags = 0,
+				.setLayoutCount = static_cast<uint32_t>(descriptorSetsLayouts.size()),
+				.pSetLayouts = descriptorSetsLayouts.data(),
+				.pushConstantRangeCount = 0,
+				.pPushConstantRanges = nullptr,
+			};
+
+		ASSERT(vkCreatePipelineLayout(logicalDevice, &pipelineLayoutInfo, nullptr, &skyPipelineLayout) == VK_SUCCESS,
+			"Failed to create pipeline layout.");
+
+		VkGraphicsPipelineCreateInfo pipelineInfo{};
+		pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+		pipelineInfo.stageCount = 2;
+		pipelineInfo.pStages = shaderStages;
+		pipelineInfo.pVertexInputState = &vertexInputInfo;
+		pipelineInfo.pInputAssemblyState = &inputAssembly;
+		pipelineInfo.pViewportState = &viewportState;
+		pipelineInfo.pRasterizationState = &rasterizer;
+		pipelineInfo.pMultisampleState = &multisampling;
+		pipelineInfo.pDepthStencilState = &depthStencil;
+		pipelineInfo.pColorBlendState = &colorBlending;
+		pipelineInfo.pDynamicState = &dynamicState;
+		pipelineInfo.layout = skyPipelineLayout;
+		pipelineInfo.renderPass = renderPass;
+		pipelineInfo.subpass = 0;
+		pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
+		pipelineInfo.basePipelineIndex = -1;
+
+		ASSERT(vkCreateGraphicsPipelines(logicalDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &skyPipeline) == VK_SUCCESS,
+			"Failed to create sky pipeline.");
+		
+		vkDestroyShaderModule(logicalDevice, fragmentShaderModule, nullptr);
+		vkDestroyShaderModule(logicalDevice, vertexShaderModule, nullptr);
+	}
+
+	void VulkanRenderer::createGraphicsPipeline()
+	{
+		const auto vertexShaderCode = utils::readFile("bin/shaders/main.vert.spv");
+		VkShaderModule vertexShaderModule = createShaderModule(vertexShaderCode, logicalDevice);
+
+		const auto fragmentShaderCode = utils::readFile("bin/shaders/main.frag.spv");
 		VkShaderModule fragmentShaderModule = createShaderModule(fragmentShaderCode, logicalDevice);
 
 		VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
@@ -1274,7 +1479,8 @@ namespace tessera::vulkan
 				.pPushConstantRanges = nullptr,
 			};
 
-		ASSERT(vkCreatePipelineLayout(logicalDevice, &pipelineLayoutInfo, nullptr, &pipelineLayout) == VK_SUCCESS, "failed to create pipeline layout.");
+		ASSERT(vkCreatePipelineLayout(logicalDevice, &pipelineLayoutInfo, nullptr, &pipelineLayout) == VK_SUCCESS,
+			"Failed to create pipeline layout.");
 
 		VkGraphicsPipelineCreateInfo pipelineInfo{};
 		pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -1359,33 +1565,14 @@ namespace tessera::vulkan
 		ASSERT(vkResetCommandBuffer(commandBuffers[bufferId], 0) == VK_SUCCESS, "Failed to reset command buffer.");
 	}
 
-	void VulkanRenderer::recordCommandBuffer(const VkCommandBuffer commandBufferToRecord, const uint32_t imageIndex) const
+	void VulkanRenderer::drawMainScenePass(const VkCommandBuffer commandBufferToRecord) const
 	{
-		VkCommandBufferBeginInfo beginInfo{};
-		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-		beginInfo.flags = 0;
-		beginInfo.pInheritanceInfo = nullptr;
-
-		ASSERT(vkBeginCommandBuffer(commandBufferToRecord, &beginInfo) == VK_SUCCESS, "failed to begin recording command buffer.");
-
-		// Start the rendering pass
-		VkRenderPassBeginInfo renderPassInfo{};
-		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-		renderPassInfo.renderPass = renderPass;
-		renderPassInfo.framebuffer = swapChainFramebuffers[imageIndex];
-		renderPassInfo.renderArea.offset = { .x = 0, .y = 0};
-		renderPassInfo.renderArea.extent = swapChainDetails.swapChainExtent;
-
-		std::array<VkClearValue, 2> clearValues{};
-		clearValues[0].color = { {0.0f, 0.0f, 0.0f, 1.0f} };
-		clearValues[1].depthStencil = { .depth = 1.0f, .stencil = 0};
-
-		renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
-		renderPassInfo.pClearValues = clearValues.data();
-
-		// Draw.
-		vkCmdBeginRenderPass(commandBufferToRecord, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-		// Bind the graphics pipeline.
+		if (!globalBuffers.vertexBuffer)
+		{
+			return;
+		}
+		
+		// ==== [ MAIN SCENE PASS ] ====
 		vkCmdBindPipeline(commandBufferToRecord, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 		VkViewport viewport{};
 		viewport.x = 0.0f;
@@ -1417,12 +1604,12 @@ namespace tessera::vulkan
 
 		// Bind the directional light descriptor set.
 		vkCmdBindDescriptorSets(
-				commandBufferToRecord,
-				VK_PIPELINE_BIND_POINT_GRAPHICS,
-				pipelineLayout,
-				3,
-				1,
-				&directionalLight.descriptorSets[currentFrame], 0, nullptr);
+			commandBufferToRecord,
+			VK_PIPELINE_BIND_POINT_GRAPHICS,
+			pipelineLayout,
+			3,
+			1,
+			&directionalLight.descriptorSets[currentFrame], 0, nullptr);
 		
 		for (const auto& meshInstance : meshInstances)
 		{
@@ -1449,19 +1636,105 @@ namespace tessera::vulkan
 
 				// Draw mesh part.
 				vkCmdDrawIndexed(commandBufferToRecord,
-					static_cast<uint32_t>(meshPart.indexCount),
-					1,
-					static_cast<uint32_t>(meshPart.indexOffset),
-					static_cast<int32_t>(meshPart.vertexOffset),
-					0);
+	                 static_cast<uint32_t>(meshPart.indexCount),
+	                 1,
+	                 static_cast<uint32_t>(meshPart.indexOffset),
+	                 static_cast<int32_t>(meshPart.vertexOffset),
+	                 0);
 			}
 		}
+	}
 
-		
-		
-		CORE->graphicsLibrary->renderDrawData(commandBufferToRecord);
+	void VulkanRenderer::recordCommandBuffer(const VkCommandBuffer commandBufferToRecord, const uint32_t imageIndex) const
+	{
+		VkCommandBufferBeginInfo beginInfo{};
+		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+		beginInfo.flags = 0;
+		beginInfo.pInheritanceInfo = nullptr;
+
+		ASSERT(vkBeginCommandBuffer(commandBufferToRecord, &beginInfo) == VK_SUCCESS,
+			"Failed to begin recording command buffer.");
+
+		// Start the rendering pass
+		VkRenderPassBeginInfo renderPassInfo{};
+		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+		renderPassInfo.renderPass = renderPass;
+		renderPassInfo.framebuffer = swapChainFramebuffers[imageIndex];
+		renderPassInfo.renderArea.offset = { .x = 0, .y = 0};
+		renderPassInfo.renderArea.extent = swapChainDetails.swapChainExtent;
+
+		std::array<VkClearValue, 2> clearValues{};
+		clearValues[0].color = { {0.0f, 0.0f, 0.0f, 1.0f} };
+		clearValues[1].depthStencil = { .depth = 1.0f, .stencil = 0};
+
+		renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+		renderPassInfo.pClearValues = clearValues.data();
+
+		// Draw.
+		vkCmdBeginRenderPass(commandBufferToRecord, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+			drawSkyboxPass(commandBufferToRecord);
+			drawMainScenePass(commandBufferToRecord);
+			CORE->graphicsLibrary->renderDrawData(commandBufferToRecord);
 		vkCmdEndRenderPass(commandBufferToRecord);
-		ASSERT(vkEndCommandBuffer(commandBufferToRecord) == VK_SUCCESS, " failed to record command buffer.");
+		
+		ASSERT(vkEndCommandBuffer(commandBufferToRecord) == VK_SUCCESS, "Failed to fend recording command buffer.");
+	}
+
+	void VulkanRenderer::drawSkyboxPass(const VkCommandBuffer commandBufferToRecord) const
+	{
+		// ==== [ SKYBOX PASS ] ====
+		ASSERT(!CORE->world.getStorage()->getAllMeshesByType(MeshType::SKY).empty(),
+			   "Sky mesh must always exist");
+
+		const std::shared_ptr<Mesh> skyMesh = CORE->world.getStorage()->getAllMeshesByType(MeshType::SKY)[0];
+		
+		ASSERT(!skyMesh->meshParts.empty(),
+			   "Sky mesh exists, but it has zero mesh parts.");
+
+		const MeshPart& skyMeshPart = skyMesh->meshParts[0];
+		
+		ASSERT(skyMeshPart.vertexCount > 0 && skyMeshPart.indexCount > 0,
+			   "Sky mesh has no vertices or indices");
+		
+		vkCmdBindPipeline(commandBufferToRecord, VK_PIPELINE_BIND_POINT_GRAPHICS, skyPipeline);
+		
+		// Viewport and scissor
+		VkViewport viewport{};
+		viewport.x = 0.0f;
+		viewport.y = 0.0f;
+		viewport.width = static_cast<float>(swapChainDetails.swapChainExtent.width);
+		viewport.height = static_cast<float>(swapChainDetails.swapChainExtent.height);
+		viewport.minDepth = 0.0f;
+		viewport.maxDepth = 1.0f;
+		vkCmdSetViewport(commandBufferToRecord, 0, 1, &viewport);
+
+		VkRect2D scissor{};
+		scissor.offset = { .x = 0, .y = 0 };
+		scissor.extent = swapChainDetails.swapChainExtent;
+		vkCmdSetScissor(commandBufferToRecord, 0, 1, &scissor);
+
+		// Sky vertices
+		const VkBuffer skyVertexBuffers[] = { globalBuffers.skyVertexBuffer };
+		constexpr VkDeviceSize skyOffsets[] = { 0 };
+		vkCmdBindVertexBuffers(commandBufferToRecord, 0, 1, skyVertexBuffers, skyOffsets);
+		vkCmdBindIndexBuffer(commandBufferToRecord, globalBuffers.skyIndexBuffer, 0, VK_INDEX_TYPE_UINT32);
+
+		// Bind
+		vkCmdBindDescriptorSets(
+			commandBufferToRecord,
+			VK_PIPELINE_BIND_POINT_GRAPHICS,
+			skyPipelineLayout,
+			0, 1,
+			&globalDescriptorSets[currentFrame],
+			0, nullptr);
+		
+		// Draw mesh part.
+		vkCmdDrawIndexed(commandBufferToRecord,
+			 static_cast<uint32_t>(skyMeshPart.indexCount),
+			 1,
+			 static_cast<uint32_t>(skyMeshPart.indexOffset),
+			 static_cast<int32_t>(skyMeshPart.vertexOffset),
+			 0);
 	}
 
 	VkCommandBuffer VulkanRenderer::getCommandBuffer(const int bufferId) const
@@ -1832,29 +2105,6 @@ namespace tessera::vulkan
 		colorImageView = createImageView(colorImage, colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
 	}
 
-	void VulkanRenderer::createBufferManager()
-	{
-		// Combine all vertex and index data
-		std::vector<math::Vertex> allVertices;
-		std::vector<uint32_t> allIndices;
-
-		for (auto& mesh : CORE->world.getStorage()->getAllMeshes())
-		{
-			for (auto& meshPart : mesh->meshParts)
-			{
-				meshPart.vertexOffset = allVertices.size();
-				meshPart.indexOffset = allIndices.size();
-
-				allVertices.insert(allVertices.end(), meshPart.vertices.begin(), meshPart.vertices.end());
-				allIndices.insert(allIndices.end(), meshPart.indices.begin(), meshPart.indices.end());
-			}
-		}
-		
-		createVertexBuffer(allVertices);
-		createIndexBuffer(allIndices);
-		createUniformBuffer();
-	}
-
 	void VulkanRenderer::createVertexBuffer(const std::vector<math::Vertex>& vertices)
 	{
 		if (globalBuffers.vertexBuffer != VK_NULL_HANDLE)
@@ -1894,9 +2144,48 @@ namespace tessera::vulkan
 		vkFreeMemory(logicalDevice, stagingBufferMemory, nullptr);
 	}
 
+	void VulkanRenderer::createSkyVertexBuffer(const std::vector<math::Vertex>& vertices)
+	{
+		if (globalBuffers.skyVertexBuffer != VK_NULL_HANDLE)
+		{
+			frames[currentFrame].buffersToDelete.emplace_back(
+			   globalBuffers.skyVertexBuffer, 
+			   globalBuffers.skyVertexBufferMemory
+			);
+		}
+		
+		const VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
+		
+		VkBuffer stagingBuffer;
+		VkDeviceMemory stagingBufferMemory;
+		createBuffer(
+			bufferSize,
+			VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+			stagingBuffer,
+			stagingBufferMemory);
+
+		// Fill vertex buffer data.
+		void* data;
+		vkMapMemory(logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);
+		memcpy(data, vertices.data(), bufferSize);
+		vkUnmapMemory(logicalDevice, stagingBufferMemory);
+
+		createBuffer(
+			bufferSize,
+			VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+			globalBuffers.skyVertexBuffer,
+			globalBuffers.skyVertexBufferMemory);
+		
+		copyBuffer(stagingBuffer, globalBuffers.skyVertexBuffer, bufferSize);
+		vkDestroyBuffer(logicalDevice, stagingBuffer, nullptr);
+		vkFreeMemory(logicalDevice, stagingBufferMemory, nullptr);
+	}
+
 	void VulkanRenderer::createBuffer(const VkDeviceSize size, const VkBufferUsageFlags usage, const VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) const
 	{
-		ASSERT(size > 0, "Attempt to create buffer with empty size.");
+		ASSERT(size > 0, "Buffer size must not be empty");
 		
 		// Create buffer structure.
 		VkBufferCreateInfo bufferInfo{};
@@ -1905,8 +2194,11 @@ namespace tessera::vulkan
 		bufferInfo.usage = usage;
 		bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-		ASSERT(vkCreateBuffer(logicalDevice, &bufferInfo, nullptr, &buffer) == VK_SUCCESS, "failed to create buffer.");
-		ASSERT(buffer != VK_NULL_HANDLE, "Buffer must be valid.");
+		ASSERT(vkCreateBuffer(logicalDevice, &bufferInfo, nullptr, &buffer) == VK_SUCCESS,
+			"Failed to create buffer.");
+		
+		ASSERT(buffer != VK_NULL_HANDLE,
+			"Buffer must be valid.");
 
 		// Calculate memory requirements.
 		VkMemoryRequirements memRequirements;
@@ -1918,9 +2210,11 @@ namespace tessera::vulkan
 		allocInfo.allocationSize = memRequirements.size;
 		allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
 
-		ASSERT(vkAllocateMemory(logicalDevice, &allocInfo, nullptr, &bufferMemory) == VK_SUCCESS, "failed to allocate buffer memory.");
+		ASSERT(vkAllocateMemory(logicalDevice, &allocInfo, nullptr, &bufferMemory) == VK_SUCCESS,
+			"Failed to allocate buffer memory");
 
-		vkBindBufferMemory(logicalDevice, buffer, bufferMemory, 0);
+		ASSERT(vkBindBufferMemory(logicalDevice, buffer, bufferMemory, 0) == VK_SUCCESS,
+			"Failed to bind buffer memory");
 	}
 
 	uint32_t VulkanRenderer::findMemoryType(const uint32_t typeFilter, const VkMemoryPropertyFlags properties) const
@@ -1952,6 +2246,43 @@ namespace tessera::vulkan
 		vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
 
 		endSingleTimeCommands(commandBuffer);
+	}
+
+	void VulkanRenderer::createSkyIndexBuffer(const std::vector<uint32_t>& indices)
+	{
+		if (globalBuffers.skyIndexBuffer != VK_NULL_HANDLE)
+		{
+			frames[currentFrame].buffersToDelete.emplace_back(
+			   globalBuffers.skyIndexBuffer, 
+			   globalBuffers.skyIndexBufferMemory
+			);
+		}
+		
+		const VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
+
+		VkBuffer stagingBuffer;
+		VkDeviceMemory stagingBufferMemory;
+		createBuffer(bufferSize,
+			VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+			stagingBuffer,
+			stagingBufferMemory);
+
+		void* data;
+		vkMapMemory(logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);
+		memcpy(data, indices.data(), bufferSize);
+		vkUnmapMemory(logicalDevice, stagingBufferMemory);
+
+		createBuffer(bufferSize,
+			VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+			globalBuffers.skyIndexBuffer,
+			globalBuffers.skyIndexBufferMemory);
+
+		copyBuffer(stagingBuffer, globalBuffers.skyIndexBuffer, bufferSize);
+
+		vkDestroyBuffer(logicalDevice, stagingBuffer, nullptr);
+		vkFreeMemory(logicalDevice, stagingBufferMemory, nullptr);
 	}
 
 	void VulkanRenderer::createIndexBuffer(const std::vector<uint32_t>& indices)

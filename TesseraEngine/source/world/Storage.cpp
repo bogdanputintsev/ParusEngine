@@ -59,6 +59,18 @@ namespace tessera
         return materials[materialName];
     }
 
+    std::shared_ptr<vulkan::Material> Storage::getDefaultMaterial()
+    {
+        std::lock_guard lock(materialMutex);
+        if (!defaultMaterial)
+        {
+            LOG_DEBUG("Creating default material");
+            defaultMaterial = std::make_shared<vulkan::Material>();
+        }
+        
+        return defaultMaterial;
+    }
+
     std::vector<std::shared_ptr<vulkan::Material>> Storage::getAllMaterials() const
     {
         std::vector<std::shared_ptr<vulkan::Material>> allMaterials;
@@ -100,6 +112,7 @@ namespace tessera
         }
 
         DEBUG_ASSERT(defaultTextures.contains(textureType), "Missing default textures for some types");
+        std::lock_guard lock(texturesMutex);
         return defaultTextures[textureType];
     }
 
@@ -175,6 +188,25 @@ namespace tessera
             for (const auto& [key, mesh] : meshes)
             {
                 allMeshes.push_back(mesh);
+            }
+        }
+        
+        return allMeshes;
+    }
+
+    std::vector<std::shared_ptr<Mesh>> Storage::getAllMeshesByType(const MeshType meshType) const
+    {
+        std::vector<std::shared_ptr<Mesh>> allMeshes;
+
+        {
+            std::lock_guard lock(meshesMutex);
+            allMeshes.reserve(meshes.size());
+            for (const auto& [key, mesh] : meshes)
+            {
+                if (mesh->meshType == meshType)
+                {
+                    allMeshes.push_back(mesh);
+                }
             }
         }
         
