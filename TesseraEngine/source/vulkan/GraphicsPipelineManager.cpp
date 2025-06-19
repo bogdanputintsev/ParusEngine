@@ -2,6 +2,7 @@
 
 #include <stdexcept>
 
+#include "entities/Vertex.h"
 #include "utils/ShaderLoader.h"
 #include "utils/interfaces/ServiceLocator.h"
 
@@ -46,12 +47,15 @@ namespace tessera::vulkan
 		dynamicState.pDynamicStates = dynamicStates.data();
 
 		// Vertex input
+		auto bindingDescription = Vertex::getBindingDescription();
+		auto attributeDescriptions = Vertex::getAttributeDescriptions();
+
 		VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
 		vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-		vertexInputInfo.vertexBindingDescriptionCount = 0;
-		vertexInputInfo.pVertexBindingDescriptions = nullptr;
-		vertexInputInfo.vertexAttributeDescriptionCount = 0;
-		vertexInputInfo.pVertexAttributeDescriptions = nullptr;
+		vertexInputInfo.vertexBindingDescriptionCount = 1;
+		vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
+		vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
+		vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
 
 		// Input assembly
 		VkPipelineInputAssemblyStateCreateInfo inputAssembly{};

@@ -184,6 +184,7 @@
     <ClInclude Include="source\utils\Utils.h" />
     <ClInclude Include="source\vulkan\DebugManager.h" />
     <ClInclude Include="source\vulkan\DeviceManager.h" />
+    <ClInclude Include="source\entities\Vertex.h" />
     <ClInclude Include="source\vulkan\ExtensionManager.h" />
     <ClInclude Include="source\vulkan\GraphicsPipelineManager.h" />
     <ClInclude Include="source\vulkan\ImageViewManager.h" />
