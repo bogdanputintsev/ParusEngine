@@ -21,7 +21,7 @@ namespace tessera
 
 	std::string TesseraLog::getLogMessage(const LogType logType, const std::string& filename, const long line, const std::string& message)
 	{
-		// FIXME: __TIME__ macro shows time when it was compiled. Not the current time.
+		// FIXME: #20 Logs show compilation time instead of the current time
 		std::stringstream buffer;
 		buffer << __DATE__ << " " << __TIME__ << " "
 			<< toString(logType) << " "
@@ -39,7 +39,7 @@ namespace tessera
 			case INFO:		return "INFO";
 			case DEBUG:		return "DEBUG";
 			case WARNING:	return "WARNING";
-			case TE_ERROR:		return "ERROR";
+			case TE_ERROR:	return "ERROR";
 			case FATAL:		return "FATAL";
 			case ALL:		break;
 			case DEFAULT:	break;

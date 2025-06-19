@@ -23,9 +23,7 @@ namespace tessera::vulkan
 	{
 		REGISTER_EVENT(EventType::EVENT_WINDOW_RESIZED, [&](const int newWidth, const int newHeight)
 		{
-			// FIXME: ERROR [VulkanRenderer.cpp:420] - Validation Error: [ UNASSIGNED-Threading-MultipleThreads ]
-			// Object 0: handle = 0x26d38875208, type = VK_OBJECT_TYPE_QUEUE; | MessageID = 0x141cb623 | THREADING ERROR : vkQueueSubmit():
-			// object of type VkQueue is simultaneously used in thread 22340 and thread 1816
+			// FIXME: #19 Crash when resizing or minimizing window in default scene
 			
 			LOG_INFO("Vulkan initiated window resize. New dimensions: " + std::to_string(newWidth) + " " + std::to_string(newHeight));
 			onResize();
@@ -619,7 +617,6 @@ namespace tessera::vulkan
 		std::vector<VkExtensionProperties> availableExtensions(extensionCount);
 		vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtensions.data());
 
-		// TODO: Optimize with O(1) complexity.
 		std::set<std::string> requiredExtensionsSet(requiredExtensions.begin(), requiredExtensions.end());
 
 		for (const auto& extension : availableExtensions)
@@ -713,7 +710,7 @@ namespace tessera::vulkan
 		[[maybe_unused]] VkPhysicalDeviceProperties deviceProperties;
 		vkGetPhysicalDeviceProperties(device, &deviceProperties);
 
-		// The support for optional features like texture compression, 64 bit floats and multi viewport rendering.
+		// The support for optional features like texture compression, 64-bit floats and multi viewport rendering.
 		[[maybe_unused]] VkPhysicalDeviceFeatures deviceFeatures;
 		vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
 
@@ -788,7 +785,6 @@ namespace tessera::vulkan
 			imageCount = capabilities.maxImageCount;
 		}
 
-		// FIXME:  Swap chain extent is invalid (window may be minimized)
 		ASSERT(extent.width != 0 && extent.height != 0, "Swap chain extent is invalid (window may be minimized)");
 
 		VkSwapchainCreateInfoKHR createInfo{};
