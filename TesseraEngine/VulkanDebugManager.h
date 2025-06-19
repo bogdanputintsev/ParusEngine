@@ -11,11 +11,11 @@ namespace tessera::vulkan
 	class VulkanDebugManager
 	{
 	public:
-		void init(const std::shared_ptr<VkInstance>& instance);
+		void init(const std::shared_ptr<const VkInstance>& instance);
 
 		static void populate(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
 
-		void clean(const std::shared_ptr<VkInstance>& instance) const;
+		void clean(const std::shared_ptr<const VkInstance>& instance) const;
 
 		static void checkValidationLayerSupport();
 
@@ -32,12 +32,13 @@ namespace tessera::vulkan
 
 		static LogType getLogType(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity);
 
-		static VkResult createDebugUtilsMessengerExt(const std::shared_ptr<VkInstance>& instance,
+		static VkResult createDebugUtilsMessengerExt(const std::shared_ptr<const VkInstance>& instance,
 		                                             const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
 		                                             const VkAllocationCallbacks* pAllocator,
 		                                             VkDebugUtilsMessengerEXT* pDebugMessenger);
 
-		static void destroyDebugUtilsMessengerExt(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator);
+		static void destroyDebugUtilsMessengerExt(const std::shared_ptr<const VkInstance>& instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks
+		                                          * pAllocator);
 
 		VkDebugUtilsMessengerEXT debugMessenger = nullptr;
 

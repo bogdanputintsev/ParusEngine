@@ -80,6 +80,7 @@
       <AdditionalIncludeDirectories>C:\Libraries\glfw-3.3.9.bin.WIN64\include;C:\Libraries\glm;C:\VulkanSDK\1.3.250.1\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <MultiProcessorCompilation>false</MultiProcessorCompilation>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -99,6 +100,7 @@
       <AdditionalIncludeDirectories>C:\Libraries\glfw-3.3.9.bin.WIN64\include;C:\Libraries\glm;C:\VulkanSDK\1.3.250.1\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <MultiProcessorCompilation>false</MultiProcessorCompilation>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -118,6 +120,7 @@
       <AdditionalIncludeDirectories>C:\Libraries\glfw-3.3.9.bin.WIN64\include;C:\Libraries\glm;C:\VulkanSDK\1.3.250.1\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <MultiProcessorCompilation>false</MultiProcessorCompilation>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -137,6 +140,7 @@
       <AdditionalIncludeDirectories>C:\Libraries\glfw-3.3.9.bin.WIN64\include;C:\Libraries\glm;C:\VulkanSDK\1.3.250.1\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <MultiProcessorCompilation>false</MultiProcessorCompilation>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>

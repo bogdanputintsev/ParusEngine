@@ -5,7 +5,7 @@
 namespace tessera::vulkan
 {
 
-	QueueFamilyIndices VulkanQueueFamiliesManager::findQueueFamilies(const VkPhysicalDevice& physicalDevice)
+	QueueFamilyIndices VulkanQueueFamiliesManager::findQueueFamilies(const VkPhysicalDevice& physicalDevice, const std::shared_ptr<const VkSurfaceKHR>& surface)
 	{
 		QueueFamilyIndices indices;
 
@@ -22,6 +22,13 @@ namespace tessera::vulkan
 				indices.graphicsFamily = i;
 			}
 
+			VkBool32 presentSupport = false;
+			vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, i, *surface, &presentSupport);
+			if (presentSupport)
+			{
+				indices.presentFamily = i;
+			}
+
 			if (indices.isComplete())
 			{
 				break;
@@ -33,7 +40,7 @@ namespace tessera::vulkan
 
 	bool QueueFamilyIndices::isComplete() const
 	{
-		return graphicsFamily.has_value();
+		return graphicsFamily.has_value() && presentFamily.has_value();
 	}
 
 }

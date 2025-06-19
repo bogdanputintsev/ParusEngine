@@ -8,13 +8,20 @@ namespace tessera
 	void Application::init()
 	{
 		glfwInitializer.init();
-		vulkanInstanceManager.init();
+		window = glfwInitializer.getWindow();
+		assert(window);
 
+		vulkanInstanceManager.init();
 		instance = vulkanInstanceManager.getInstance();
 		assert(instance);
 
 		debugManager.init(instance);
-		logicalDeviceManager.init(instance);
+
+		surfaceManager.init(instance, window);
+		surface = surfaceManager.getSurface();
+		assert(surface);
+
+		logicalDeviceManager.init(instance, surface);
 		clean();
 	}
 
@@ -22,6 +29,7 @@ namespace tessera
 	{
 		logicalDeviceManager.clean();
 		debugManager.clean(instance);
+		surfaceManager.clean(instance);
 		vulkanInstanceManager.clean();
 		glfwInitializer.clean();
 	}
