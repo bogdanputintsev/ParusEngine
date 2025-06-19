@@ -119,14 +119,15 @@ namespace tessera::vulkan
 		// Texture image
 		void createTextureImage();
 		void generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipMapLevel);
-		void createImage(uint32_t width, uint32_t height, uint32_t miplevels, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags
+		void createImage(uint32_t width, uint32_t height, uint32_t numberOfMipLevels, VkSampleCountFlagBits numberOfSamples, VkFormat format, VkImageTiling
+			tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags
 			properties, VkImage& image, VkDeviceMemory& imageMemory) const;
 		void transitionImageLayout(const VkImage image, VkFormat format, const VkImageLayout oldLayout, const VkImageLayout newLayout, uint32_t mipLevels) const;
 		void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height) const;
 
 		void createTextureImageView();
-
 		void createTextureSampler();
+		void createColorResources();
 
 		// Buffer manager
 		void createBufferManager();
@@ -145,6 +146,8 @@ namespace tessera::vulkan
 		void createSyncObjects();
 		void waitForFences() const;
 		void resetFences() const;
+
+		VkSampleCountFlagBits getMaxUsableSampleCount() const;
 
 		static VkVertexInputBindingDescription getBindingDescription();
 
@@ -183,6 +186,10 @@ namespace tessera::vulkan
 		VkImage depthImage;
 		VkDeviceMemory depthImageMemory;
 		VkImageView depthImageView;
+		VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT;
+		VkImage colorImage;
+		VkDeviceMemory colorImageMemory;
+		VkImageView colorImageView;
 
 		std::vector<VkBuffer> uniformBuffers{};
 		std::vector<VkDeviceMemory> uniformBuffersMemory{};
