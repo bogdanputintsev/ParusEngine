@@ -4,6 +4,7 @@
 #include <memory>
 
 #include "glfw/GlfwInitializer.h"
+#include "vulkan/CommandBufferManager.h"
 #include "vulkan/DebugManager.h"
 #include "vulkan/FramebufferManager.h"
 #include "vulkan/GraphicsPipelineManager.h"
@@ -33,7 +34,8 @@ namespace tessera
 			std::make_shared<vulkan::SwapChainManager>(),
 			std::make_shared<vulkan::ImageViewManager>(),
 			std::make_shared<vulkan::GraphicsPipelineManager>(),
-			std::make_shared<vulkan::FramebufferManager>()
+			std::make_shared<vulkan::FramebufferManager>(),
+			std::make_shared<vulkan::CommandBufferManager>()
 		};
 	};
 

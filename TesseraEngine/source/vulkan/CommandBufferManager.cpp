@@ -2,19 +2,29 @@
 
 #include <stdexcept>
 
+#include "DeviceManager.h"
+#include "FramebufferManager.h"
+#include "GraphicsPipelineManager.h"
 #include "QueueFamiliesManager.h"
+#include "SurfaceManager.h"
+#include "utils/interfaces/ServiceLocator.h"
 
 namespace tessera::vulkan
 {
 
-	void CommandBufferManager::init(const std::shared_ptr<const VkDevice>& device, const std::shared_ptr<const VkPhysicalDevice>& physicalDevice, const std::shared_ptr<const VkSurfaceKHR>& surface, const std::shared_ptr<VkRenderPass>& renderPass)
+	void CommandBufferManager::init()
 	{
-		initCommandPool(device, physicalDevice, surface);
-		initCommandBuffer(device);
+		initCommandPool();
+		initCommandBuffer();
 	}
 
-	void CommandBufferManager::initCommandPool(const std::shared_ptr<const VkDevice>& device, const std::shared_ptr<const VkPhysicalDevice>& physicalDevice, const std::shared_ptr<const VkSurfaceKHR>& surface)
+	void CommandBufferManager::initCommandPool()
 	{
+		const auto& deviceManager = ServiceLocator::getService<DeviceManager>();
+		const auto& physicalDevice = deviceManager->getPhysicalDevice();
+		const auto& device = deviceManager->getLogicalDevice();
+		const auto& surface = ServiceLocator::getService<SurfaceManager>()->getSurface();
+
 		const auto [graphicsFamily, presentFamily] = QueueFamiliesManager::findQueueFamilies(*physicalDevice, surface);
 
 		VkCommandPoolCreateInfo poolInfo{};
@@ -28,8 +38,10 @@ namespace tessera::vulkan
 		}
 	}
 
-	void CommandBufferManager::initCommandBuffer(const std::shared_ptr<const VkDevice>& device)
+	void CommandBufferManager::initCommandBuffer()
 	{
+		const auto& device = ServiceLocator::getService<DeviceManager>()->getLogicalDevice();
+
 		VkCommandBufferAllocateInfo allocInfo{};
 		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 		allocInfo.commandPool = commandPool;
@@ -44,6 +56,11 @@ namespace tessera::vulkan
 
 	void CommandBufferManager::recordCommandBuffer(const VkCommandBuffer commandBufferToRecord, uint32_t imageIndex, const std::shared_ptr<VkRenderPass>& renderPass)
 	{
+		const auto& swapChainFramebuffers = ServiceLocator::getService<FramebufferManager>()->getSwapChainFramebuffers();
+		const auto& [swapChainImageFormat, swapChainExtent, swapChainImages]
+			= ServiceLocator::getService<SwapChainManager>()->getSwapChainImageDetails();
+		const auto& graphicsPipeline = ServiceLocator::getService<GraphicsPipelineManager>()->getGraphicsPipeline();
+
 		VkCommandBufferBeginInfo beginInfo{};
 		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 		beginInfo.flags = 0;
@@ -54,15 +71,49 @@ namespace tessera::vulkan
 			throw std::runtime_error("CommandPoolManager: failed to begin recording command buffer.");
 		}
 
-		//// Start the rendering pass
-		//VkRenderPassBeginInfo renderPassInfo{};
-		//renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-		//renderPassInfo.renderPass = *renderPass;
-		//renderPassInfo.framebuffer = swapChainFramebuffers[imageIndex];
+		// Start the rendering pass
+		VkRenderPassBeginInfo renderPassInfo{};
+		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+		renderPassInfo.renderPass = *renderPass;
+		renderPassInfo.framebuffer = swapChainFramebuffers[imageIndex];
+		renderPassInfo.renderArea.offset = { 0, 0 };
+		renderPassInfo.renderArea.extent = swapChainExtent;
+		renderPassInfo.clearValueCount = 1;
+		constexpr VkClearValue clearColor = { {{0.0f, 0.0f, 0.0f, 1.0f}} };
+		renderPassInfo.pClearValues = &clearColor;
+
+		// Draw.
+		vkCmdBeginRenderPass(commandBufferToRecord, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+			// TODO: Maybe RAII initialization?
+			// Bind the graphics pipeline.
+			vkCmdBindPipeline(commandBufferToRecord, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+			VkViewport viewport{};
+			viewport.x = 0.0f;
+			viewport.y = 0.0f;
+			viewport.width = static_cast<float>(swapChainExtent.width);
+			viewport.height = static_cast<float>(swapChainExtent.height);
+			viewport.minDepth = 0.0f;
+			viewport.maxDepth = 1.0f;
+			vkCmdSetViewport(commandBufferToRecord, 0, 1, &viewport);
+
+			VkRect2D scissor{};
+			scissor.offset = { 0, 0 };
+			scissor.extent = swapChainExtent;
+			vkCmdSetScissor(commandBufferToRecord, 0, 1, &scissor);
+
+			vkCmdDraw(commandBufferToRecord, 3, 1, 0, 0);
+		vkCmdEndRenderPass(commandBufferToRecord);
+
+		if (vkEndCommandBuffer(commandBufferToRecord) != VK_SUCCESS)
+		{
+			throw std::runtime_error("CommandPoolManager: failed to record command buffer");
+		}
 	}
 
-	void CommandBufferManager::clean(const std::shared_ptr<const VkDevice>& device) const
+	void CommandBufferManager::clean()
 	{
+		const auto& device = ServiceLocator::getService<DeviceManager>()->getLogicalDevice();
+
 		vkDestroyCommandPool(*device, commandPool, nullptr);
 	}
 
