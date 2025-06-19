@@ -32,7 +32,7 @@ namespace tessera::vulkan
 		std::vector<tinyobj::material_t> materials;
 		std::string warn, err;
 
-		ASSERT(tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, "bin/viking_room.obj"), warn + err);
+		ASSERT(tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, "bin/assets/skybox/skybox.obj"), warn + err);
 
 		std::unordered_map<Vertex, uint32_t> uniqueVertices{};
 
@@ -775,10 +775,10 @@ namespace tessera::vulkan
 
 	void VulkanContext::createGraphicsPipeline()
 	{
-		const auto vertexShaderCode = readFile("bin/vert.spv");
+		const auto vertexShaderCode = readFile("bin/shaders/vert.spv");
 		VkShaderModule vertexShaderModule = createShaderModule(vertexShaderCode, logicalDevice);
 
-		const auto fragmentShaderCode = readFile("bin/frag.spv");
+		const auto fragmentShaderCode = readFile("bin/shaders/frag.spv");
 		VkShaderModule fragmentShaderModule = createShaderModule(fragmentShaderCode, logicalDevice);
 
 		VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
@@ -825,6 +825,8 @@ namespace tessera::vulkan
 		rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
 		rasterizer.lineWidth = 1.0f;
 		rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
+
+		
 		rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 		rasterizer.depthBiasEnable = VK_FALSE;
 		rasterizer.depthBiasConstantFactor = 0.0f;
@@ -1140,7 +1142,7 @@ namespace tessera::vulkan
 	void VulkanContext::createTextureImage()
 	{
 		int texWidth, texHeight, texChannels;
-		stbi_uc* pixels = stbi_load("bin/viking_room.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+		stbi_uc* pixels = stbi_load("bin/assets/skybox/skybox.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
 		const VkDeviceSize imageSize = texWidth * texHeight * 4;
 		maxMipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
 
@@ -1542,7 +1544,7 @@ namespace tessera::vulkan
 		ubo.view = lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 		ubo.proj = glm::perspective(glm::radians(45.0f),
 			static_cast<float>(swapChainDetails.swapChainExtent.width) / static_cast<float>(swapChainDetails.swapChainExtent.height),
-			0.1f, 10.0f);
+			0.1f, 512.0f);
 		ubo.proj[1][1] *= -1;
 
 		memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
