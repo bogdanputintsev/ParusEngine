@@ -13,7 +13,7 @@ int main()
     catch(const std::exception& exception)
     {
         // TODO: Create custom exception with title.
-        tessera::TesseraLog::send(tessera::LogType::FATAL, "Exception", exception.what());
+        tessera::TesseraLog::send(tessera::LogType::FATAL, "", exception.what());
         return EXIT_FAILURE;
     }
 
