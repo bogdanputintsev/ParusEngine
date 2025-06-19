@@ -12,11 +12,13 @@ namespace tessera::vulkan
 	public:
 		void init(const std::shared_ptr<const VkDevice>& device, const SwapChainImageDetails& swapChainImageDetails);
 		void clean(const std::shared_ptr<const VkDevice>& device) const;
+
+		[[nodiscard]] std::shared_ptr<VkRenderPass> getRenderPath() const { return renderPass; }
 	private:
 		static VkShaderModule createShaderModule(const std::vector<char>& code, const std::shared_ptr<const VkDevice>& device);
 		void initRenderPath(const std::shared_ptr<const VkDevice>& device, const SwapChainImageDetails& swapChainImageDetails);
 
-		VkRenderPass renderPass = VK_NULL_HANDLE;
+		std::shared_ptr<VkRenderPass> renderPass;
 		VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
 		VkPipeline graphicsPipeline = VK_NULL_HANDLE;
 		VkShaderModule vertexShaderModule = VK_NULL_HANDLE;

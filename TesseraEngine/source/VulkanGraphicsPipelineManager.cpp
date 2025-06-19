@@ -155,7 +155,7 @@ namespace tessera::vulkan
 		pipelineInfo.pColorBlendState = &colorBlending;
 		pipelineInfo.pDynamicState = &dynamicState;
 		pipelineInfo.layout = pipelineLayout;
-		pipelineInfo.renderPass = renderPass;
+		pipelineInfo.renderPass = *renderPass;
 		pipelineInfo.subpass = 0;
 		pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 		pipelineInfo.basePipelineIndex = -1;
@@ -210,17 +210,20 @@ namespace tessera::vulkan
 		renderPassInfo.subpassCount = 1;
 		renderPassInfo.pSubpasses = &subpass;
 
-		if (vkCreateRenderPass(*device, &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS) 
+		VkRenderPass renderPathInstance;
+		if (vkCreateRenderPass(*device, &renderPassInfo, nullptr, &renderPathInstance) != VK_SUCCESS)
 		{
 			throw std::runtime_error("VulkanGraphicsPipelineManager: failed to create render pass.");
 		}
+
+		renderPass = std::make_shared<VkRenderPass>(renderPathInstance);
 	}
 
 	void VulkanGraphicsPipelineManager::clean(const std::shared_ptr<const VkDevice>& device) const
 	{
 		vkDestroyPipeline(*device, graphicsPipeline, nullptr);
 		vkDestroyPipelineLayout(*device, pipelineLayout, nullptr);
-		vkDestroyRenderPass(*device, renderPass, nullptr);
+		vkDestroyRenderPass(*device, *renderPass, nullptr);
 		vkDestroyShaderModule(*device, fragmentShaderModule, nullptr);
 		vkDestroyShaderModule(*device, vertexShaderModule, nullptr);
 	}
