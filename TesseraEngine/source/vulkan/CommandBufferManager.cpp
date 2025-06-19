@@ -5,7 +5,7 @@
 #include "DeviceManager.h"
 #include "FramebufferManager.h"
 #include "GraphicsPipelineManager.h"
-#include "QueueFamiliesManager.h"
+#include "QueueManager.h"
 #include "SurfaceManager.h"
 #include "utils/interfaces/ServiceLocator.h"
 
@@ -25,17 +25,19 @@ namespace tessera::vulkan
 		const auto& device = deviceManager->getLogicalDevice();
 		const auto& surface = ServiceLocator::getService<SurfaceManager>()->getSurface();
 
-		const auto [graphicsFamily, presentFamily] = QueueFamiliesManager::findQueueFamilies(*physicalDevice, surface);
-
+		const auto [graphicsFamily, presentFamily] = findQueueFamilies(*physicalDevice, surface);
 		VkCommandPoolCreateInfo poolInfo{};
 		poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 		poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 		poolInfo.queueFamilyIndex = graphicsFamily.value();
 
-		if (vkCreateCommandPool(*device, &poolInfo, nullptr, &commandPool) != VK_SUCCESS)
+		VkCommandPool commandPoolInstance;
+		if (vkCreateCommandPool(*device, &poolInfo, nullptr, &commandPoolInstance) != VK_SUCCESS)
 		{
 			throw std::runtime_error("CommandPoolManager: failed to create command pool.");
 		}
+
+		commandPool = std::make_shared<VkCommandPool>(commandPoolInstance);
 	}
 
 	void CommandBufferManager::initCommandBuffer()
@@ -44,22 +46,27 @@ namespace tessera::vulkan
 
 		VkCommandBufferAllocateInfo allocInfo{};
 		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-		allocInfo.commandPool = commandPool;
+		allocInfo.commandPool = *commandPool;
 		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 		allocInfo.commandBufferCount = 1;
 
-		if (vkAllocateCommandBuffers(*device, &allocInfo, &commandBuffer) != VK_SUCCESS)
+		VkCommandBuffer commandBufferInstance;
+		if (vkAllocateCommandBuffers(*device, &allocInfo, &commandBufferInstance) != VK_SUCCESS)
 		{
 			throw std::runtime_error("CommandPoolManager: failed to allocate command buffers.");
 		}
+
+		commandBuffer = std::make_shared<VkCommandBuffer>(commandBufferInstance);
 	}
 
-	void CommandBufferManager::recordCommandBuffer(const VkCommandBuffer commandBufferToRecord, uint32_t imageIndex, const std::shared_ptr<VkRenderPass>& renderPass)
+	void CommandBufferManager::recordCommandBuffer(const VkCommandBuffer commandBufferToRecord, const uint32_t imageIndex)
 	{
 		const auto& swapChainFramebuffers = ServiceLocator::getService<FramebufferManager>()->getSwapChainFramebuffers();
 		const auto& [swapChainImageFormat, swapChainExtent, swapChainImages]
 			= ServiceLocator::getService<SwapChainManager>()->getSwapChainImageDetails();
-		const auto& graphicsPipeline = ServiceLocator::getService<GraphicsPipelineManager>()->getGraphicsPipeline();
+		const auto& graphicsPipelineManager = ServiceLocator::getService<GraphicsPipelineManager>();
+		const auto& graphicsPipeline = graphicsPipelineManager->getGraphicsPipeline();
+		const auto& renderPass = graphicsPipelineManager->getRenderPath();
 
 		VkCommandBufferBeginInfo beginInfo{};
 		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -87,7 +94,7 @@ namespace tessera::vulkan
 			// TODO: Maybe RAII initialization?
 			// Bind the graphics pipeline.
 			vkCmdBindPipeline(commandBufferToRecord, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-			VkViewport viewport{};
+			VkViewport viewport;
 			viewport.x = 0.0f;
 			viewport.y = 0.0f;
 			viewport.width = static_cast<float>(swapChainExtent.width);
@@ -96,7 +103,7 @@ namespace tessera::vulkan
 			viewport.maxDepth = 1.0f;
 			vkCmdSetViewport(commandBufferToRecord, 0, 1, &viewport);
 
-			VkRect2D scissor{};
+			VkRect2D scissor;
 			scissor.offset = { 0, 0 };
 			scissor.extent = swapChainExtent;
 			vkCmdSetScissor(commandBufferToRecord, 0, 1, &scissor);
@@ -110,11 +117,16 @@ namespace tessera::vulkan
 		}
 	}
 
+	void CommandBufferManager::resetCommandBuffer() const
+	{
+		vkResetCommandBuffer(*commandBuffer, 0);
+	}
+
 	void CommandBufferManager::clean()
 	{
 		const auto& device = ServiceLocator::getService<DeviceManager>()->getLogicalDevice();
 
-		vkDestroyCommandPool(*device, commandPool, nullptr);
+		vkDestroyCommandPool(*device, *commandPool, nullptr);
 	}
 
 }

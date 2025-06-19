@@ -12,15 +12,18 @@ namespace tessera::vulkan
 	public:
 		void init() override;
 
-		static void recordCommandBuffer(const VkCommandBuffer commandBufferToRecord, uint32_t imageIndex, const std::shared_ptr<VkRenderPass>& renderPass);
+		static void recordCommandBuffer(const VkCommandBuffer commandBufferToRecord, const uint32_t imageIndex);
 
+		void resetCommandBuffer() const;
 		void clean() override;
+
+		[[nodiscard]] std::shared_ptr<VkCommandBuffer> getCommandBuffer() const { return commandBuffer; }
 	private:
 		void initCommandPool();
 		void initCommandBuffer();
 
-		VkCommandPool commandPool = VK_NULL_HANDLE;
-		VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
+		std::shared_ptr<VkCommandPool> commandPool = VK_NULL_HANDLE;
+		std::shared_ptr<VkCommandBuffer> commandBuffer = VK_NULL_HANDLE;
 	};
 
 }

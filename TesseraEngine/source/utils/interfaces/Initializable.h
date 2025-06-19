@@ -13,6 +13,7 @@ namespace tessera
 	class Initializable : public Service
 	{
 	public:
+		// TODO: Initializable::init() in every child.
 		Initializable() = default;
 		
 		virtual ~Initializable() = default;
