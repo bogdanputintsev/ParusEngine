@@ -20,6 +20,7 @@
 #include <GLFW/glfw3.h>
 
 #include "Core.h"
+#include "core/platform/Platform.h"
 #include "entities/UniformBufferObject.h"
 #include "graphics/glfw/GlfwLibrary.h"
 #include "utils/TesseraLog.h"
@@ -174,11 +175,11 @@ namespace tessera::vulkan
 		std::vector<VkExtensionProperties> extensions(extensionCount);
 		vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, extensions.data());
 
-		DEBUG("List of all available extensions:");
+		LOG_DEBUG("List of all available extensions:");
 
 		for (const auto& [extensionName, specVersion] : extensions)
 		{
-			DEBUG("Extension " + std::string(extensionName) + " "
+			LOG_DEBUG("Extension " + std::string(extensionName) + " "
 				+ (requiredExtensionsSet.contains(extensionName) ? "REQUIRED" : ""));
 
 			if (requiredExtensionsSet.contains(std::string(extensionName)))
@@ -201,7 +202,10 @@ namespace tessera::vulkan
 
 	std::vector<const char*> VulkanContext::getRequiredInstanceExtensions()
 	{
-		std::vector extensions = CORE->graphicsLibrary->getRequiredExtensions();
+		std::vector<const char*> extensions;
+		extensions.emplace_back("VK_KHR_surface");
+		extensions.emplace_back("VK_KHR_win32_surface");
+		//std::vector extensions = CORE->graphicsLibrary->getRequiredExtensions();
 
 		if (validationLayersAreEnabled())
 		{
@@ -239,7 +243,7 @@ namespace tessera::vulkan
 		case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
 			return LogType::WARNING;
 		case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
-			return LogType::ERROR;
+			return LogType::TE_ERROR;
 		case VK_DEBUG_UTILS_MESSAGE_SEVERITY_FLAG_BITS_MAX_ENUM_EXT:
 			return LogType::INFO;
 		}
@@ -274,9 +278,9 @@ namespace tessera::vulkan
 
 	void VulkanContext::createSurface()
 	{
-		const std::shared_ptr<GLFWwindow>& window = CORE->graphicsLibrary->getWindow();
-
-		ASSERT(glfwCreateWindowSurface(instance, window.get(), nullptr, &surface) == VK_SUCCESS, "failed to create window surface.");
+		//const std::shared_ptr<GLFWwindow>& window = CORE->graphicsLibrary->getWindow();
+		//ASSERT(glfwCreateWindowSurface(instance, window.get(), nullptr, &surface) == VK_SUCCESS, "failed to create window surface.");
+		surface = CORE->platform->createVulkanSurface(instance);
 	}
 
 	QueueFamilyIndices findQueueFamilies(const VkPhysicalDevice& physicalDevice, const VkSurfaceKHR& surface)
@@ -573,8 +577,8 @@ namespace tessera::vulkan
 			return capabilities.currentExtent;
 		}
 
-		int width, height;
-		glfwGetFramebufferSize(CORE->graphicsLibrary->getWindow().get(), &width, &height);
+		int width = 800, height = 600;
+		//glfwGetFramebufferSize(CORE->graphicsLibrary->getWindow().get(), &width, &height);
 
 		VkExtent2D actualExtent = {
 			static_cast<uint32_t>(width),
@@ -607,7 +611,7 @@ namespace tessera::vulkan
 
 	void VulkanContext::recreateSwapChain()
 	{
-		CORE->graphicsLibrary->handleMinimization();
+		//CORE->graphicsLibrary->handleMinimization();
 		CORE->renderer->deviceWaitIdle();
 
 		cleanupSwapChain();
@@ -1643,6 +1647,11 @@ namespace tessera::vulkan
 		vkResetFences(logicalDevice, 1, &inFlightFences[currentFrame]);
 	}
 
+	void VulkanContext::onResize()
+	{
+		framebufferResized = true;
+	}
+
 	VkSampleCountFlagBits VulkanContext::getMaxUsableSampleCount() const
 	{
 		VkPhysicalDeviceProperties physicalDeviceProperties;
@@ -1694,6 +1703,12 @@ namespace tessera::vulkan
 	// ===========================================================================================]
 	void VulkanRenderer::init()
 	{
+		REGISTER_EVENT(EventType::EVENT_WINDOW_RESIZED, [&](const int newWidth, const int newHeight)
+		{
+			LOG_INFO("Vulkan initiated window resize. New dimensions: " + std::to_string(newWidth) + " " + std::to_string(newHeight));
+			context.onResize();
+		});
+		
 		context.loadModel();
 		context.createInstance();
 		context.createDebugManager();
@@ -1835,10 +1850,5 @@ namespace tessera::vulkan
 	void VulkanRenderer::deviceWaitIdle()
 	{
 		vkDeviceWaitIdle(context.logicalDevice);
-	}
-
-	void VulkanRenderer::onResize()
-	{
-		context.framebufferResized = true;
 	}
 }

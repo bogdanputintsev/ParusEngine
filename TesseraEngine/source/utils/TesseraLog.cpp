@@ -38,7 +38,7 @@ namespace tessera
 		case INFO:		return "INFO";
 		case DEBUG:		return "DEBUG";
 		case WARNING:	return "WARNING";
-		case ERROR:		return "ERROR";
+		case TE_ERROR:		return "ERROR";
 		case FATAL:		return "FATAL";
 		case ALL:		break;
 		case DEFAULT:	break;

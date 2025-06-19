@@ -199,6 +199,8 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="source\Core.cpp" />
+    <ClCompile Include="source\core\Input.cpp" />
+    <ClCompile Include="source\core\platform\PlatformWindows.cpp" />
     <ClCompile Include="source\graphics\glfw\GlfwLibrary.cpp" />
     <ClCompile Include="source\graphics\GraphicsLibrary.cpp" />
     <ClCompile Include="source\renderer\Renderer.cpp" />
@@ -208,6 +210,10 @@
     <ClCompile Include="source\renderer\vulkan\VulkanRenderer.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="source\core\Defines.h" />
+    <ClInclude Include="source\core\Input.h" />
+    <ClInclude Include="source\core\platform\Platform.h" />
+    <ClInclude Include="source\Event.h" />
     <ClInclude Include="source\Core.h" />
     <ClInclude Include="source\graphics\glfw\GlfwLibrary.h" />
     <ClInclude Include="source\graphics\GraphicsLibrary.h" />
@@ -220,8 +226,8 @@
     <ClInclude Include="source\renderer\vulkan\VulkanRenderer.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="shaders\shader.frag" />
-    <None Include="shaders\shader.vert" />
+    <Content Include="source\shaders\shader.frag" />
+    <Content Include="source\shaders\shader.vert" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

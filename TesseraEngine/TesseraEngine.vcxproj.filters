@@ -40,6 +40,9 @@
     <ClCompile Include="source\Core.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="source\Event.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="source\Application.h" />
@@ -52,6 +55,7 @@
     <ClInclude Include="source\graphics\GraphicsLibrary.h" />
     <ClInclude Include="source\graphics\glfw\GlfwLibrary.h" />
     <ClInclude Include="source\Core.h" />
+    <ClInclude Include="source\Event.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\shader.frag" />
