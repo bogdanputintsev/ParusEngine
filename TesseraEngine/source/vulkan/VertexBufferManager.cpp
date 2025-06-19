@@ -12,53 +12,51 @@ namespace tessera::vulkan
 		Initializable::init();
 		const auto& device = ServiceLocator::getService<DeviceManager>()->getLogicalDevice();
 
-		const VkBufferCreateInfo bufferInfo = createVertexBuffer(device);
-		allocateVertexBufferMemory(device);
-
-		vkBindBufferMemory(device, vertexBuffer, vertexBufferMemory, 0);
-
-		fillVertexBufferData(device, bufferInfo);
+		createVertexBuffer(device);
 	}
 
-	VkBufferCreateInfo VertexBufferManager::createVertexBuffer(const VkDevice& device)
+	void VertexBufferManager::createVertexBuffer(const VkDevice& device)
 	{
+		const VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
+		createBuffer(bufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, vertexBuffer, vertexBufferMemory);
+
+		// Fill vertex buffer data.
+		void* data;
+		vkMapMemory(device, vertexBufferMemory, 0, bufferSize, 0, &data);
+		memcpy(data, vertices.data(), (size_t)bufferSize);
+		vkUnmapMemory(device, vertexBufferMemory);
+	}
+
+	void VertexBufferManager::createBuffer(const VkDeviceSize size, const VkBufferUsageFlags usage, const VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) const
+	{
+		const auto& device = ServiceLocator::getService<DeviceManager>()->getLogicalDevice();
+
+		// Create buffer structure.
 		VkBufferCreateInfo bufferInfo{};
 		bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-		bufferInfo.size = sizeof(vertices[0]) * vertices.size();
-		bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+		bufferInfo.size = size;
+		bufferInfo.usage = usage;
 		bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-		bufferInfo.flags = 0;
 
-		if (vkCreateBuffer(device, &bufferInfo, nullptr, &vertexBuffer) != VK_SUCCESS) 
-		{
-			throw std::runtime_error("VertexBufferManager: failed to create vertex buffer.");
+		if (vkCreateBuffer(device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS) {
+			throw std::runtime_error("failed to create buffer!");
 		}
 
-		return bufferInfo;
-	}
-
-	void VertexBufferManager::allocateVertexBufferMemory(const VkDevice& device)
-	{
+		// Calculate memory requirements.
 		VkMemoryRequirements memRequirements;
-		vkGetBufferMemoryRequirements(device, vertexBuffer, &memRequirements);
+		vkGetBufferMemoryRequirements(device, buffer, &memRequirements);
 
+		// Allocate vertex buffer memory.
 		VkMemoryAllocateInfo allocInfo{};
 		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 		allocInfo.allocationSize = memRequirements.size;
-		allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+		allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
 
-		if (vkAllocateMemory(device, &allocInfo, nullptr, &vertexBufferMemory) != VK_SUCCESS)
-		{
-			throw std::runtime_error("VertexBufferManager: failed to allocate vertex buffer memory.");
+		if (vkAllocateMemory(device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS) {
+			throw std::runtime_error("failed to allocate buffer memory!");
 		}
-	}
 
-	void VertexBufferManager::fillVertexBufferData(const VkDevice& device, const VkBufferCreateInfo& bufferInfo) const
-	{
-		void* data;
-		vkMapMemory(device, vertexBufferMemory, 0, bufferInfo.size, 0, &data);
-		memcpy(data, vertices.data(), bufferInfo.size);
-		vkUnmapMemory(device, vertexBufferMemory);
+		vkBindBufferMemory(device, buffer, bufferMemory, 0);
 	}
 
 	uint32_t VertexBufferManager::findMemoryType(const uint32_t typeFilter, const VkMemoryPropertyFlags properties) const
