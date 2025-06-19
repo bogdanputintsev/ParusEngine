@@ -1,4 +1,4 @@
-#include "VulkanSwapChainManager.h"
+#include "SwapChainManager.h"
 
 #include <algorithm>
 #include <cassert>
@@ -6,16 +6,23 @@
 #include <stdexcept>
 #include <GLFW/glfw3.h>
 
-#include "VulkanDeviceManager.h"
-#include "VulkanQueueFamiliesManager.h"
+#include "DeviceManager.h"
+#include "QueueFamiliesManager.h"
+#include "SurfaceManager.h"
+#include "glfw/GlfwInitializer.h"
+#include "utils/interfaces/ServiceLocator.h"
 
 namespace tessera::vulkan
 {
-	void VulkanSwapChainManager::init(const VulkanDeviceManager& deviceManager, const std::shared_ptr<const VkSurfaceKHR>& surface, const std::shared_ptr<GLFWwindow>& window)
+	void SwapChainManager::init()
 	{
-		const auto physicalDevice = deviceManager.getPhysicalDevice();
+		const auto& deviceManager = ServiceLocator::getService<DeviceManager>();
+		const auto& window = ServiceLocator::getService<glfw::GlfwInitializer>()->getWindow();
+		const auto& surface = ServiceLocator::getService<SurfaceManager>()->getSurface();
+
+		const auto physicalDevice = deviceManager->getPhysicalDevice();
 		assert(physicalDevice);
-		const auto logicalDevice = deviceManager.getLogicalDevice();
+		const auto logicalDevice = deviceManager->getLogicalDevice();
 		assert(logicalDevice);
 
 		const auto [capabilities, formats, presentModes] = querySwapChainSupport(*physicalDevice, surface);
@@ -40,7 +47,7 @@ namespace tessera::vulkan
 		createInfo.imageArrayLayers = 1;
 		createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-		const auto [graphicsFamily, presentFamily] = VulkanQueueFamiliesManager::findQueueFamilies(*physicalDevice, surface);
+		const auto [graphicsFamily, presentFamily] = QueueFamiliesManager::findQueueFamilies(*physicalDevice, surface);
 		const uint32_t queueFamilyIndices[] = { graphicsFamily.value(), presentFamily.value() };
 
 		if (graphicsFamily != presentFamily) {
@@ -73,12 +80,14 @@ namespace tessera::vulkan
 		swapChainDetails = { format, extent, swapChainImages };
 	}
 
-	void VulkanSwapChainManager::clean(const std::shared_ptr<const VkDevice>& device) const
+	void SwapChainManager::clean()
 	{
+		const auto& device = ServiceLocator::getService<DeviceManager>()->getLogicalDevice();
+
 		vkDestroySwapchainKHR(*device, swapChain, nullptr);
 	}
 
-	SwapChainSupportDetails VulkanSwapChainManager::querySwapChainSupport(const VkPhysicalDevice& device, const std::shared_ptr<const VkSurfaceKHR>& surface)
+	SwapChainSupportDetails SwapChainManager::querySwapChainSupport(const VkPhysicalDevice& device, const std::shared_ptr<const VkSurfaceKHR>& surface)
 	{
 		SwapChainSupportDetails details;
 
@@ -105,7 +114,7 @@ namespace tessera::vulkan
 		return details;
 	}
 
-	VkSurfaceFormatKHR VulkanSwapChainManager::chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats)
+	VkSurfaceFormatKHR SwapChainManager::chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats)
 	{
 		assert(!availableFormats.empty());
 
@@ -120,7 +129,7 @@ namespace tessera::vulkan
 		return availableFormats[0];
 	}
 
-	VkPresentModeKHR VulkanSwapChainManager::chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes)
+	VkPresentModeKHR SwapChainManager::chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes)
 	{
 		// TODO: Replace with std::find.
 		for (const auto& availablePresentMode : availablePresentModes) 
@@ -135,7 +144,7 @@ namespace tessera::vulkan
 		return VK_PRESENT_MODE_FIFO_KHR;
 	}
 
-	VkExtent2D VulkanSwapChainManager::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities, const std::shared_ptr<GLFWwindow>& window)
+	VkExtent2D SwapChainManager::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities, const std::shared_ptr<GLFWwindow>& window)
 	{
 		if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) 
 		{

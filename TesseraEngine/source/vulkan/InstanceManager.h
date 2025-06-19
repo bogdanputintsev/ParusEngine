@@ -1,17 +1,17 @@
 #pragma once
 #include <vulkan/vulkan_core.h>
 
-#include "VulkanDeviceManager.h"
+#include "DeviceManager.h"
+#include "utils/interfaces/Initializable.h"
 
 namespace tessera::vulkan
 {
 
-	class VulkanInstanceManager final
+	class InstanceManager final : public Initializable
 	{
 	public:
-		VulkanInstanceManager() = default;
-		void init();
-		void clean() const;
+		void init() override;
+		void clean() override;
 
 		[[nodiscard]] std::shared_ptr<VkInstance> getInstance() const { return instance; }
 	private:

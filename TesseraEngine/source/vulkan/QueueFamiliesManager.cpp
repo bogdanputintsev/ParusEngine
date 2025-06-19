@@ -1,11 +1,11 @@
-#include "VulkanQueueFamiliesManager.h"
+#include "QueueFamiliesManager.h"
 
 #include <vector>
 
 namespace tessera::vulkan
 {
 
-	QueueFamilyIndices VulkanQueueFamiliesManager::findQueueFamilies(const VkPhysicalDevice& physicalDevice, const std::shared_ptr<const VkSurfaceKHR>& surface)
+	QueueFamilyIndices QueueFamiliesManager::findQueueFamilies(const VkPhysicalDevice& physicalDevice, const std::shared_ptr<const VkSurfaceKHR>& surface)
 	{
 		QueueFamilyIndices indices;
 

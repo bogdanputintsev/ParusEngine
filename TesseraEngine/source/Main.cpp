@@ -1,6 +1,7 @@
 #include <iostream>
 
 #include "Application.h"
+#include "utils/TesseraLog.h"
 
 int main()
 {
@@ -9,6 +10,7 @@ int main()
     try
     {
         app.init();
+        app.clean();
     }
     catch(const std::exception& exception)
     {

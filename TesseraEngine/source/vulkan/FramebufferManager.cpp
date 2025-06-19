@@ -1,14 +1,22 @@
-#include "VulkanFramebufferManager.h"
+#include "FramebufferManager.h"
 
 #include <stdexcept>
 
-#include "VulkanSwapChainManager.h"
+#include "GraphicsPipelineManager.h"
+#include "ImageViewManager.h"
+#include "SwapChainManager.h"
+#include "utils/interfaces/ServiceLocator.h"
 
 namespace tessera::vulkan
 {
 
-	void VulkanFramebufferManager::init(const std::vector<VkImageView>& swapChainImageViews, const std::shared_ptr<const VkDevice>& device, const std::shared_ptr<VkRenderPass>& renderPass, const SwapChainImageDetails& swapChainImageDetails)
+	void FramebufferManager::init()
 	{
+        const auto& device = ServiceLocator::getService<DeviceManager>()->getLogicalDevice();
+        const auto& swapChainImageViews = ServiceLocator::getService<ImageViewManager>()->getSwapChainImageViews();
+        const auto& swapChainImageDetails = ServiceLocator::getService<SwapChainManager>()->getSwapChainImageDetails();
+        const auto& renderPass = ServiceLocator::getService<GraphicsPipelineManager>()->getRenderPath();
+
 		swapChainFramebuffers.resize(swapChainImageViews.size());
 
         for (size_t i = 0; i < swapChainImageViews.size(); ++i)
@@ -35,8 +43,10 @@ namespace tessera::vulkan
         }
 	}
 
-	void VulkanFramebufferManager::clean(const std::shared_ptr<const VkDevice>& device) const
+	void FramebufferManager::clean()
 	{
+        const auto& device = ServiceLocator::getService<DeviceManager>()->getLogicalDevice();
+
         for (const auto& framebuffer : swapChainFramebuffers) 
         {
             vkDestroyFramebuffer(*device, framebuffer, nullptr);

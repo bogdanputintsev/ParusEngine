@@ -2,18 +2,20 @@
 #include <memory>
 #include <vector>
 #include <vulkan/vulkan_core.h>
-#include "VulkanSwapChainManager.h"
+#include "SwapChainManager.h"
 
 namespace tessera::vulkan
 {
 
-	class VulkanGraphicsPipelineManager
+	class GraphicsPipelineManager final : public Initializable
 	{
 	public:
-		void init(const std::shared_ptr<const VkDevice>& device, const SwapChainImageDetails& swapChainImageDetails);
-		void clean(const std::shared_ptr<const VkDevice>& device) const;
+		void init() override;
+		void clean() override;
 
 		[[nodiscard]] std::shared_ptr<VkRenderPass> getRenderPath() const { return renderPass; }
+		[[nodiscard]] VkPipeline getGraphicsPipeline() const { return graphicsPipeline; }
+
 	private:
 		static VkShaderModule createShaderModule(const std::vector<char>& code, const std::shared_ptr<const VkDevice>& device);
 		void initRenderPath(const std::shared_ptr<const VkDevice>& device, const SwapChainImageDetails& swapChainImageDetails);

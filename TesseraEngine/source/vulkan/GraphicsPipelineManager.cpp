@@ -1,15 +1,18 @@
-#include "VulkanGraphicsPipelineManager.h"
+#include "GraphicsPipelineManager.h"
 
 #include <memory>
 #include <stdexcept>
 
-#include "ShaderLoader.h"
+#include "utils/ShaderLoader.h"
+#include "utils/interfaces/ServiceLocator.h"
 
 namespace tessera::vulkan
 {
 	
-	void VulkanGraphicsPipelineManager::init(const std::shared_ptr<const VkDevice>& device, const SwapChainImageDetails& swapChainImageDetails)
+	void GraphicsPipelineManager::init()
 	{
+		const auto& device = ServiceLocator::getService<DeviceManager>()->getLogicalDevice();
+		const auto& swapChainImageDetails = ServiceLocator::getService<SwapChainManager>()->getSwapChainImageDetails();
 		initRenderPath(device, swapChainImageDetails);
 
 		const auto vertexShaderCode = ShaderLoader::readFile("shaders/vert.spv");
@@ -166,7 +169,7 @@ namespace tessera::vulkan
 		}
 	}
 
-	VkShaderModule VulkanGraphicsPipelineManager::createShaderModule(const std::vector<char>& code, const std::shared_ptr<const VkDevice>& device)
+	VkShaderModule GraphicsPipelineManager::createShaderModule(const std::vector<char>& code, const std::shared_ptr<const VkDevice>& device)
 	{
 		VkShaderModuleCreateInfo createInfo{};
 		createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -182,7 +185,7 @@ namespace tessera::vulkan
 		return shaderModule;
 	}
 
-	void VulkanGraphicsPipelineManager::initRenderPath(const std::shared_ptr<const VkDevice>& device, const SwapChainImageDetails& swapChainImageDetails)
+	void GraphicsPipelineManager::initRenderPath(const std::shared_ptr<const VkDevice>& device, const SwapChainImageDetails& swapChainImageDetails)
 	{
 		VkAttachmentDescription colorAttachment{};
 		colorAttachment.format = swapChainImageDetails.swapChainImageFormat;
@@ -219,8 +222,10 @@ namespace tessera::vulkan
 		renderPass = std::make_shared<VkRenderPass>(renderPathInstance);
 	}
 
-	void VulkanGraphicsPipelineManager::clean(const std::shared_ptr<const VkDevice>& device) const
+	void GraphicsPipelineManager::clean()
 	{
+		const auto& device = ServiceLocator::getService<DeviceManager>()->getLogicalDevice();
+
 		vkDestroyPipeline(*device, graphicsPipeline, nullptr);
 		vkDestroyPipelineLayout(*device, pipelineLayout, nullptr);
 		vkDestroyRenderPass(*device, *renderPass, nullptr);
