@@ -167,6 +167,7 @@
     <ClCompile Include="source\VulkanQueueFamiliesManager.cpp" />
     <ClCompile Include="source\VulkanSurfaceManager.cpp" />
     <ClCompile Include="source\VulkanSwapChainManager.cpp" />
+    <ClCompile Include="source\VulkanFramebufferManager.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="source\ShaderLoader.h" />
@@ -183,6 +184,7 @@
     <ClInclude Include="source\VulkanQueueFamiliesManager.h" />
     <ClInclude Include="source\VulkanSurfaceManager.h" />
     <ClInclude Include="source\VulkanSwapChainManager.h" />
+    <ClInclude Include="source\VulkanFramebufferManager.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\shader.frag" />
