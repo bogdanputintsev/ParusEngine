@@ -44,7 +44,7 @@ namespace tessera::vulkan
 	                                           const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
 	                                           void* pUserData)
     {
-        TesseraLog::send(getLogType(messageSeverity), "VulkanDebugManager", pCallbackData->pMessage);
+        TesseraLog::send(getLogType(messageSeverity), "Vulkan", pCallbackData->pMessage);
         return VK_FALSE;
     }
 
