@@ -17,7 +17,7 @@ namespace tessera::vulkan
 	class VulkanQueueFamiliesManager final
 	{
 	public:
-		static QueueFamilyIndices findQueueFamilies(const VkPhysicalDevice& device);
+		static QueueFamilyIndices findQueueFamilies(const VkPhysicalDevice& physicalDevice);
 		
 	};
 
