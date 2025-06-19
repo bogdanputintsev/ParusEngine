@@ -2,6 +2,7 @@
 
 #include "GlfwInitializer.h"
 #include "VulkanDebugManager.h"
+#include "VulkanImageViewManager.h"
 #include "VulkanInstanceManager.h"
 #include "VulkanSurfaceManager.h"
 #include "VulkanSwapChainManager.h"
@@ -27,6 +28,7 @@ namespace tessera
 		vulkan::VulkanSurfaceManager surfaceManager;
 		vulkan::VulkanDeviceManager deviceManager;
 		vulkan::VulkanSwapChainManager swapChainManager;
+		vulkan::VulkanImageViewManager imageViewManager;
 	};
 
 }
