@@ -1,8 +1,9 @@
 #include "VulkanInitializer.h"
 
-#include <iostream>
 #include <stdexcept>
 #include <GLFW/glfw3.h>
+
+#include "VulkanExtensionManager.h"
 
 namespace tessera::vulkan
 {
@@ -10,11 +11,12 @@ namespace tessera::vulkan
 	void VulkanInitializer::init()
 	{
 		createInstance();
+		debugManager.init(instance);
 	}
 
 	void VulkanInitializer::createInstance()
 	{
-		validationLayersManager.checkValidationLayerSupport();
+		debugManager.checkValidationLayerSupport();
 
 		VkApplicationInfo appInfo{};
 		appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
@@ -28,13 +30,28 @@ namespace tessera::vulkan
 		createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 		createInfo.pApplicationInfo = &appInfo;
 
+		VulkanExtensionManager::checkIfAllGlsfRequiredExtensionsAreSupported();
+
 		const std::vector<const char*> requiredExtensions = VulkanExtensionManager::getRequiredExtensions();
 		createInfo.enabledExtensionCount = static_cast<uint32_t>(requiredExtensions.size());
 		createInfo.ppEnabledExtensionNames = requiredExtensions.data();
 
-		validationLayersManager.includeValidationLayerNamesIfNeeded(createInfo);
+		VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
 
-		VulkanExtensionManager::checkIfAllGlsfRequiredExtensionsAreSupported();
+		const std::vector<const char*> validationLayers = VulkanDebugManager::getValidationLayers();
+		if (VulkanDebugManager::validationLayersAreEnabled()) 
+		{
+			createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
+			createInfo.ppEnabledLayerNames = validationLayers.data();
+
+			VulkanDebugManager::populate(debugCreateInfo);
+			createInfo.pNext = &debugCreateInfo;
+		}
+		else 
+		{
+			createInfo.enabledLayerCount = 0;
+			createInfo.pNext = nullptr;
+		}
 
 		if (vkCreateInstance(&createInfo, nullptr, &instance) != VK_SUCCESS)
 		{
@@ -44,6 +61,7 @@ namespace tessera::vulkan
 
 	void VulkanInitializer::clean() const
 	{
+		debugManager.clean(instance);
 		vkDestroyInstance(instance, nullptr);
 	}
 
