@@ -515,18 +515,18 @@ namespace parus::vulkan
 		switch (messageSeverity)
 		{
 		case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT:
-			return LogType::DEBUG;
+			return LogType::LOG_TYPE_DEBUG;
 		case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT:
-			return LogType::INFO;
+			return LogType::LOG_TYPE_INFO;
 		case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
-			return LogType::WARNING;
+			return LogType::LOG_TYPE_WARNING;
 		case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
-			return LogType::TE_ERROR;
+			return LogType::LOG_TYPE_ERROR;
 		case VK_DEBUG_UTILS_MESSAGE_SEVERITY_FLAG_BITS_MAX_ENUM_EXT:
-			return LogType::INFO;
+			return LogType::LOG_TYPE_INFO;
 		}
 
-		return LogType::INFO;
+		return LogType::LOG_TYPE_INFO;
 	}
 
 	void VulkanRenderer::createDebugManager()
