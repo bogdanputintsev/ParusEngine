@@ -37,9 +37,15 @@ namespace tessera::vulkan
 		const auto& commandBuffer = commandBufferManager->getCommandBuffer(currentFrame);
 
 		syncObjectsManager->waitForFences(currentFrame);
-		const uint32_t imageIndex = swapChainManager->acquireNextImage(currentFrame);
+
+		const std::optional<uint32_t> imageIndex = swapChainManager->acquireNextImage(currentFrame);
+		if(!imageIndex.has_value())
+		{
+			return;
+		}
+
 		commandBufferManager->resetCommandBuffer(currentFrame);
-		recordCommandBuffer(commandBuffer, imageIndex);
+		recordCommandBuffer(commandBuffer, *imageIndex);
 
 		VkSubmitInfo submitInfo{};
 		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -71,9 +77,20 @@ namespace tessera::vulkan
 		const VkSwapchainKHR swapChains[] = { swapChain };
 		presentInfo.swapchainCount = 1;
 		presentInfo.pSwapchains = swapChains;
-		presentInfo.pImageIndices = &imageIndex;
+		presentInfo.pImageIndices = &*imageIndex;
 		presentInfo.pResults = nullptr;
-		vkQueuePresentKHR(presentQueue, &presentInfo);
+
+		const VkResult result = vkQueuePresentKHR(presentQueue, &presentInfo);
+
+		if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebufferResized)
+		{
+			framebufferResized = false;
+			swapChainManager->recreate();
+		}
+		else if (result != VK_SUCCESS) 
+		{
+			throw std::runtime_error("QueueManager: failed to present swap chain image.");
+		}
 
 		const int numberOfBuffers = commandBufferManager->getNumberOfBuffers();
 		currentFrame = (currentFrame + 1) % numberOfBuffers;

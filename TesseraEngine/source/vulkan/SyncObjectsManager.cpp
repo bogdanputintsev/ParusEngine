@@ -63,4 +63,16 @@ namespace tessera::vulkan
 		vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
 		vkResetFences(device, 1, &inFlightFences[currentFrame]);
 	}
+
+	void SyncObjectsManager::resetFences(const int currentFrame) const
+	{
+		if (static_cast<size_t>(currentFrame) >= inFlightFences.size() || currentFrame < 0)
+		{
+			throw std::out_of_range("SyncObjectsManager: current frame number is larger than number of fences.");
+		}
+
+		const auto& device = ServiceLocator::getService<DeviceManager>()->getLogicalDevice();
+
+		vkResetFences(device, 1, &inFlightFences[currentFrame]);
+	}
 }

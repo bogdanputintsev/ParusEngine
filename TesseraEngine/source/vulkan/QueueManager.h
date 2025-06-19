@@ -25,6 +25,8 @@ namespace tessera::vulkan
 		void init() override;
 		void drawFrame();
 		void clean() override {}
+
+		void onFramebufferResized() { framebufferResized = true; }
 		[[nodiscard]] VkQueue getGraphicsQueue() const { return graphicsQueue; }
 		[[nodiscard]] VkQueue getPresentQueue() const { return presentQueue; }
 	private:
@@ -32,6 +34,7 @@ namespace tessera::vulkan
 		VkQueue presentQueue = VK_NULL_HANDLE;
 
 		int currentFrame = 0;
+		bool framebufferResized = false;
 	};
 
 }

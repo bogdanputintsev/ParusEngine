@@ -6,6 +6,8 @@
 #include <GLFW/glfw3.h>
 
 #include "DeviceManager.h"
+#include "FramebufferManager.h"
+#include "ImageViewManager.h"
 #include "QueueManager.h"
 #include "SurfaceManager.h"
 #include "SyncObjectsManager.h"
@@ -80,10 +82,11 @@ namespace tessera::vulkan
 		swapChainDetails = { format, extent, swapChainImages };
 	}
 
-	uint32_t SwapChainManager::acquireNextImage(const int currentFrame) const
+	std::optional<uint32_t> SwapChainManager::acquireNextImage(const int currentFrame) const
 	{
 		const auto& device = ServiceLocator::getService<DeviceManager>()->getLogicalDevice();
 		const auto& imageAvailableSemaphore = ServiceLocator::getService<SyncObjectsManager>()->getImageAvailableSemaphores();
+		const auto& swapChainManager = ServiceLocator::getService<SwapChainManager>();
 
 		if (static_cast<size_t>(currentFrame) >= imageAvailableSemaphore.size() || currentFrame < 0)
 		{
@@ -91,9 +94,51 @@ namespace tessera::vulkan
 		}
 
 		uint32_t imageIndex;
-		vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, imageAvailableSemaphore[currentFrame], VK_NULL_HANDLE, &imageIndex);
+		const VkResult result = vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, imageAvailableSemaphore[currentFrame], VK_NULL_HANDLE, &imageIndex);
+
+		if (result == VK_ERROR_OUT_OF_DATE_KHR) 
+		{
+			swapChainManager->recreate();
+			return std::nullopt;
+		}
+
+		if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) 
+		{
+			throw std::runtime_error("SyncObjectsManager: failed to acquire swap chain image.");
+		}
 
 		return imageIndex;
+	}
+
+	void SwapChainManager::recreate()
+	{
+		const auto& deviceManager = ServiceLocator::getService<DeviceManager>();
+		const auto& imageViewManager = ServiceLocator::getService<ImageViewManager>();
+		const auto& framebufferManager = ServiceLocator::getService<FramebufferManager>();
+		const auto& glfwInitializer = ServiceLocator::getService<glfw::GlfwInitializer>();
+		const auto& device = ServiceLocator::getService<DeviceManager>()->getLogicalDevice();
+
+		glfwInitializer->handleMinimization();
+		deviceManager->deviceWaitIdle();
+
+		const auto& swapChainFramebuffers = ServiceLocator::getService<FramebufferManager>()->getSwapChainFramebuffers();
+		const auto& swapChainImageViews = ServiceLocator::getService<ImageViewManager>()->getSwapChainImageViews();
+
+		for (const auto& framebuffer : swapChainFramebuffers)
+		{
+			vkDestroyFramebuffer(device, framebuffer, nullptr);
+		}
+
+		for (const auto& imageView : swapChainImageViews)
+		{
+			vkDestroyImageView(device, imageView, nullptr);
+		}
+
+		vkDestroySwapchainKHR(device, swapChain, nullptr);
+
+		this->init();
+		imageViewManager->init();
+		framebufferManager->init();
 	}
 
 	void SwapChainManager::clean()
