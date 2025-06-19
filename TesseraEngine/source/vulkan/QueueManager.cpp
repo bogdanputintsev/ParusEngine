@@ -25,26 +25,26 @@ namespace tessera::vulkan
 		vkGetDeviceQueue(logicalDevice, presentFamily.value(), 0, &presentQueue);
 	}
 
-	void QueueManager::drawFrame() const
+	void QueueManager::drawFrame()
 	{
 		const auto& syncObjectsManager = ServiceLocator::getService<SyncObjectsManager>();
-		const auto& imageAvailableSemaphore = syncObjectsManager->getImageAvailableSemaphore();
-		const auto& renderFinishedSemaphore = syncObjectsManager->getRenderFinishedSemaphore();
-		const auto& inFlightFence = syncObjectsManager->getInFlightFence();
+		const auto& imageAvailableSemaphores = syncObjectsManager->getImageAvailableSemaphores();
+		const auto& renderFinishedSemaphores = syncObjectsManager->getRenderFinishedSemaphores();
+		const auto& inFlightFences = syncObjectsManager->getInFlightFences();
 		const auto& swapChainManager = ServiceLocator::getService<SwapChainManager>();
 		const auto& swapChain = swapChainManager->getSwapChain();
 		const auto& commandBufferManager = ServiceLocator::getService<CommandBufferManager>();
-		const auto& commandBuffer = commandBufferManager->getCommandBuffer();
+		const auto& commandBuffer = commandBufferManager->getCommandBuffer(currentFrame);
 
-		syncObjectsManager->waitForFences();
-		const uint32_t imageIndex = swapChainManager->acquireNextImage();
-		commandBufferManager->resetCommandBuffer();
-		commandBufferManager->recordCommandBuffer(commandBuffer, imageIndex);
+		syncObjectsManager->waitForFences(currentFrame);
+		const uint32_t imageIndex = swapChainManager->acquireNextImage(currentFrame);
+		commandBufferManager->resetCommandBuffer(currentFrame);
+		recordCommandBuffer(commandBuffer, imageIndex);
 
 		VkSubmitInfo submitInfo{};
 		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-		const VkSemaphore waitSemaphores[] = { imageAvailableSemaphore };
+		const VkSemaphore waitSemaphores[] = { imageAvailableSemaphores[currentFrame] };
 		constexpr VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
 		submitInfo.waitSemaphoreCount = 1;
 		submitInfo.pWaitSemaphores = waitSemaphores;
@@ -52,13 +52,13 @@ namespace tessera::vulkan
 		submitInfo.commandBufferCount = 1;
 		submitInfo.pCommandBuffers = &commandBuffer;
 
-		const VkSemaphore signalSemaphores[] = { renderFinishedSemaphore };
+		const VkSemaphore signalSemaphores[] = { renderFinishedSemaphores[currentFrame] };
 		submitInfo.signalSemaphoreCount = 1;
 		submitInfo.pSignalSemaphores = signalSemaphores;
 
-		if (vkQueueSubmit(graphicsQueue, 1, &submitInfo, inFlightFence) != VK_SUCCESS)
+		if (vkQueueSubmit(graphicsQueue, 1, &submitInfo, inFlightFences[currentFrame]) != VK_SUCCESS)
 		{
-			throw std::runtime_error("GlfwInitializer: failed to submit draw command buffer.");
+			throw std::runtime_error("QueueManager: failed to submit draw command buffer.");
 		}
 
 		// Submit result back to swap chain to have it eventually show up on the screen. 
@@ -74,6 +74,9 @@ namespace tessera::vulkan
 		presentInfo.pImageIndices = &imageIndex;
 		presentInfo.pResults = nullptr;
 		vkQueuePresentKHR(presentQueue, &presentInfo);
+
+		const int numberOfBuffers = commandBufferManager->getNumberOfBuffers();
+		currentFrame = (currentFrame + 1) % numberOfBuffers;
 	}
 
 	QueueFamilyIndices findQueueFamilies(const VkPhysicalDevice& physicalDevice, const VkSurfaceKHR& surface)

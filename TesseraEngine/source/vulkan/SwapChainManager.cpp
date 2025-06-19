@@ -80,13 +80,18 @@ namespace tessera::vulkan
 		swapChainDetails = { format, extent, swapChainImages };
 	}
 
-	uint32_t SwapChainManager::acquireNextImage() const
+	uint32_t SwapChainManager::acquireNextImage(const int currentFrame) const
 	{
 		const auto& device = ServiceLocator::getService<DeviceManager>()->getLogicalDevice();
-		const auto& imageAvailableSemaphore = ServiceLocator::getService<SyncObjectsManager>()->getImageAvailableSemaphore()	;
+		const auto& imageAvailableSemaphore = ServiceLocator::getService<SyncObjectsManager>()->getImageAvailableSemaphores();
+
+		if (static_cast<size_t>(currentFrame) >= imageAvailableSemaphore.size() || currentFrame < 0)
+		{
+			throw std::out_of_range("SyncObjectsManager: current frame number is larger than number of fences.");
+		}
 
 		uint32_t imageIndex;
-		vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
+		vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, imageAvailableSemaphore[currentFrame], VK_NULL_HANDLE, &imageIndex);
 
 		return imageIndex;
 	}

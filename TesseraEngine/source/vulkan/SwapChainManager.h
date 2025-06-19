@@ -28,7 +28,7 @@ namespace tessera::vulkan
 	public:
 		void init() override;
 
-		[[nodiscard]] uint32_t acquireNextImage() const;
+		[[nodiscard]] uint32_t acquireNextImage(const int currentFrame) const;
 
 		void clean() override;
 

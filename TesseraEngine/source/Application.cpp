@@ -27,11 +27,14 @@ namespace tessera
 	{
 		const auto& glfwInitializer = ServiceLocator::getService<glfw::GlfwInitializer>();
 		const auto& queueManager = ServiceLocator::getService<vulkan::QueueManager>();
+		const auto& deviceManager = ServiceLocator::getService<vulkan::DeviceManager>();
 
 		glfwInitializer->mainLoop([&] 
 			{
 				queueManager->drawFrame();
 			});
+
+		deviceManager->deviceWaitIdle();
 	}
 
 	void Application::clean()

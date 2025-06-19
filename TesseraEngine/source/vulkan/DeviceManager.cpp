@@ -76,4 +76,8 @@ namespace tessera::vulkan
 		vkDestroyDevice(logicalDevice, nullptr);
 	}
 
+	void DeviceManager::deviceWaitIdle() const
+	{
+		vkDeviceWaitIdle(logicalDevice);
+	}
 }
