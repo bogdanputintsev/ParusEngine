@@ -2063,20 +2063,22 @@ namespace tessera::vulkan
 		globalUbo.view = math::Matrix4x4::lookAt(
 			camera.getPosition(),
 			camera.getPosition() + camera.getForwardVector(),
-			camera.getUpVector());
+			camera.getUpVector()).trivial();
 
 		globalUbo.projection = math::Matrix4x4::perspective(
 			math::radians(45.0f),
 			static_cast<float>(swapChainDetails.swapChainExtent.width) / static_cast<float>(swapChainDetails.swapChainExtent.height),
-			Z_NEAR, Z_FAR);
+			Z_NEAR, Z_FAR).trivial();
 
-		globalUbo.debug = isDrawDebugEnabled;
+		globalUbo.cameraPosition = camera.getPosition().trivial();
+
+		globalUbo.debug = isDrawDebugEnabled ? 1 : 0;
 		
 		memcpy(globalUboBuffer.mapped[currentImage], &globalUbo, sizeof(globalUbo));
 
 		// Instance UBO
 		math::InstanceUbo instanceUbo{};
-		instanceUbo.model = math::Matrix4x4();
+		instanceUbo.model = math::Matrix4x4().trivial();
 
 		memcpy(instanceUboBuffer.mapped[currentImage], &instanceUbo, sizeof(instanceUbo));
 

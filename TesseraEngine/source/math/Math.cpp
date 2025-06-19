@@ -300,6 +300,21 @@ namespace tessera::math
         return result;
     }
 
+    TrivialMatrix4x4 Matrix4x4::trivial() const noexcept
+    {
+        TrivialMatrix4x4 result{};
+
+        for (int i = 0; i < 4; i++)
+        {
+            for (int j = 0; j < 4; j++)
+            {
+                result.values[i][j] = values[i][j];
+            }
+        }
+
+        return result;
+    }
+
     Matrix4x4 Matrix4x4::perspective(const float fovRadians, const float aspectRatio, const float near, const float far)
     {
         Matrix4x4 result{};
