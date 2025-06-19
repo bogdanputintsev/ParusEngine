@@ -12,7 +12,11 @@ namespace tessera
         const auto input = CORE->inputSystem;
         
         // Process keyboard
-        const float velocity = speed * deltaTime;
+        float velocity = speed * deltaTime;
+        if (input->isKeyPressed(KeyButton::KEY_SHIFT))
+        {
+            velocity *= speedAccelerationMultiplier;
+        }
         if (input->isKeyPressed(KeyButton::KEY_W))
         {
             position += forward * velocity;
@@ -29,7 +33,15 @@ namespace tessera
         {
             position += right * velocity;
         }
-
+        if (input->isKeyPressed(KeyButton::KEY_E))
+        {
+            position += up * velocity;
+        }
+        if (input->isKeyPressed(KeyButton::KEY_Q))
+        {
+            position -= up * velocity;
+        }
+        
         // Process mouse.
         if (input->isMouseDown(MouseButton::BUTTON_RIGHT))
         {

@@ -14,7 +14,8 @@ namespace tessera::imgui
 
     private:
         void onNewCommandSent();
-
+        static std::string processCommand(const std::string& inputCommand);
+        
         std::string commandLineText;
         std::string consoleHistory = "Tessera Engine v0.3.0\n";
         

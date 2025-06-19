@@ -25,7 +25,7 @@
 
 namespace tessera::vulkan
 {
-	Model VulkanContext::loadModel(const std::string& modelPath, const std::string& texturePath)
+	Model VulkanContext::loadModel(const std::string& modelPath, const std::string& texturePaths)
 	{
 		Model model{};
 
@@ -35,41 +35,99 @@ namespace tessera::vulkan
 		std::vector<tinyobj::material_t> materials;
 		std::string warn, err;
 
-		ASSERT(tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, modelPath.c_str()), warn + err);
+		size_t lastSlash = modelPath.find_last_of("/\\");
+		std::string baseDir = modelPath.substr(0, lastSlash + 1);
 
-		std::unordered_map<Vertex, uint32_t> uniqueVertices{};
+		// ЭЙ, тут осталось проверить, если текстуры имеют правильное название!! ПроверЬ!
+		ASSERT(tinyobj::LoadObj(
+			&attrib, &shapes, &materials, &warn, &err,
+			modelPath.c_str(),
+			baseDir.c_str(),
+			true),
+			warn + err);
 
-		for (const auto& shape : shapes) 
+		for (const auto& material : materials)
 		{
-			for (const auto& index : shape.mesh.indices)
+			LOG_INFO(modelPath + "     " + baseDir + material.diffuse_texname);
+			Texture texture;
+			if (!material.diffuse_texname.empty())
 			{
-				Vertex vertex{};
-
-				vertex.position = {
-					attrib.vertices[3 * index.vertex_index + 0],
-					attrib.vertices[3 * index.vertex_index + 1],
-					attrib.vertices[3 * index.vertex_index + 2]
-				};
-
-				vertex.texCoord = {
-					attrib.texcoords[2 * index.texcoord_index + 0],
-					1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
-				};
-
-				vertex.color = { 1.0f, 1.0f, 1.0f };
-
-				if (!uniqueVertices.contains(vertex))
-				{
-					uniqueVertices[vertex] = static_cast<uint32_t>(model.vertices.size());
-					model.vertices.push_back(vertex);
-				}
-
-				model.indices.push_back(uniqueVertices[vertex]);
+				texture = loadTexture(baseDir + material.diffuse_texname);
+				model.textures.push_back(texture);
 			}
 		}
 
-		// Load the texture for this model
-		model.texture = loadTexture(texturePath);
+		std::unordered_map<int, Mesh> materialMeshes;
+		std::unordered_map<Vertex, uint32_t> uniqueVertices;
+		
+		for (const auto& shape : shapes) 
+		{
+			size_t indexOffset = 0;
+
+			// Process each face in the shape.
+			for (size_t faceIndex = 0; faceIndex < shape.mesh.num_face_vertices.size(); faceIndex++)
+			{
+				int materialId = shape.mesh.material_ids[faceIndex];
+
+				if (!materialMeshes.contains(materialId))
+				{
+					Mesh newMesh;
+					newMesh.texture = model.textures[materialId];
+					materialMeshes[materialId] = newMesh;
+				}
+
+				Mesh& currentMesh = materialMeshes[materialId];
+				
+				size_t faceVertices = 3;
+				for (size_t v = 0; v < faceVertices; v++)
+				{
+					tinyobj::index_t index = shape.mesh.indices[indexOffset + v];
+
+					Vertex vertex{};
+			
+					vertex.position = {
+						attrib.vertices[3 * index.vertex_index + 0],
+						attrib.vertices[3 * index.vertex_index + 1],
+						attrib.vertices[3 * index.vertex_index + 2]
+					};
+
+					if (index.texcoord_index >= 0)
+					{
+						vertex.texCoord = {
+							attrib.texcoords[2 * index.texcoord_index + 0],
+							1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
+						};
+					}
+					else
+					{
+						vertex.texCoord = {0.0f, 0.0f};
+					}
+					
+					vertex.color = { 1.0f, 1.0f, 1.0f };
+
+					if (!uniqueVertices.contains(vertex))
+					{
+						uniqueVertices[vertex] = static_cast<uint32_t>(currentMesh.tempVertices.size());
+						currentMesh.tempVertices.push_back(vertex);
+					}
+			
+					currentMesh.tempIndices.push_back(uniqueVertices[vertex]);
+				}
+				indexOffset += faceVertices;
+			}
+
+			uniqueVertices.clear();
+			
+		}
+
+		// Convert temporary meshes to final model meshes
+		for (auto& [matId, mesh] : materialMeshes)
+		{
+			mesh.vertexCount = mesh.tempVertices.size();
+			mesh.indexCount = mesh.tempIndices.size();
+			model.meshes.push_back(mesh);
+		}
+		
 		return model;
 	}
 
@@ -1037,16 +1095,19 @@ namespace tessera::vulkan
 
 		for (const auto& model : models)
 		{
-			// Bind the model's descriptor set.
-			vkCmdBindDescriptorSets(commandBufferToRecord, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1,
-				&model.descriptorSets[currentFrame], 0, nullptr);
+			for (const auto& mesh : model.meshes)
+			{
+				// Bind the model's descriptor set.
+				vkCmdBindDescriptorSets(commandBufferToRecord, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1,
+					&mesh.descriptorSets[currentFrame], 0, nullptr);
 
-			vkCmdDrawIndexed(commandBufferToRecord,
-				static_cast<uint32_t>(model.indices.size()),
-				1,
-				static_cast<uint32_t>(model.indexOffset),
-				static_cast<int32_t>(model.vertexOffset),
-				0);
+				vkCmdDrawIndexed(commandBufferToRecord,
+					static_cast<uint32_t>(mesh.indexCount),
+					1,
+					static_cast<uint32_t>(mesh.indexOffset),
+					static_cast<int32_t>(mesh.vertexOffset),
+					0);
+			}
 		}
 		
 		CORE->graphicsLibrary->renderDrawData(commandBufferToRecord);
@@ -1064,6 +1125,7 @@ namespace tessera::vulkan
 	void VulkanContext::createCommandPool()
 	{
 		const auto [graphicsFamily, presentFamily] = findQueueFamilies(physicalDevice, surface);
+		ASSERT(graphicsFamily.has_value(), "Graphics family is incomplete.");
 		VkCommandPoolCreateInfo poolInfo{};
 		poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 		poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
@@ -1158,7 +1220,7 @@ namespace tessera::vulkan
 		return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
 	}
 
-	Texture VulkanContext::loadTexture(const std::string& texturePath)
+	Texture VulkanContext::loadTexture(const std::string& texturePath) const
 	{
 		Texture newTexture{};
 		
@@ -1454,11 +1516,14 @@ namespace tessera::vulkan
 
 		for (auto& model : models)
 		{
-			model.vertexOffset = allVertices.size();
-			model.indexOffset = allIndices.size();
+			for (auto& mesh : model.meshes)
+			{
+				mesh.vertexOffset = allVertices.size();
+				mesh.indexOffset = allIndices.size();
 
-			allVertices.insert(allVertices.end(), model.vertices.begin(), model.vertices.end());
-			allIndices.insert(allIndices.end(), model.indices.begin(), model.indices.end());
+				allVertices.insert(allVertices.end(), mesh.tempVertices.begin(), mesh.tempVertices.end());
+				allIndices.insert(allIndices.end(), mesh.tempIndices.begin(), mesh.tempIndices.end());
+			}
 		}
 		
 		createVertexBuffer(allVertices);
@@ -1603,66 +1668,76 @@ namespace tessera::vulkan
 
 	void VulkanContext::createDescriptorPool()
 	{
+		size_t numberOfMeshes = 0;
+		for (const auto& [meshes, textures] : models)
+		{
+			numberOfMeshes += meshes.size();
+		}
+		
 		std::array<VkDescriptorPoolSize, 2> poolSizes{};
 		poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		poolSizes[0].descriptorCount = static_cast<uint32_t>(models.size() * MAX_FRAMES_IN_FLIGHT);
+		poolSizes[0].descriptorCount = static_cast<uint32_t>(numberOfMeshes * MAX_FRAMES_IN_FLIGHT);
 		poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;	
-		poolSizes[1].descriptorCount = static_cast<uint32_t>(models.size() * MAX_FRAMES_IN_FLIGHT) + IMAGE_SAMPLER_POOL_SIZE;
+		poolSizes[1].descriptorCount = static_cast<uint32_t>(numberOfMeshes * MAX_FRAMES_IN_FLIGHT) + IMAGE_SAMPLER_POOL_SIZE;
 		
 		VkDescriptorPoolCreateInfo poolInfo{};
 		poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 		poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
 		poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
 		poolInfo.pPoolSizes = poolSizes.data();
-		poolInfo.maxSets = static_cast<uint32_t>(models.size() * MAX_FRAMES_IN_FLIGHT) + IMAGE_SAMPLER_POOL_SIZE;
+		poolInfo.maxSets = static_cast<uint32_t>(numberOfMeshes * MAX_FRAMES_IN_FLIGHT) + IMAGE_SAMPLER_POOL_SIZE;
 
 		ASSERT(vkCreateDescriptorPool(logicalDevice, &poolInfo, nullptr, &descriptorPool) == VK_SUCCESS, "failed to create descriptor pool.");
 	}
 
 	void VulkanContext::createDescriptorSets(Model& model) const
 	{
-		const std::vector layouts(MAX_FRAMES_IN_FLIGHT, descriptorSetLayout);
-		VkDescriptorSetAllocateInfo allocInfo{};
-		allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-		allocInfo.descriptorPool = descriptorPool;
-		allocInfo.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
-		allocInfo.pSetLayouts = layouts.data();
-
-		model.descriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
-		ASSERT(vkAllocateDescriptorSets(logicalDevice, &allocInfo, model.descriptorSets.data()) == VK_SUCCESS, "failed to allocate descriptor sets.");
-
-		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+		for (auto& mesh: model.meshes)
 		{
-			VkDescriptorBufferInfo bufferInfo{};
-			bufferInfo.buffer = uniformBuffers[i];
-			bufferInfo.offset = 0;
-			bufferInfo.range = sizeof(UniformBufferObject);
+			const std::vector layouts(MAX_FRAMES_IN_FLIGHT, descriptorSetLayout);
+			VkDescriptorSetAllocateInfo allocInfo{};
+			allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+			allocInfo.descriptorPool = descriptorPool;
+			allocInfo.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+			allocInfo.pSetLayouts = layouts.data();
 
-			VkDescriptorImageInfo imageInfo{};
-			imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-			imageInfo.imageView = model.texture.textureImageView;
-			imageInfo.sampler = model.texture.textureSampler;
+			mesh.descriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
+			ASSERT(vkAllocateDescriptorSets(logicalDevice, &allocInfo, mesh.descriptorSets.data()) == VK_SUCCESS, "failed to allocate descriptor sets.");
 
-			std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
+			for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+			{
+				VkDescriptorBufferInfo bufferInfo{};
+				bufferInfo.buffer = uniformBuffers[i];
+				bufferInfo.offset = 0;
+				bufferInfo.range = sizeof(UniformBufferObject);
 
-			descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			descriptorWrites[0].dstSet = model.descriptorSets[i];
-			descriptorWrites[0].dstBinding = 0;
-			descriptorWrites[0].dstArrayElement = 0;
-			descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-			descriptorWrites[0].descriptorCount = 1;
-			descriptorWrites[0].pBufferInfo = &bufferInfo;
+				VkDescriptorImageInfo imageInfo{};
+				imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+				imageInfo.imageView = mesh.texture.textureImageView;
+				imageInfo.sampler = mesh.texture.textureSampler;
 
-			descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			descriptorWrites[1].dstSet = model.descriptorSets[i];
-			descriptorWrites[1].dstBinding = 1;
-			descriptorWrites[1].dstArrayElement = 0;
-			descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-			descriptorWrites[1].descriptorCount = 1;
-			descriptorWrites[1].pImageInfo = &imageInfo;
+				std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
 
-			vkUpdateDescriptorSets(logicalDevice, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+				descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+				descriptorWrites[0].dstSet = mesh.descriptorSets[i];
+				descriptorWrites[0].dstBinding = 0;
+				descriptorWrites[0].dstArrayElement = 0;
+				descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+				descriptorWrites[0].descriptorCount = 1;
+				descriptorWrites[0].pBufferInfo = &bufferInfo;
+
+				descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+				descriptorWrites[1].dstSet = mesh.descriptorSets[i];
+				descriptorWrites[1].dstBinding = 1;
+				descriptorWrites[1].dstArrayElement = 0;
+				descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+				descriptorWrites[1].descriptorCount = 1;
+				descriptorWrites[1].pImageInfo = &imageInfo;
+
+				vkUpdateDescriptorSets(logicalDevice, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+			}
 		}
+		
 	}
 
 	void VulkanContext::createSyncObjects()
@@ -1778,10 +1853,17 @@ namespace tessera::vulkan
 		context.createColorResources();
 		context.createDepthResources();
 		context.createFramebuffers();
+		
 		context.models.push_back(context.loadModel("bin/assets/skybox/skybox.obj", "bin/assets/skybox/skybox.png"));
 		context.models.push_back(context.loadModel("bin/assets/terrain/floor.obj", "bin/assets/terrain/grass.jpg"));
+		// context.models.push_back(context.loadModel("bin/assets/indoor/indoor_floor.obj", "bin/assets/indoor/floor.jpg"));
+		context.models.push_back(context.loadModel("bin/assets/indoor/indoor.obj", "bin/assets/indoor/brick.jpg"));
+		context.models.push_back(context.loadModel("bin/assets/indoor/threshold.obj", "bin/assets/indoor/door.jpg"));
+		context.models.push_back(context.loadModel("bin/assets/indoor/torch.obj", "bin/assets/indoor/torch.jpg"));
+
 		context.createBufferManager();
 		context.createDescriptorPool();
+		
 		// Create descriptor sets for this model
 		for (auto& model : context.models)
 		{
@@ -1809,10 +1891,13 @@ namespace tessera::vulkan
 
 		for (const auto& model : context.models)
 		{
-			vkDestroySampler(context.logicalDevice, model.texture.textureSampler, nullptr);
-			vkDestroyImageView(context.logicalDevice, model.texture.textureImageView, nullptr);
-			vkDestroyImage(context.logicalDevice, model.texture.textureImage, nullptr);
-			vkFreeMemory(context.logicalDevice, model.texture.textureImageMemory, nullptr);
+			for (const auto& texture : model.textures)
+			{
+				vkDestroySampler(context.logicalDevice, texture.textureSampler, nullptr);
+				vkDestroyImageView(context.logicalDevice, texture.textureImageView, nullptr);
+				vkDestroyImage(context.logicalDevice, texture.textureImage, nullptr);
+				vkFreeMemory(context.logicalDevice, texture.textureImageMemory, nullptr);
+			}
 		}
 
 		vkDestroyDescriptorSetLayout(context.logicalDevice, context.descriptorSetLayout, nullptr);
@@ -1834,7 +1919,7 @@ namespace tessera::vulkan
 
 		vkDestroyDevice(context.logicalDevice, nullptr);
 
-		if (context.validationLayersAreEnabled())
+		if (VulkanContext::validationLayersAreEnabled())
 		{
 			context.destroyDebugUtilsMessengerExt(context.debugMessenger, nullptr);
 		}
