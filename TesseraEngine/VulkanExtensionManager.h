@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
-#include <vulkan/vulkan_core.h>
+
+// TODO: Maybe consider using functions instead of methods.
 
 namespace tessera::vulkan
 {
