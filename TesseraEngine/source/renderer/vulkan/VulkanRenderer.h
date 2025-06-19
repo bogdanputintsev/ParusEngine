@@ -1,4 +1,5 @@
 #pragma once
+#include <memory>
 #include <optional>
 #include <vector>
 #include <vulkan/vulkan_core.h>
@@ -47,24 +48,28 @@ namespace tessera::vulkan
 		uint32_t maxMipLevels;
 	};
 
-	struct Mesh
+	struct MeshPart
 	{
 		size_t vertexOffset;
 		size_t vertexCount;
 		size_t indexOffset;
 		size_t indexCount;
-		Texture texture;
+		std::shared_ptr<Texture> texture;
 		std::vector<VkDescriptorSet> descriptorSets;
 
-		// Temporary storage for vertices/indices during loading
-		std::vector<Vertex> tempVertices;
-		std::vector<uint32_t> tempIndices;
+		std::vector<Vertex> vertices;
+		std::vector<uint32_t> indices;
+	};
+
+	struct Mesh
+	{
+		std::vector<MeshPart> meshParts;
 	};
 
 	struct Model
 	{
-		std::vector<Mesh> meshes;
-		std::vector<Texture> textures;
+		std::shared_ptr<Mesh> mesh;
+		glm::mat4 transform = glm::identity<glm::mat4>();
 	};
 
 	class VulkanRenderer final : public Renderer
@@ -77,8 +82,12 @@ namespace tessera::vulkan
 
 		friend class tessera::imgui::ImGuiLibrary;
 	private:
+		std::unordered_map<std::string, std::shared_ptr<Mesh>> meshes;
+		std::unordered_map<std::string, std::shared_ptr<Texture>> textures;
+		
+
 		// Load model
-		Model loadModel(const std::string& modelPath) const;
+		void importMesh(const std::string& modelPath);
 
 		// Instance
 		void createInstance();
@@ -159,7 +168,7 @@ namespace tessera::vulkan
 		static bool hasStencilComponent(VkFormat format);
 
 		// Texture image
-		Texture loadTexture(const std::string& texturePath) const;
+		void importTexture(const std::string& texturePath);
 		void generateMipmaps(const Texture& texture, VkFormat imageFormat,
 		                     int32_t texWidth,
 		                     int32_t texHeight) const;
@@ -182,7 +191,7 @@ namespace tessera::vulkan
 		void updateUniformBuffer(uint32_t currentImage) const;
 
 		void createDescriptorPool();
-		void createDescriptorSets(Model& model) const;
+		void createDescriptorSets(const std::shared_ptr<Mesh>& mesh) const;
 
 		// Sync objects
 		void createSyncObjects();
