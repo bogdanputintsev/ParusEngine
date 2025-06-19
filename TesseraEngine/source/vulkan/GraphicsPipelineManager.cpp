@@ -4,12 +4,15 @@
 #include <stdexcept>
 
 #include "utils/ShaderLoader.h"
+#include "utils/interfaces/ServiceLocator.h"
 
 namespace tessera::vulkan
 {
 	
-	void GraphicsPipelineManager::init(const std::shared_ptr<const VkDevice>& device, const SwapChainImageDetails& swapChainImageDetails)
+	void GraphicsPipelineManager::init()
 	{
+		const auto& device = ServiceLocator::getService<DeviceManager>()->getLogicalDevice();
+		const auto& swapChainImageDetails = ServiceLocator::getService<SwapChainManager>()->getSwapChainImageDetails();
 		initRenderPath(device, swapChainImageDetails);
 
 		const auto vertexShaderCode = ShaderLoader::readFile("shaders/vert.spv");
@@ -219,8 +222,10 @@ namespace tessera::vulkan
 		renderPass = std::make_shared<VkRenderPass>(renderPathInstance);
 	}
 
-	void GraphicsPipelineManager::clean(const std::shared_ptr<const VkDevice>& device) const
+	void GraphicsPipelineManager::clean()
 	{
+		const auto& device = ServiceLocator::getService<DeviceManager>()->getLogicalDevice();
+
 		vkDestroyPipeline(*device, graphicsPipeline, nullptr);
 		vkDestroyPipelineLayout(*device, pipelineLayout, nullptr);
 		vkDestroyRenderPass(*device, *renderPass, nullptr);

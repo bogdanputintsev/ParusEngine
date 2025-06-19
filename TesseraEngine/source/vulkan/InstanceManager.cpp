@@ -62,7 +62,7 @@ namespace tessera::vulkan
 		instance = std::make_shared<VkInstance>(instanceObject);
 	}
 
-	void InstanceManager::clean() const
+	void InstanceManager::clean()
 	{
 		vkDestroyInstance(*instance, nullptr);
 	}

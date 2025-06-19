@@ -152,6 +152,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="source\utils\interfaces\ServiceLocator.cpp" />
     <ClCompile Include="source\utils\ShaderLoader.cpp" />
     <ClCompile Include="source\Application.cpp" />
     <ClCompile Include="source\glfw\GlfwInitializer.cpp" />
@@ -171,10 +172,13 @@
     <ClCompile Include="source\vulkan\CommandBufferManager.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="source\utils\interfaces\Service.h" />
+    <ClInclude Include="source\utils\interfaces\ServiceLocator.h" />
     <ClInclude Include="source\utils\ShaderLoader.h" />
     <ClInclude Include="source\Application.h" />
     <ClInclude Include="source\glfw\GlfwInitializer.h" />
     <ClInclude Include="source\utils\TesseraLog.h" />
+    <ClInclude Include="source\utils\Utils.h" />
     <ClInclude Include="source\vulkan\DebugManager.h" />
     <ClInclude Include="source\vulkan\DeviceManager.h" />
     <ClInclude Include="source\vulkan\ExtensionManager.h" />
@@ -187,6 +191,7 @@
     <ClInclude Include="source\vulkan\SwapChainManager.h" />
     <ClInclude Include="source\vulkan\FramebufferManager.h" />
     <ClInclude Include="source\vulkan\CommandBufferManager.h" />
+    <ClInclude Include="source\utils\interfaces\Initializable.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\shader.frag" />

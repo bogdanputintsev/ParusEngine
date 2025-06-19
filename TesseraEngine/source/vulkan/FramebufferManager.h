@@ -1,5 +1,4 @@
 #pragma once
-#include <memory>
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
@@ -8,11 +7,14 @@
 namespace tessera::vulkan
 {
 	
-	class FramebufferManager final
+	class FramebufferManager final : public Initializable
 	{
 	public:
-		void init(const std::vector<VkImageView>& swapChainImageViews, const std::shared_ptr<const VkDevice>& device, const std::shared_ptr<VkRenderPass>& renderPass, const SwapChainImageDetails& swapChainImageDetails);
-		void clean(const std::shared_ptr<const VkDevice>& device) const;
+		void init() override;
+		void clean() override;
+
+		[[nodiscard]] std::vector<VkFramebuffer> getSwapChainFramebuffers() const { return swapChainFramebuffers; }
+
 	private:
 		std::vector<VkFramebuffer> swapChainFramebuffers;
 	};

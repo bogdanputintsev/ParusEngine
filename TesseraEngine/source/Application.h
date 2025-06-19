@@ -1,39 +1,40 @@
 #pragma once
 
+#include <list>
+#include <memory>
+
 #include "glfw/GlfwInitializer.h"
-#include "vulkan/CommandBufferManager.h"
 #include "vulkan/DebugManager.h"
 #include "vulkan/FramebufferManager.h"
 #include "vulkan/GraphicsPipelineManager.h"
 #include "vulkan/ImageViewManager.h"
 #include "vulkan/InstanceManager.h"
 #include "vulkan/SurfaceManager.h"
+#include "vulkan/SwapChainManager.h"
 
 namespace tessera
 {
-	class Application final
+	class Application final : public Initializable
 	{
 	public:
-		Application() = default;
-		void init();
+		void init() override;
+		void clean() override;
 
 	private:
-		void clean() const;
+		template <class T>
+		void registerServiceManager(const T* servicePointer, const std::shared_ptr<Initializable>& service);
 
-		std::shared_ptr<GLFWwindow> window;
-		std::shared_ptr<const VkInstance> instance;
-		std::shared_ptr<const VkSurfaceKHR> surface;
-
-		glfw::GlfwInitializer glfwInitializer;
-		vulkan::InstanceManager instanceManager;
-		vulkan::DebugManager debugManager;
-		vulkan::SurfaceManager surfaceManager;
-		vulkan::DeviceManager deviceManager;
-		vulkan::SwapChainManager swapChainManager;
-		vulkan::ImageViewManager imageViewManager;
-		vulkan::GraphicsPipelineManager graphicsPipelineManager;
-		vulkan::FramebufferManager framebufferManager;
-		vulkan::CommandBufferManager commandPoolManager;
+		static inline std::list<std::shared_ptr<Initializable>> initializerList = {
+			std::make_shared<glfw::GlfwInitializer>(),
+			std::make_shared<vulkan::InstanceManager>(),
+			std::make_shared<vulkan::DebugManager>(),
+			std::make_shared<vulkan::SurfaceManager>(),
+			std::make_shared<vulkan::DeviceManager>(),
+			std::make_shared<vulkan::SwapChainManager>(),
+			std::make_shared<vulkan::ImageViewManager>(),
+			std::make_shared<vulkan::GraphicsPipelineManager>(),
+			std::make_shared<vulkan::FramebufferManager>()
+		};
 	};
 
 }

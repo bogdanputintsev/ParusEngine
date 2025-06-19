@@ -7,11 +7,11 @@
 namespace tessera::vulkan
 {
 
-	class GraphicsPipelineManager
+	class GraphicsPipelineManager final : public Initializable
 	{
 	public:
-		void init(const std::shared_ptr<const VkDevice>& device, const SwapChainImageDetails& swapChainImageDetails);
-		void clean(const std::shared_ptr<const VkDevice>& device) const;
+		void init() override;
+		void clean() override;
 
 		[[nodiscard]] std::shared_ptr<VkRenderPass> getRenderPath() const { return renderPass; }
 	private:
