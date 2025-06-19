@@ -79,7 +79,7 @@ namespace tessera::vulkan
 
 		// Image View
 		void createImageViews();
-		VkImageView createImageView(VkImage image, VkFormat format) const;
+		VkImageView createImageView(const VkImage image, const VkFormat format, VkImageAspectFlags aspectFlags) const;
 
 		// Render Pass
 		void createRenderPass();
@@ -92,7 +92,7 @@ namespace tessera::vulkan
 		static VkShaderModule createShaderModule(const std::vector<char>& code, const VkDevice& device);
 
 		// Framebuffer
-		void createFramebuffer();
+		void createFramebuffers();
 
 		// Command buffer
 		void createCommandBuffer();
@@ -105,6 +105,12 @@ namespace tessera::vulkan
 		void createCommandPool();
 		VkCommandBuffer beginSingleTimeCommands() const;
 		void endSingleTimeCommands(VkCommandBuffer commandBuffer) const;
+
+		// Depth resources
+		void createDepthResources();
+		VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
+		VkFormat findDepthFormat();
+		static bool hasStencilComponent(VkFormat format);
 
 		// Texture image
 		void createTextureImage();
@@ -163,6 +169,9 @@ namespace tessera::vulkan
 		VkDeviceMemory textureImageMemory;
 		VkImageView textureImageView;
 		VkSampler textureSampler;
+		VkImage depthImage;
+		VkDeviceMemory depthImageMemory;
+		VkImageView depthImageView;
 		std::vector<VkBuffer> uniformBuffers{};
 		std::vector<VkDeviceMemory> uniformBuffersMemory{};
 		std::vector<void*> uniformBuffersMapped{};

@@ -1,10 +1,9 @@
-#include <iostream>
+#define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 
 #include "Core.h"
 #include "Application.h"
 #include "utils/TesseraLog.h"
-
-// FIXME: Fix issue with shaders directory.
 
 int main()
 {
