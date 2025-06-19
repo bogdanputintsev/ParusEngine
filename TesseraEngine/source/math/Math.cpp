@@ -47,6 +47,42 @@ namespace tessera::math
         return *this;
     }
 
+    Vector2 Vector2::operator+(const Vector2& other) const
+    {
+        return { x + other.x, y + other.y };
+    }
+
+    Vector2 Vector2::operator-(const Vector2& other) const
+    {
+        return { x - other.x, y - other.y };
+    }
+
+    Vector2 Vector2::operator*(const float scalar) const
+    {
+        return { x * scalar, y * scalar };
+    }
+
+    Vector2& Vector2::operator+=(const Vector2& other)
+    {
+        x += other.x;
+        y += other.y;
+        return *this;
+    }
+
+    Vector2& Vector2::operator-=(const Vector2& other)
+    {
+        x -= other.x;
+        y -= other.y;
+        return *this;
+    }
+
+    Vector2& Vector2::operator*=(const float scalar)
+    {
+        x *= scalar;
+        y *= scalar;
+        return *this;
+    }
+
     bool Vector2::operator==(const Vector2& other) const
     {
         return isNearlyEqual(x, other.x)
@@ -264,6 +300,21 @@ namespace tessera::math
         return result;
     }
 
+    TrivialMatrix4x4 Matrix4x4::trivial() const noexcept
+    {
+        TrivialMatrix4x4 result{};
+
+        for (int i = 0; i < 4; i++)
+        {
+            for (int j = 0; j < 4; j++)
+            {
+                result.values[i][j] = values[i][j];
+            }
+        }
+
+        return result;
+    }
+
     Matrix4x4 Matrix4x4::perspective(const float fovRadians, const float aspectRatio, const float near, const float far)
     {
         Matrix4x4 result{};
@@ -309,7 +360,19 @@ namespace tessera::math
     bool Vertex::operator==(const Vertex& other) const
     {
         return position == other.position
-            && color == other.color
-            && textureCoordinates == other.textureCoordinates;
+            && normal == other.normal
+            && textureCoordinates == other.textureCoordinates
+            && tangent == other.tangent;
+    }
+    
+    TrivialVertex Vertex::trivial() const noexcept
+    {
+         return
+            {
+                .position = position.trivial(),
+                .normal = normal.trivial(),
+                .tangent = tangent.trivial(),
+                .textureCoordinates= textureCoordinates.trivial()
+            }; 
     }
 }
