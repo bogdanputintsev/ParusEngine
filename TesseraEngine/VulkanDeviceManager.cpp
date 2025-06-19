@@ -1,20 +1,22 @@
-#include "VulkanLogicalDeviceManager.h"
+#include "VulkanDeviceManager.h"
 
 #include <cassert>
 #include <set>
 #include <stdexcept>
 
 #include "VulkanDebugManager.h"
+#include "VulkanExtensionManager.h"
 #include "VulkanQueueFamiliesManager.h"
 
 namespace tessera::vulkan
 {
-	void VulkanLogicalDeviceManager::init(const std::shared_ptr<const VkInstance>& instance, const std::shared_ptr<const VkSurfaceKHR>& surface)
+	void VulkanDeviceManager::init(const std::shared_ptr<const VkInstance>& instance, const std::shared_ptr<const VkSurfaceKHR>& surface)
 	{
-		const VkPhysicalDevice physicalDevice = VulkanPhysicalDeviceManager::pickAnySuitableDevice(*instance, surface);
+		physicalDeviceManager.pickAnySuitableDevice(instance, surface);
+		const auto physicalDevice = physicalDeviceManager.getPhysicalDevice();
 		assert(physicalDevice);
 
-		const auto [graphicsFamily, presentFamily] = VulkanQueueFamiliesManager::findQueueFamilies(physicalDevice, surface);
+		const auto [graphicsFamily, presentFamily] = VulkanQueueFamiliesManager::findQueueFamilies(*physicalDevice, surface);
 		std::set uniqueQueueFamilies = { graphicsFamily.value(), presentFamily.value() };
 
 		constexpr float queuePriority = 1.0f;
@@ -38,7 +40,10 @@ namespace tessera::vulkan
 		createInfo.pQueueCreateInfos = queueCreateInfos.data();
 		createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
 		createInfo.pEnabledFeatures = &deviceFeatures;
-		createInfo.enabledExtensionCount = 0;
+
+		const auto requiredExtensions = VulkanExtensionManager::getRequiredDeviceExtensions();
+		createInfo.enabledExtensionCount = static_cast<uint32_t>(requiredExtensions.size());
+		createInfo.ppEnabledExtensionNames = requiredExtensions.data();
 
 		// Distinction between instance and device specific validation no longer the case. This was added for back compatibility.
 		const std::vector<const char*> validationLayers = VulkanDebugManager::getValidationLayers();
@@ -52,18 +57,21 @@ namespace tessera::vulkan
 			createInfo.enabledLayerCount = 0;
 		}
 
-		if (vkCreateDevice(physicalDevice, &createInfo, nullptr, &device) != VK_SUCCESS)
+		VkDevice logicalDeviceInstance = VK_NULL_HANDLE;
+		if (vkCreateDevice(*physicalDevice, &createInfo, nullptr, &logicalDeviceInstance) != VK_SUCCESS)
 		{
 			throw std::runtime_error("VulkanLogicalDeviceManager: failed to create logical device.");
 		}
 
-		vkGetDeviceQueue(device, graphicsFamily.value(), 0, &graphicsQueue);
-		vkGetDeviceQueue(device, presentFamily.value(), 0, &presentQueue);
+		vkGetDeviceQueue(logicalDeviceInstance, graphicsFamily.value(), 0, &graphicsQueue);
+		vkGetDeviceQueue(logicalDeviceInstance, presentFamily.value(), 0, &presentQueue);
+
+		logicalDevice = std::make_shared<VkDevice>(logicalDeviceInstance);
 	}
 
-	void VulkanLogicalDeviceManager::clean() const
+	void VulkanDeviceManager::clean() const
 	{
-		vkDestroyDevice(device, nullptr);
+		vkDestroyDevice(*logicalDevice, nullptr);
 	}
 
 }

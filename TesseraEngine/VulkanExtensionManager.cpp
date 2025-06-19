@@ -1,5 +1,6 @@
 #include "VulkanExtensionManager.h"
 
+#include <set>
 #include <stdexcept>
 #include <unordered_set>
 #include <vector>
@@ -9,14 +10,15 @@
 
 namespace tessera::vulkan
 {
-	std::vector<const char*> VulkanExtensionManager::getRequiredExtensions()
+	std::vector<const char*> VulkanExtensionManager::getRequiredInstanceExtensions()
 	{
 		uint32_t glfwExtensionCount = 0;
 		const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
 
 		std::vector extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
 
-		if (VulkanDebugManager::validationLayersAreEnabled()) {
+		if (VulkanDebugManager::validationLayersAreEnabled()) 
+		{
 			extensions.emplace_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 		}
 
@@ -25,7 +27,7 @@ namespace tessera::vulkan
 
 	void VulkanExtensionManager::checkIfAllGlsfRequiredExtensionsAreSupported()
 	{
-		const std::vector<const char*> requiredExtensions = getRequiredExtensions();
+		const std::vector<const char*> requiredExtensions = getRequiredInstanceExtensions();
 		const std::unordered_set<std::string> requiredExtensionsSet{ requiredExtensions.begin(), requiredExtensions.end() };
 
 		uint32_t matches = 0;
@@ -52,5 +54,31 @@ namespace tessera::vulkan
 		}
 	}
 
+	std::vector<const char*> VulkanExtensionManager::getRequiredDeviceExtensions()
+	{
+		return { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+	}
+
+	// TODO: Avoid code redundancy.
+	bool VulkanExtensionManager::isDeviceExtensionSupported(const VkPhysicalDevice& device)
+	{
+		const std::vector<const char*> requiredExtensions = getRequiredDeviceExtensions();
+
+		uint32_t extensionCount;
+		vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
+
+		std::vector<VkExtensionProperties> availableExtensions(extensionCount);
+		vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtensions.data());
+
+		// TODO: Optimize with O(1) complexity.
+		std::set<std::string> requiredExtensionsSet(requiredExtensions.begin(), requiredExtensions.end());
+
+		for (const auto& extension : availableExtensions) 
+		{
+			requiredExtensionsSet.erase(extension.extensionName);
+		}
+
+		return requiredExtensionsSet.empty();
+	}
 }
 

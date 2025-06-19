@@ -3,14 +3,16 @@
 #include <stdexcept>
 #include <vector>
 
+#include "VulkanExtensionManager.h"
 #include "VulkanQueueFamiliesManager.h"
+#include "VulkanSwapChainManager.h"
 
 namespace tessera::vulkan
 {
-	VkPhysicalDevice VulkanPhysicalDeviceManager::pickAnySuitableDevice(const VkInstance& instance, const std::shared_ptr<const VkSurfaceKHR>& surface)
+	void VulkanPhysicalDeviceManager::pickAnySuitableDevice(const std::shared_ptr<const VkInstance>& instance, const std::shared_ptr<const VkSurfaceKHR>& surface)
 	{
 		uint32_t deviceCount = 0;
-		vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
+		vkEnumeratePhysicalDevices(*instance, &deviceCount, nullptr);
 
 		if (deviceCount == 0) 
 		{
@@ -18,13 +20,14 @@ namespace tessera::vulkan
 		}
 
 		std::vector<VkPhysicalDevice> devices(deviceCount);
-		vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
+		vkEnumeratePhysicalDevices(*instance, &deviceCount, devices.data());
 
 		for (const auto& device : devices) 
 		{
 			if (isDeviceSuitable(device, surface)) 
 			{
-				return device;
+				physicalDevice = std::make_shared<VkPhysicalDevice>(device);
+				return;
 			}
 		}
 
@@ -34,17 +37,23 @@ namespace tessera::vulkan
 	bool VulkanPhysicalDeviceManager::isDeviceSuitable(const VkPhysicalDevice& device, const std::shared_ptr<const VkSurfaceKHR>& surface)
 	{
 		// Basic device properties like the name, type and supported Vulkan version.
-		VkPhysicalDeviceProperties deviceProperties;
+		[[maybe_unused]] VkPhysicalDeviceProperties deviceProperties;
 		vkGetPhysicalDeviceProperties(device, &deviceProperties);
 
 		// The support for optional features like texture compression, 64 bit floats and multi viewport rendering.
-		VkPhysicalDeviceFeatures deviceFeatures;
+		[[maybe_unused]] VkPhysicalDeviceFeatures deviceFeatures;
 		vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
 
 		// Check if device can process the commands we want to use.
 		const QueueFamilyIndices indices = VulkanQueueFamiliesManager::findQueueFamilies(device, surface);
 
-		return indices.isComplete();
+		// Check if physical device supports swap chain extension.
+		const bool extensionsSupported = VulkanExtensionManager::isDeviceExtensionSupported(device);
+
+		// Check if physical device supports swap chain.
+		const SwapChainSupportDetails swapChainSupport = VulkanSwapChainManager::querySwapChainSupport(device, surface);
+		
+		return indices.isComplete() && extensionsSupported && swapChainSupport.isComplete();
 	}
 
 }

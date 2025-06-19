@@ -4,6 +4,7 @@
 #include "VulkanDebugManager.h"
 #include "VulkanInstanceManager.h"
 #include "VulkanSurfaceManager.h"
+#include "VulkanSwapChainManager.h"
 
 namespace tessera
 {
@@ -24,7 +25,8 @@ namespace tessera
 		vulkan::VulkanInstanceManager vulkanInstanceManager;
 		vulkan::VulkanDebugManager debugManager;
 		vulkan::VulkanSurfaceManager surfaceManager;
-		vulkan::VulkanLogicalDeviceManager logicalDeviceManager;
+		vulkan::VulkanDeviceManager deviceManager;
+		vulkan::VulkanSwapChainManager swapChainManager;
 	};
 
 }
