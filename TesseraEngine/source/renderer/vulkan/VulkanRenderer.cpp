@@ -408,6 +408,8 @@ namespace tessera::vulkan
 			if (isDeviceSuitable(device, surface))
 			{
 				physicalDevice = device;
+				msaaSamples = getMaxUsableSampleCount();
+				break;
 			}
 		}
 
@@ -612,6 +614,7 @@ namespace tessera::vulkan
 
 		createSwapChain();
 		createImageViews();
+		createColorResources();
 		createDepthResources();
 		createFramebuffers();
 	}
@@ -621,6 +624,10 @@ namespace tessera::vulkan
 		vkDestroyImageView(logicalDevice, depthImageView, nullptr);
 		vkDestroyImage(logicalDevice, depthImage, nullptr);
 		vkFreeMemory(logicalDevice, depthImageMemory, nullptr);
+
+		vkDestroyImageView(logicalDevice, colorImageView, nullptr);
+		vkDestroyImage(logicalDevice, colorImage, nullptr);
+		vkFreeMemory(logicalDevice, colorImageMemory, nullptr);
 
 		for (const auto framebuffer : swapChainFramebuffers) {
 			vkDestroyFramebuffer(logicalDevice, framebuffer, nullptr);
@@ -669,23 +676,33 @@ namespace tessera::vulkan
 	{
 		VkAttachmentDescription colorAttachment{};
 		colorAttachment.format = swapChainDetails.swapChainImageFormat;
-		colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+		colorAttachment.samples = msaaSamples;
 		colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 		colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 		colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 		colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 		colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+		colorAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
 		VkAttachmentDescription depthAttachment{};
 		depthAttachment.format = findDepthFormat();
-		depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+		depthAttachment.samples = msaaSamples;
 		depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 		depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 		depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 		depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 		depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 		depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+		VkAttachmentDescription colorAttachmentResolve{};
+		colorAttachmentResolve.format = swapChainDetails.swapChainImageFormat;
+		colorAttachmentResolve.samples = VK_SAMPLE_COUNT_1_BIT;
+		colorAttachmentResolve.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		colorAttachmentResolve.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		colorAttachmentResolve.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		colorAttachmentResolve.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		colorAttachmentResolve.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		colorAttachmentResolve.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
 		VkAttachmentReference colorAttachmentRef{};
 		colorAttachmentRef.attachment = 0;
@@ -695,10 +712,15 @@ namespace tessera::vulkan
 		depthAttachmentRef.attachment = 1;
 		depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
+		VkAttachmentReference colorAttachmentResolveRef{};
+		colorAttachmentResolveRef.attachment = 2;
+		colorAttachmentResolveRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
 		VkSubpassDescription subpass{};
 		subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 		subpass.colorAttachmentCount = 1;
 		subpass.pColorAttachments = &colorAttachmentRef;
+		subpass.pResolveAttachments = &colorAttachmentResolveRef;
 		subpass.pDepthStencilAttachment = &depthAttachmentRef;
 
 		VkSubpassDependency dependency{};
@@ -709,7 +731,7 @@ namespace tessera::vulkan
 		dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
 		dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
-		const std::array attachments = { colorAttachment, depthAttachment };
+		const std::array attachments = { colorAttachment, depthAttachment, colorAttachmentResolve };
 
 		VkRenderPassCreateInfo renderPassInfo{};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
@@ -810,8 +832,8 @@ namespace tessera::vulkan
 		VkPipelineMultisampleStateCreateInfo multisampling{};
 		multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
 		multisampling.sampleShadingEnable = VK_FALSE;
-		multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 		multisampling.minSampleShading = 1.0f;
+		multisampling.rasterizationSamples = msaaSamples;
 		multisampling.pSampleMask = nullptr;
 		multisampling.alphaToCoverageEnable = VK_FALSE;
 		multisampling.alphaToOneEnable = VK_FALSE;
@@ -908,9 +930,10 @@ namespace tessera::vulkan
 
 		for (size_t i = 0; i < swapChainImageViews.size(); ++i)
 		{
-			std::array<VkImageView, 2> attachments = {
-				swapChainImageViews[i],
-				depthImageView
+			std::array attachments = {
+				colorImageView,
+				depthImageView,
+				swapChainImageViews[i]
 			};
 
 			const auto& [width, height] = swapChainDetails.swapChainExtent;
@@ -1064,11 +1087,11 @@ namespace tessera::vulkan
 		createImage(swapChainDetails.swapChainExtent.width,
 			swapChainDetails.swapChainExtent.height,
 			1,
+			msaaSamples,
 			depthFormat,
 			VK_IMAGE_TILING_OPTIMAL,
 			VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-			depthImage, depthImageMemory);
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, depthImage, depthImageMemory);
 
 		depthImageView = createImageView(depthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, 1);
 	}
@@ -1129,7 +1152,7 @@ namespace tessera::vulkan
 
 		stbi_image_free(pixels);
 
-		createImage(texWidth, texHeight, maxMipLevels, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory);
+		createImage(texWidth, texHeight, maxMipLevels, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory);
 		transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, maxMipLevels);
 		copyBufferToImage(stagingBuffer, textureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
 
@@ -1225,7 +1248,16 @@ namespace tessera::vulkan
 		endSingleTimeCommands(commandBuffer);
 	}
 
-	void VulkanContext::createImage(uint32_t width, uint32_t height, uint32_t miplevels, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory) const
+	void VulkanContext::createImage(const uint32_t width,
+		const uint32_t height,
+		const uint32_t numberOfMipLevels,
+		const VkSampleCountFlagBits numberOfSamples,
+		const VkFormat format,
+		const VkImageTiling tiling,
+		const VkImageUsageFlags usage,
+		const VkMemoryPropertyFlags properties,
+		VkImage& image,
+		VkDeviceMemory& imageMemory) const
 	{
 		VkImageCreateInfo imageInfo{};
 		imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -1233,13 +1265,13 @@ namespace tessera::vulkan
 		imageInfo.extent.width = width;
 		imageInfo.extent.height = height;
 		imageInfo.extent.depth = 1;
-		imageInfo.mipLevels = maxMipLevels;
+		imageInfo.mipLevels = numberOfMipLevels;
 		imageInfo.arrayLayers = 1;
 		imageInfo.format = format;
 		imageInfo.tiling = tiling;
 		imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 		imageInfo.usage = usage;
-		imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+		imageInfo.samples = numberOfSamples;
 		imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
 		ASSERT(vkCreateImage(logicalDevice, &imageInfo, nullptr, &image) == VK_SUCCESS, "failed to create image.");
@@ -1361,6 +1393,14 @@ namespace tessera::vulkan
 		samplerInfo.mipLodBias = 0.0f; // Optional
 
 		ASSERT(vkCreateSampler(logicalDevice, &samplerInfo, nullptr, &textureSampler) == VK_SUCCESS, "failed to create texture sampler.");
+	}
+
+	void VulkanContext::createColorResources()
+	{
+		const VkFormat colorFormat = swapChainDetails.swapChainImageFormat;
+
+		createImage(swapChainDetails.swapChainExtent.width, swapChainDetails.swapChainExtent.height, 1, msaaSamples, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, colorImage, colorImageMemory);
+		colorImageView = createImageView(colorImage, colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
 	}
 
 	void VulkanContext::createBufferManager()
@@ -1601,6 +1641,22 @@ namespace tessera::vulkan
 		vkResetFences(logicalDevice, 1, &inFlightFences[currentFrame]);
 	}
 
+	VkSampleCountFlagBits VulkanContext::getMaxUsableSampleCount() const
+	{
+		VkPhysicalDeviceProperties physicalDeviceProperties;
+		vkGetPhysicalDeviceProperties(physicalDevice, &physicalDeviceProperties);
+
+		const VkSampleCountFlags counts = physicalDeviceProperties.limits.framebufferColorSampleCounts & physicalDeviceProperties.limits.framebufferDepthSampleCounts;
+		if (counts & VK_SAMPLE_COUNT_64_BIT) { return VK_SAMPLE_COUNT_64_BIT; }
+		if (counts & VK_SAMPLE_COUNT_32_BIT) { return VK_SAMPLE_COUNT_32_BIT; }
+		if (counts & VK_SAMPLE_COUNT_16_BIT) { return VK_SAMPLE_COUNT_16_BIT; }
+		if (counts & VK_SAMPLE_COUNT_8_BIT) { return VK_SAMPLE_COUNT_8_BIT; }
+		if (counts & VK_SAMPLE_COUNT_4_BIT) { return VK_SAMPLE_COUNT_4_BIT; }
+		if (counts & VK_SAMPLE_COUNT_2_BIT) { return VK_SAMPLE_COUNT_2_BIT; }
+
+		return VK_SAMPLE_COUNT_1_BIT;
+	}
+
 	VkVertexInputBindingDescription VulkanContext::getBindingDescription()
 	{
 		VkVertexInputBindingDescription bindingDescription{};
@@ -1648,6 +1704,7 @@ namespace tessera::vulkan
 		context.createDescriptorSetLayout();
 		context.createGraphicsPipeline();
 		context.createCommandPool();
+		context.createColorResources();
 		context.createDepthResources();
 		context.createFramebuffers();
 		context.createTextureImage();
