@@ -9,6 +9,8 @@
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_win32.h>
 
+#include "../resource.h"
+
 #include "Core.h"
 #include "Event.h"
 #include "core/Input.h"
@@ -105,7 +107,7 @@ namespace tessera
     {
         platformState.hinstance = GetModuleHandleA(nullptr);
 
-        const HICON icon = LoadIcon(platformState.hinstance, IDI_APPLICATION);
+        const HICON icon = LoadIcon(platformState.hinstance, MAKEINTRESOURCE(IDI_ICON1));
         WNDCLASSA wc = {};
         wc.style = CS_DBLCLKS;  // Get double-clicks
         wc.lpfnWndProc = win32ProcessMessage;
