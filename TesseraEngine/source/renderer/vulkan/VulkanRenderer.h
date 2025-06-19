@@ -1,13 +1,19 @@
 #pragma once
 #include <memory>
+#include <mutex>
 #include <optional>
+#include <queue>
 #include <unordered_map>
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
+#include "importers/textures/TextureImporter.h"
 #include "math/Math.h"
+#include "mesh/Mesh.h"
+#include "model/Model.h"
 #include "renderer/Renderer.h"
 #include "utils/TesseraLog.h"
+
 
 namespace tessera::imgui
 {
@@ -40,37 +46,17 @@ namespace tessera::vulkan
 		[[nodiscard]] bool isComplete() const { return graphicsFamily.has_value() && presentFamily.has_value(); }
 	};
 
-	struct Texture
+	
+	struct GlobalGeometryBuffers
 	{
-		VkImage textureImage;
-		VkDeviceMemory textureImageMemory;
-		VkImageView textureImageView;
-		VkSampler textureSampler;
-		uint32_t maxMipLevels;
-	};
+		VkBuffer vertexBuffer = VK_NULL_HANDLE;
+		VkDeviceMemory vertexBufferMemory = VK_NULL_HANDLE;
+		VkBuffer indexBuffer = VK_NULL_HANDLE;
+		VkDeviceMemory indexBufferMemory = VK_NULL_HANDLE;
 
-	struct MeshPart
-	{
-		size_t vertexOffset;
-		size_t vertexCount;
-		size_t indexOffset;
-		size_t indexCount;
-		std::shared_ptr<Texture> texture;
-		std::vector<VkDescriptorSet> descriptorSets;
-
-		std::vector<math::Vertex> vertices;
-		std::vector<uint32_t> indices;
-	};
-
-	struct Mesh
-	{
-		std::vector<MeshPart> meshParts;
-	};
-
-	struct Model
-	{
-		std::shared_ptr<Mesh> mesh;
-		math::Matrix4x4 transform = math::Matrix4x4::identity();
+		// Total counts
+		size_t totalVertices = 0;
+		size_t totalIndices = 0;
 	};
 
 	class VulkanRenderer final : public Renderer
@@ -82,14 +68,28 @@ namespace tessera::vulkan
 		void deviceWaitIdle() override;
 
 		friend class tessera::imgui::ImGuiLibrary;
+		friend class tessera::TextureImporter;
 	private:
-		std::unordered_map<std::string, std::shared_ptr<Mesh>> meshes;
-		std::unordered_map<std::string, std::shared_ptr<Texture>> textures;
+		static constexpr float Z_NEAR = 0.1f;
+		static constexpr float Z_FAR = 1500.0f;
+		static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
+		static constexpr int IMAGE_SAMPLER_POOL_SIZE = 1000;
+		static constexpr uint32_t DESCRIPTOR_SET_COUNT = MAX_FRAMES_IN_FLIGHT + IMAGE_SAMPLER_POOL_SIZE;
 		
+		GlobalGeometryBuffers globalBuffers;
+		
+		
+		std::vector<Model> models;
 
+		void cleanupFrameResources();
+
+		std::queue<std::pair<std::string, std::shared_ptr<Mesh>>> modelQueue;
+		std::mutex importModelMutex;
+		
 		// Load model
-		void importMesh(const std::string& modelPath);
-
+		void importMesh(const std::string& meshPath);
+		void processLoadedMeshes();
+		
 		// Instance
 		void createInstance();
 		static void checkValidationLayerSupport();
@@ -155,12 +155,12 @@ namespace tessera::vulkan
 		void resetCommandBuffer(const int bufferId) const;
 		void recordCommandBuffer(VkCommandBuffer commandBufferToRecord, uint32_t imageIndex) const;
 		[[nodiscard]] VkCommandBuffer getCommandBuffer(const int bufferId) const;
-		[[nodiscard]] VkCommandPool getCommandPool() const { return commandPool; }
+		[[nodiscard]] VkCommandPool getCommandPool();
 
 		// Command pool
-		void createCommandPool();
-		VkCommandBuffer beginSingleTimeCommands() const;
-		void endSingleTimeCommands(VkCommandBuffer commandBuffer) const;
+		VkCommandPool createCommandPool() const;
+		VkCommandBuffer beginSingleTimeCommands();
+		void endSingleTimeCommands(VkCommandBuffer commandBuffer);
 
 		// Depth resources
 		void createDepthResources();
@@ -169,15 +169,29 @@ namespace tessera::vulkan
 		static bool hasStencilComponent(VkFormat format);
 
 		// Texture image
-		void importTexture(const std::string& texturePath);
-		void generateMipmaps(const Texture& texture, VkFormat imageFormat,
-		                     int32_t texWidth,
-		                     int32_t texHeight) const;
-		void createImage(uint32_t width, uint32_t height, uint32_t numberOfMipLevels, VkSampleCountFlagBits numberOfSamples, VkFormat format, VkImageTiling
-			tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags
-			properties, VkImage& image, VkDeviceMemory& imageMemory) const;
-		void transitionImageLayout(const VkImage image, VkFormat format, const VkImageLayout oldLayout, const VkImageLayout newLayout, uint32_t mipLevels) const;
-		void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height) const;
+		void generateMipmaps(
+			const Texture& texture,
+			VkFormat imageFormat,
+		    int32_t texWidth,
+		    int32_t texHeight);
+		void createImage(
+			uint32_t width,
+			uint32_t height,
+			uint32_t numberOfMipLevels,
+			VkSampleCountFlagBits numberOfSamples,
+			VkFormat format,
+			VkImageTiling tiling,
+			VkImageUsageFlags usage,
+			VkMemoryPropertyFlags properties,
+			VkImage& image,
+			VkDeviceMemory& imageMemory) const;
+		void transitionImageLayout(
+			const VkImage image,
+			VkFormat format,
+			const VkImageLayout oldLayout,
+			const VkImageLayout newLayout,
+			uint32_t mipLevels);
+		void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
 		VkSampler createTextureSampler(uint32_t maxMipLevels) const;
 		void createColorResources();
 
@@ -186,7 +200,7 @@ namespace tessera::vulkan
 		void createVertexBuffer(const std::vector<math::Vertex>& vertices);
 		void createBuffer(const VkDeviceSize size, const VkBufferUsageFlags usage, const VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) const;
 		[[nodiscard]] uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const;
-		void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) const;
+		void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 		void createIndexBuffer(const std::vector<uint32_t>& indices);
 		void createUniformBuffer();
 		void updateUniformBuffer(uint32_t currentImage) const;
@@ -212,7 +226,21 @@ namespace tessera::vulkan
 		VkSurfaceKHR surface = VK_NULL_HANDLE;
 		VkDevice logicalDevice = VK_NULL_HANDLE;
 		VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
+
+		std::mutex graphicsQueueMutex;
 		VkQueue graphicsQueue = VK_NULL_HANDLE;
+		VkResult threadSafeQueueSubmit(const VkSubmitInfo* submitInfo, VkFence fence)
+		{
+			std::lock_guard<std::mutex> lock(graphicsQueueMutex);
+			return vkQueueSubmit(graphicsQueue, 1, submitInfo, fence);
+		}
+
+		VkResult threadSafePresent(const VkPresentInfoKHR* presentInfo)
+		{
+			std::lock_guard<std::mutex> lock(graphicsQueueMutex);
+			return vkQueuePresentKHR(graphicsQueue, presentInfo);
+		}
+
 		VkQueue presentQueue = VK_NULL_HANDLE;
 		VkSwapchainKHR swapChain = VK_NULL_HANDLE;
 		SwapChainImageDetails swapChainDetails{};
@@ -224,13 +252,10 @@ namespace tessera::vulkan
 		VkPipeline graphicsPipeline = VK_NULL_HANDLE;
 		std::vector<VkFramebuffer> swapChainFramebuffers{};
 		std::vector<VkCommandBuffer> commandBuffers{};
-		VkCommandPool commandPool = VK_NULL_HANDLE;
-		VkBuffer vertexBuffer = VK_NULL_HANDLE;
-		VkDeviceMemory vertexBufferMemory = VK_NULL_HANDLE;
-		VkBuffer indexBuffer = VK_NULL_HANDLE;
-		VkDeviceMemory indexBufferMemory = VK_NULL_HANDLE;
+
 		
-		std::vector<Model> models;
+		std::unordered_map<std::thread::id, VkCommandPool> threadCommandPools;
+		
 		
 		VkImage depthImage;
 		VkDeviceMemory depthImageMemory;
@@ -255,11 +280,19 @@ namespace tessera::vulkan
 		int currentFrame = 0;
 		bool framebufferResized = false;
 		
-		static constexpr float Z_NEAR = 0.1f;
-		static constexpr float Z_FAR = 1500.0f;
-		static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
-		static constexpr int IMAGE_SAMPLER_POOL_SIZE = 1000;
-		static constexpr uint32_t DESCRIPTOR_SET_COUNT = MAX_FRAMES_IN_FLIGHT + IMAGE_SAMPLER_POOL_SIZE;
+		
+
+		struct FrameData {
+			VkCommandPool commandPool;
+			VkCommandBuffer commandBuffer;
+			VkFence fence;
+			std::vector<std::pair<VkBuffer, VkDeviceMemory>> buffersToDelete;
+		};
+
+		std::array<FrameData, MAX_FRAMES_IN_FLIGHT> frames;
+
+		bool isRunning = false;
+
 	};
 
 }
