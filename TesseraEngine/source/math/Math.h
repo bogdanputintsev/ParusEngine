@@ -1,0 +1,223 @@
+﻿#pragma once
+#include <array>
+#include <numbers>
+
+namespace tessera::math
+{
+    /*==================================
+     * Constants
+     *==================================*/
+    static constexpr inline double MATH_EPSILON = 1.192092896e-07f;
+    static constexpr inline double MATH_PI = std::numbers::pi;
+
+    /*==================================
+     * Vector2 
+     *==================================*/
+    struct Vector2
+    {
+        float x, y;
+
+        // Default constructor
+        Vector2() : x(0), y(0) {}
+
+        // Default destructor
+        ~Vector2() = default;
+        
+        // Parameterized constructor
+        Vector2(const float x, const float y) : x(x), y(y) {}
+
+        // Copy constructor
+        Vector2(const Vector2& other) = default;
+
+        // Move constructor
+        Vector2(Vector2&& other) noexcept : x(other.x), y(other.y) {}
+
+        // Copy assignment operator
+        Vector2& operator=(const Vector2& other);
+
+        // Move assignment operator
+        Vector2& operator=(Vector2&& other) noexcept;
+
+        // Equality operator
+        bool operator==(const Vector2& other) const;
+
+        // Inequality operator
+        bool operator!=(const Vector2& other) const;
+    };
+
+    /*==================================
+     * Vector3
+     *==================================*/
+    struct Vector3
+    {
+        float x, y, z;
+
+        // Default constructor
+        Vector3() : x(0), y(0), z(0) {}
+
+        // Default destructor
+        ~Vector3() = default;
+        
+        // Parameterized constructor
+        Vector3(const float x, const float y, const float z) : x(x), y(y), z(z) {}
+
+        // Copy constructor
+        Vector3(const Vector3& other) = default;
+
+        // Move constructor
+        Vector3(Vector3&& other) noexcept : x(other.x), y(other.y), z(other.z) {}
+
+        // Copy assignment operator
+        Vector3& operator=(const Vector3& other);
+
+        // Move assignment operator
+        Vector3& operator=(Vector3&& other) noexcept;
+
+        // Add two vectors
+        Vector3 operator+(const Vector3& other) const;
+        
+        // Subtract two vectors
+        Vector3 operator-(const Vector3& other) const;
+
+        // Addition assignment (+=)
+        Vector3& operator+=(const Vector3& other);
+
+        // Subtraction assignment (-=)
+        Vector3& operator-=(const Vector3& other);
+
+        // Scalar multiplication (*)
+        Vector3 operator*(float scalar) const;
+
+        // Scalar multiplication assignment (*=)
+        Vector3& operator*=(float scalar);
+        
+        // Equality operator
+        bool operator==(const Vector3& other) const;
+
+        // Inequality operator
+        bool operator!=(const Vector3& other) const;
+
+        // Normalize the vector
+        [[nodiscard]] Vector3 normalize() const;
+
+        // Cross product
+        [[nodiscard]] Vector3 cross(const Vector3& other) const;
+
+        // Dot product
+        [[nodiscard]] float dot(const Vector3& other) const;
+
+        static Vector3 up() { return { 0.0f, 1.0f, 0.0f }; }
+    };
+
+    /*==================================
+     * Matrix4x4
+     *==================================*/
+    // ReSharper disable once CppInconsistentNaming
+    struct Matrix4x4
+    {
+    public:
+        // Default constructor - initializes to identity matrix
+        Matrix4x4();
+
+        // Default destructor
+        ~Matrix4x4() = default;
+        
+        // Constructor with array input
+        explicit Matrix4x4(const std::array<std::array<float, 4>, 4>& values) : values(values) {}
+
+        // Copy constructor
+        Matrix4x4(const Matrix4x4& other) = default;
+
+        // Move constructor
+        Matrix4x4(Matrix4x4&& other) noexcept = default;
+
+        // Copy assignment operator
+        Matrix4x4& operator=(const Matrix4x4& other) = default;
+
+        // Move assignment operator
+        Matrix4x4& operator=(Matrix4x4&& other) noexcept = default;
+
+        // Matrix addition
+        Matrix4x4 operator+(const Matrix4x4& other) const;
+
+        // Matrix subtraction
+        Matrix4x4 operator-(const Matrix4x4& other) const;
+
+        // Matrix multiplication
+        Matrix4x4 operator*(const Matrix4x4& other) const;
+
+        // Scalar multiplication
+        Matrix4x4 operator*(float scalar) const;
+
+        // Equality operator
+        bool operator==(const Matrix4x4& other) const;
+
+        // Inequality operator
+        bool operator!=(const Matrix4x4& other) const;
+
+        // Transpose matrix
+        [[nodiscard]] Matrix4x4 transpose() const;
+
+        static Matrix4x4 perspective(const float fovRadians, const float aspectRatio, const float near, const float far);
+
+        static Matrix4x4 lookAt(const Vector3& eye, const Vector3& target, const Vector3& up);
+
+        static Matrix4x4 identity() { return {}; }
+    private:
+        std::array<std::array<float, 4>, 4> values;
+    };
+
+    /*==================================
+     * Vertex
+     *==================================*/
+    struct Vertex
+    {
+        Vector3 position;
+        Vector3 color;
+        Vector2 textureCoordinates;
+
+        bool operator==(const Vertex& other) const;
+    };
+    
+    /*==================================
+     * Math functions
+     *==================================*/
+    bool isNearlyEqual(const float x, const float y, const double epsilon = MATH_EPSILON);
+    float radians(const float degrees); 
+    float degrees(const float radians);
+}
+
+namespace std
+{
+    template <>
+    struct hash<tessera::math::Vector3>
+    {
+        size_t operator()(const tessera::math::Vector3& v) const noexcept
+        {
+            return ((std::hash<float>()(v.x) ^
+                     (std::hash<float>()(v.y) << 1)) >> 1) ^
+                   (std::hash<float>()(v.z) << 1);
+        }
+    };
+
+    template <>
+    struct hash<tessera::math::Vector2>
+    {
+        size_t operator()(const tessera::math::Vector2& v) const noexcept
+        {
+            return (std::hash<float>()(v.x) ^
+                   (std::hash<float>()(v.y) << 1));
+        }
+    };
+
+    template <>
+    struct hash<tessera::math::Vertex>
+    {
+        size_t operator()(const tessera::math::Vertex& v) const noexcept
+        {
+            return ((std::hash<tessera::math::Vector3>()(v.position) ^
+                     (std::hash<tessera::math::Vector3>()(v.color) << 1)) >> 1) ^
+                   (std::hash<tessera::math::Vector2>()(v.textureCoordinates) << 1);
+        }
+    };
+}
