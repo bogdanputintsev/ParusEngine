@@ -41,8 +41,8 @@ namespace tessera
 			std::make_shared<vulkan::ImageViewManager>(),
 			std::make_shared<vulkan::GraphicsPipelineManager>(),
 			std::make_shared<vulkan::FramebufferManager>(),
-			std::make_shared<vulkan::VertexBufferManager>(),
 			std::make_shared<vulkan::CommandBufferManager>(),
+			std::make_shared<vulkan::VertexBufferManager>(),
 			std::make_shared<vulkan::SyncObjectsManager>()
 		};
 	};
