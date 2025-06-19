@@ -7,6 +7,11 @@
 #include "renderer/Renderer.h"
 #include "utils/TesseraLog.h"
 
+namespace tessera::imgui
+{
+	class ImGuiLibrary;
+}
+
 namespace tessera::vulkan
 {
 	struct SwapChainSupportDetails
@@ -202,6 +207,7 @@ namespace tessera::vulkan
 		bool framebufferResized = false;
 
 		static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
+		static constexpr int IMAGE_SAMPLER_POOL_SIZE = 1;
 
 		std::vector<Vertex> vertices;
 		std::vector<uint32_t> indices;
@@ -214,6 +220,8 @@ namespace tessera::vulkan
 		void clean() override;
 		void drawFrame() override;
 		void deviceWaitIdle() override;
+
+		friend class tessera::imgui::ImGuiLibrary;
 	private:
 		VulkanContext context;
 	};

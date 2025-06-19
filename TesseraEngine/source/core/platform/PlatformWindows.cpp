@@ -17,16 +17,7 @@
 namespace tessera
 {
     
-    struct WindowsPlatformState final : PlatformState
-    {
-    public:
-        HINSTANCE hinstance;
-        HWND hwnd;
-        float clockFrequency;
-        LARGE_INTEGER startTime;
-    };
-    
-    LRESULT CALLBACK win32ProcessMessage(HWND hwnd, uint32_t msg, WPARAM wParam, LPARAM lParam)
+    static LRESULT CALLBACK win32ProcessMessage(HWND hwnd, uint32_t msg, WPARAM wParam, LPARAM lParam)
     {
         switch (msg)
         {
@@ -40,11 +31,7 @@ namespace tessera
                 PostQuitMessage(0);
                 return 0;
             case WM_SIZE: {
-                RECT r;
-                GetClientRect(hwnd, &r);
-                const int width = r.right - r.left;
-                const int height = r.bottom - r.top;
-                FIRE_EVENT(tessera::EventType::EVENT_WINDOW_RESIZED, width, height);
+                CORE->platform->processOnResize();
             } break;
             case WM_KEYDOWN:
             case WM_SYSKEYDOWN:
@@ -84,44 +71,47 @@ namespace tessera
                 {
                     case WM_LBUTTONDOWN:
                     case WM_LBUTTONUP:
-                        mouseButton = BUTTON_LEFT;
+                        mouseButton = MouseButton::BUTTON_LEFT;
                         break;
                     case WM_MBUTTONDOWN:
                     case WM_MBUTTONUP:
-                        mouseButton = BUTTON_MIDDLE;
+                        mouseButton = MouseButton::BUTTON_MIDDLE;
                         break;
                     case WM_RBUTTONDOWN:
                     case WM_RBUTTONUP:
-                        mouseButton = BUTTON_RIGHT;
+                        mouseButton = MouseButton::BUTTON_RIGHT;
                         break;
                     default: ;
                 }
 
-                // Pass over to the input subsystem.
                 if (mouseButton.has_value())
                 {
                     CORE->inputSystem->processButton(mouseButton.value(), isPressed);
                 }
             } break;
+            case WM_CHAR:
+            {
+                const char c = static_cast<char>(wParam);
+                CORE->inputSystem->processChar(c);
+            } break;
+
             default: ;
         }
 
         return DefWindowProcA(hwnd, msg, wParam, lParam);
     }
     
-    void Platform::init(const char* applicationName, int posX, int posY, int width, int height)
+    void Platform::init()
     {
-        platformState = std::make_unique<WindowsPlatformState>();
-        const auto state = dynamic_cast<WindowsPlatformState*>(platformState.get());
-        state->hinstance = GetModuleHandleA(nullptr);
+        platformState.hinstance = GetModuleHandleA(nullptr);
 
-        HICON icon = LoadIcon(state->hinstance, IDI_APPLICATION);
+        const HICON icon = LoadIcon(platformState.hinstance, IDI_APPLICATION);
         WNDCLASSA wc = {};
         wc.style = CS_DBLCLKS;  // Get double-clicks
         wc.lpfnWndProc = win32ProcessMessage;
         wc.cbClsExtra = 0;
         wc.cbWndExtra = 0;
-        wc.hInstance = state->hinstance;
+        wc.hInstance = platformState.hinstance;
         wc.hIcon = icon;
         wc.hCursor = LoadCursor(nullptr, IDC_ARROW);  // NULL; // Manage the cursor manually
         wc.hbrBackground = nullptr;                   // Transparent
@@ -142,40 +132,39 @@ namespace tessera
         AdjustWindowRectEx(&borderRect, windowStyle, 0, windowExStyle);
 
         // In this case, the border rectangle is negative.
-        posX += borderRect.left;
-        posY += borderRect.top;
+        windowInfo.positionX += borderRect.left;
+        windowInfo.positionY += borderRect.top;
 
         // Grow by the size of the OS border.
-        width += borderRect.right - borderRect.left;
-        height += borderRect.bottom - borderRect.top;
+        windowInfo.width += borderRect.right - borderRect.left;
+        windowInfo.height += borderRect.bottom - borderRect.top;
 
-        HWND handle = CreateWindowExA(
-            windowExStyle, "tessera_window_class", applicationName,
-            windowStyle, posX, posY, width, height,
-            nullptr, nullptr, state->hinstance, nullptr);
+        const HWND handle = CreateWindowExA(
+            windowExStyle, "tessera_window_class", windowInfo.title,
+            windowStyle, windowInfo.positionX, windowInfo.positionY, windowInfo.width, windowInfo.height,
+            nullptr, nullptr, platformState.hinstance, nullptr);
 
         ASSERT(handle, "Window creation failed!");
-        state->hwnd = handle;
+        platformState.hwnd = handle;
         
         // If initially minimized, use SW_MINIMIZE : SW_SHOWMINNOACTIVE;
         // If initially maximized, use SW_SHOWMAXIMIZED : SW_MAXIMIZE
-        ShowWindow(state->hwnd, SW_SHOW);
+        ShowWindow(platformState.hwnd, SW_SHOW);
 
         // Clock setup
         LARGE_INTEGER frequency;
         QueryPerformanceFrequency(&frequency);
-        state->clockFrequency = 1.0f / static_cast<float>(frequency.QuadPart);
-        QueryPerformanceCounter(&state->startTime);
+        platformState.clockFrequency = 1.0f / static_cast<float>(frequency.QuadPart);
+        QueryPerformanceCounter(&platformState.startTime);
     }
 
-    VkSurfaceKHR Platform::createVulkanSurface(const VkInstance instance)
+    VkSurfaceKHR Platform::createVulkanSurface(const VkInstance& instance) const
     {
-        ASSERT(platformState.get(), "Platform state is unavailable.");
-        const auto state = dynamic_cast<WindowsPlatformState*>(platformState.get());
-
-        VkWin32SurfaceCreateInfoKHR createInfo = {VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR};
-        createInfo.hinstance = state->hinstance;
-        createInfo.hwnd = state->hwnd;
+        VkWin32SurfaceCreateInfoKHR createInfo = {};
+        createInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
+        createInfo.hinstance = platformState.hinstance;
+        createInfo.hwnd = platformState.hwnd;
+        createInfo.pNext = nullptr;
 
         VkSurfaceKHR surface;
         ASSERT(vkCreateWin32SurfaceKHR(instance, &createInfo, nullptr, &surface) == VK_SUCCESS,
@@ -186,16 +175,11 @@ namespace tessera
 
     void Platform::clean()
     {
-        if (platformState)
+        if (platformState.hwnd)
         {
-            const auto state = dynamic_cast<WindowsPlatformState*>(platformState.get());
-            if (state->hwnd)
-            {
-                DestroyWindow(state->hwnd);
-                state->hwnd = nullptr;
-            }
+            DestroyWindow(platformState.hwnd);
+            platformState.hwnd = nullptr;
         }
-        
     }
 
     void Platform::getMessages()
@@ -207,6 +191,35 @@ namespace tessera
             DispatchMessageA(&message);
         }
     }
+
+    void Platform::processOnResize()
+    {
+        RECT r;
+        GetClientRect(platformState.hwnd, &r);
+        const int newWidth = r.right - r.left;
+        const int newHeight = r.bottom - r.top;
+
+        if (newWidth == 0 || newHeight == 0)
+        {
+            windowInfo.isMinimized = true;
+            LOG_INFO("Window has been minimized.");
+            FIRE_EVENT(tessera::EventType::EVENT_WINDOW_MINIMIZED, true);
+            return;
+        }
+
+        if (windowInfo.isMinimized)
+        {
+            windowInfo.isMinimized = false;
+            LOG_INFO("Window has been restored.");
+            FIRE_EVENT(tessera::EventType::EVENT_WINDOW_MINIMIZED, false);
+        }
+            
+        windowInfo.width = newWidth;
+        windowInfo.height = newHeight;
+        
+        FIRE_EVENT(tessera::EventType::EVENT_WINDOW_RESIZED, newWidth, newHeight);
+    }
+
 }
 #endif
 

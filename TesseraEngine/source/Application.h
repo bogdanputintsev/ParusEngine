@@ -6,7 +6,8 @@ namespace tessera
 	{
 	public:
 		void init();
-		void loop();
+		void registerEvents();
+		void loop() const;
 		void clean();
 
 	private:

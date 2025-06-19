@@ -40,7 +40,34 @@
     <ClCompile Include="source\Core.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="source\Event.cpp">
+    <ClCompile Include="source\core\Input.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="source\core\platform\PlatformWindows.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="source\graphics\glfw\ImGuiLibrary.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="source\third-party\imgui\backends\imgui_impl_vulkan.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="source\third-party\imgui\backends\imgui_impl_win32.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="source\third-party\imgui\imgui.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="source\third-party\imgui\imgui_demo.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="source\third-party\imgui\imgui_draw.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="source\third-party\imgui\imgui_tables.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="source\third-party\imgui\imgui_widgets.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -56,9 +83,17 @@
     <ClInclude Include="source\graphics\glfw\GlfwLibrary.h" />
     <ClInclude Include="source\Core.h" />
     <ClInclude Include="source\Event.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="shaders\shader.frag" />
-    <None Include="shaders\shader.vert" />
+    <ClInclude Include="source\core\Defines.h" />
+    <ClInclude Include="source\core\Input.h" />
+    <ClInclude Include="source\core\platform\Platform.h" />
+    <ClInclude Include="source\graphics\glfw\ImGuiLibrary.h" />
+    <ClInclude Include="source\third-party\imgui\backends\imgui_impl_vulkan.h" />
+    <ClInclude Include="source\third-party\imgui\backends\imgui_impl_win32.h" />
+    <ClInclude Include="source\third-party\imgui\imconfig.h" />
+    <ClInclude Include="source\third-party\imgui\imgui.h" />
+    <ClInclude Include="source\third-party\imgui\imgui_internal.h" />
+    <ClInclude Include="source\third-party\imgui\imstb_rectpack.h" />
+    <ClInclude Include="source\third-party\imgui\imstb_textedit.h" />
+    <ClInclude Include="source\third-party\imgui\imstb_truetype.h" />
   </ItemGroup>
 </Project>

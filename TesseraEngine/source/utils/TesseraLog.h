@@ -2,6 +2,8 @@
 #include <string>
 #include <stdexcept>
 
+#include "core/Defines.h"
+
 namespace tessera
 {
 
@@ -39,7 +41,7 @@ namespace tessera
 		static std::string toString(LogType logType);
 	};
 
-#if _WIN32
+#if WITH_WINDOWS_PLATFORM
 #define T_FILENAME (strrchr(__FILE__, '\\') ? strrchr(__FILE__, '\\') + 1 : __FILE__)
 #else
 #define T_FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
@@ -52,11 +54,11 @@ namespace tessera
 #define LOG_FATAL(msg) tessera::TesseraLog::send(tessera::LogType::FATAL, T_FILENAME, __LINE__, msg)
 #define LOG(type, msg) tessera::TesseraLog::send(type, T_FILENAME, __LINE__, msg)
 
-	/**
-	 * \brief This macro assures that the condition is true. Otherwise, it logs an error and throw an exception.
-	 * \param condition The boolean condition that will be checked.
-	 * \param msg This message will be printed if the condition fails.
-	 */
+/**
+ * \brief This macro assures that the condition is true. Otherwise, it logs an error and throw an exception.
+ * \param condition The boolean condition that will be checked.
+ * \param msg This message will be printed if the condition fails.
+ */
 #define ASSERT(condition, msg)									\
     do															\
 	{															\
