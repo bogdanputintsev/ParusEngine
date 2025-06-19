@@ -6,7 +6,7 @@
 
 namespace tessera::vulkan
 {
-	void VulkanDebugManager::init(const VkInstance& instance)
+	void VulkanDebugManager::init(const std::shared_ptr<VkInstance>& instance)
 	{
         if (!validationLayersAreEnabled())
         {
@@ -31,11 +31,11 @@ namespace tessera::vulkan
         createInfo.pfnUserCallback = debugCallback;
     }
 
-	void VulkanDebugManager::clean(const VkInstance& instance) const
+	void VulkanDebugManager::clean(const std::shared_ptr<VkInstance>& instance) const
 	{
         if(validationLayersAreEnabled())
         {
-            destroyDebugUtilsMessengerExt(instance, debugMessenger, nullptr);
+            destroyDebugUtilsMessengerExt(*instance, debugMessenger, nullptr);
         }
 	}
 
@@ -67,15 +67,15 @@ namespace tessera::vulkan
 		return LogType::INFO;
 	}
 
-	VkResult VulkanDebugManager::createDebugUtilsMessengerExt(VkInstance instance,
+	VkResult VulkanDebugManager::createDebugUtilsMessengerExt(const std::shared_ptr<VkInstance>& instance,
 	                                                          const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, 
 	                                                          const VkAllocationCallbacks* pAllocator,
 	                                                          VkDebugUtilsMessengerEXT* pDebugMessenger)
     {
-	    const auto func = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT"));
+	    const auto func = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(*instance, "vkCreateDebugUtilsMessengerEXT"));
         if (func != nullptr) 
         {
-            return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
+            return func(*instance, pCreateInfo, pAllocator, pDebugMessenger);
         }
 
 		return VK_ERROR_EXTENSION_NOT_PRESENT;

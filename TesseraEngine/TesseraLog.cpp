@@ -15,21 +15,18 @@ namespace tessera
 	    std::cout << "[" << toString(logType) << "] " + title + ": " << message << std::endl;
 	}
 
-	std::string TesseraLog::toString(const LogType logType)
+	std::string_view TesseraLog::toString(const LogType logType)
 	{
 		switch (logType)
 		{
-		case LogType::INFO:
-			return "INFO";
-		case LogType::DEBUG:
-			return "DEBUG";
-		case LogType::WARNING:
-			return "WARNING";
-		case LogType::ERROR:
-			return "ERROR";
-		case LogType::FATAL:
-			return "FATAL";
-		case LogType::ALL: break;
+			using enum LogType;
+			case INFO:		return "INFO";
+			case DEBUG:		return "DEBUG";
+			case WARNING:	return "WARNING";
+			case ERROR:		return "ERROR";
+			case FATAL:		return "FATAL";
+			case ALL:		break;
+			case DEFAULT:	break;
 		}
 
 		return "INFO";
