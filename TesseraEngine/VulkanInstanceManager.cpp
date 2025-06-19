@@ -32,7 +32,7 @@ namespace tessera::vulkan
 
 		VulkanExtensionManager::checkIfAllGlsfRequiredExtensionsAreSupported();
 
-		const std::vector<const char*> requiredExtensions = VulkanExtensionManager::getRequiredExtensions();
+		const std::vector<const char*> requiredExtensions = VulkanExtensionManager::getRequiredInstanceExtensions();
 		createInfo.enabledExtensionCount = static_cast<uint32_t>(requiredExtensions.size());
 		createInfo.ppEnabledExtensionNames = requiredExtensions.data();
 
