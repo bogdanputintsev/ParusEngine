@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#include "builder/VkInstanceBuilder.h"
 #include "engine/input/Input.h"
 #include "services/platform/Platform.h"
 #include "engine/Event.h"
@@ -350,45 +351,20 @@ namespace parus::vulkan
 	void VulkanRenderer::createInstance()
 	{
 		checkValidationLayerSupport();
-
-		VkApplicationInfo appInfo{};
-		appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-		appInfo.pApplicationName = "Sandbox";
-		appInfo.applicationVersion = VK_MAKE_API_VERSION(1, 0, 0, 0);
-		appInfo.pEngineName = "Parus Engine";
-		appInfo.engineVersion = VK_MAKE_API_VERSION(1, 0, 0, 0);
-		appInfo.apiVersion = VK_API_VERSION_1_0;
-
-		VkInstanceCreateInfo createInfo{};
-		createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-		createInfo.pApplicationInfo = &appInfo;
-
 		checkIfAllRequiredExtensionsAreSupported();
-
-		const std::vector<const char*> requiredExtensions = getRequiredExtensions();
-		createInfo.enabledExtensionCount = static_cast<uint32_t>(requiredExtensions.size());
-		createInfo.ppEnabledExtensionNames = requiredExtensions.data();
-
-		VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
-
-		const std::vector<const char*> validationLayers = getValidationLayers();
-		if (validationLayersAreEnabled())
-		{
-			createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
-			createInfo.ppEnabledLayerNames = validationLayers.data();
-
-			populate(debugCreateInfo);
-			createInfo.pNext = &debugCreateInfo;
-		}
-		else
-		{
-			createInfo.enabledLayerCount = 0;
-			populate(debugCreateInfo);
-
-			createInfo.pNext = nullptr;
-		}
-
-		ASSERT(vkCreateInstance(&createInfo, nullptr, &instance) == VK_SUCCESS, "failed to create instance");
+		
+        const std::string applicationName = Services::get<Configs>()->get("Engine", "applicationName");
+        const int versionMajor = Services::get<Configs>()->getAsInt("Engine", "versionMajor").value_or(0);
+        const int versionMinor = Services::get<Configs>()->getAsInt("Engine", "versionMinor").value_or(0);
+        const int versionPatch = Services::get<Configs>()->getAsInt("Engine", "versionPatch").value_or(0);
+		
+		VkInstanceBuilder()
+			.setApplicationName(applicationName)
+			.setVersion(versionMajor, versionMinor, versionPatch)
+			.setDebugCallback(debugCallback)
+			.setRequiredExtensions(getRequiredExtensions())
+			.setValidationLayers(getValidationLayers())
+			.build(instance);
 	}
 
 	void VulkanRenderer::checkValidationLayerSupport()

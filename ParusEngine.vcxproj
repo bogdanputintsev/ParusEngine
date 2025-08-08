@@ -166,7 +166,7 @@
     <ClCompile Include="source\services\graphics\imgui\ImGuiLibrary.cpp" />
     <ClCompile Include="source\services\platform\PlatformWindows.cpp" />
     <ClCompile Include="source\services\renderer\Renderer.cpp" />
-    <ClCompile Include="source\services\renderer\vulkan\builder\VulkanImage.cpp" />
+    <ClCompile Include="source\services\renderer\vulkan\builder\VkInstanceBuilder.cpp" />
     <ClCompile Include="source\services\renderer\vulkan\light\Light.cpp" />
     <ClCompile Include="source\services\renderer\vulkan\material\Material.cpp" />
     <ClCompile Include="source\services\renderer\vulkan\mesh\Mesh.cpp" />
@@ -196,7 +196,7 @@
     <ClInclude Include="source\services\graphics\imgui\ImGuiLibrary.h" />
     <ClInclude Include="source\services\platform\Platform.h" />
     <ClInclude Include="source\services\renderer\Renderer.h" />
-    <ClInclude Include="source\services\renderer\vulkan\builder\VulkanImage.h" />
+    <ClInclude Include="source\services\renderer\vulkan\builder\VkInstanceBuilder.h" />
     <ClInclude Include="source\services\renderer\vulkan\light\Light.h" />
     <ClInclude Include="source\services\renderer\vulkan\material\Material.h" />
     <ClInclude Include="source\services\renderer\vulkan\mesh\Mesh.h" />
