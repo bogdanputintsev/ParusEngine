@@ -2,10 +2,10 @@
 
 #include "engine/EngineCore.h"
 
-namespace parus
+namespace parus::vulkan
 {
     
-    void VkInstanceBuilder::build(VkInstance& instance) const
+    void VkInstanceBuilder::build(VulkanStorage& storage) const
     {
         const VkApplicationInfo appInfo = {
             .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
@@ -38,7 +38,7 @@ namespace parus
             .ppEnabledExtensionNames = requiredExtensions.data(),
         };
 
-        ASSERT(vkCreateInstance(&createInfo, nullptr, &instance) == VK_SUCCESS, "failed to create instance");
+        ASSERT(vkCreateInstance(&createInfo, nullptr, &storage.instance) == VK_SUCCESS, "failed to create instance");
     }
 
     VkInstanceBuilder& VkInstanceBuilder::setApplicationName(const std::string& newApplicationName)

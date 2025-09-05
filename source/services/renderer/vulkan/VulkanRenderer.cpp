@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#include "builder/VkDebugUtilsBuilder.h"
 #include "builder/VkInstanceBuilder.h"
 #include "engine/input/Input.h"
 #include "services/platform/Platform.h"
@@ -163,11 +164,11 @@ namespace parus::vulkan
 
 		if (validationLayersAreEnabled())
 		{
-			destroyDebugUtilsMessengerExt(debugMessenger, nullptr);
+			destroyDebugUtilsMessengerExt(storage.debugMessenger, nullptr);
 		}
 
-		vkDestroySurfaceKHR(instance, surface, nullptr);
-		vkDestroyInstance(instance, nullptr);
+		vkDestroySurfaceKHR(storage.instance, surface, nullptr);
+		vkDestroyInstance(storage.instance, nullptr);
 	}
 
 	void VulkanRenderer::drawFrame()
@@ -364,7 +365,7 @@ namespace parus::vulkan
 			.setDebugCallback(debugCallback)
 			.setRequiredExtensions(getRequiredExtensions())
 			.setValidationLayers(getValidationLayers())
-			.build(instance);
+			.build(storage);
 	}
 
 	void VulkanRenderer::checkValidationLayerSupport()
@@ -451,10 +452,10 @@ namespace parus::vulkan
 
 	void VulkanRenderer::destroyDebugUtilsMessengerExt(VkDebugUtilsMessengerEXT debugMessengerToDestroy, const VkAllocationCallbacks* pAllocator) const
 	{
-		const auto func = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT"));
+		const auto func = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(storage.instance, "vkDestroyDebugUtilsMessengerEXT"));
 		if (func != nullptr)
 		{
-			func(instance, debugMessengerToDestroy, pAllocator);
+			func(storage.instance, debugMessengerToDestroy, pAllocator);
 		}
 	}
 
@@ -512,25 +513,19 @@ namespace parus::vulkan
 		{
 			return;
 		}
-
-		VkDebugUtilsMessengerCreateInfoEXT createInfo{};
-		populate(createInfo);
-		ASSERT(createDebugUtilsMessengerExt(&createInfo, nullptr, &debugMessenger) == VK_SUCCESS, "failed to set up debug messenger.");
-
-		// Setup debug object name extension
-		vkSetDebugUtilsObjectNameEXT
-			= reinterpret_cast<PFN_vkSetDebugUtilsObjectNameEXT>(vkGetInstanceProcAddr(instance, "vkSetDebugUtilsObjectNameEXT"));
-
-		ASSERT(vkSetDebugUtilsObjectNameEXT, "Failed to load vkSetDebugUtilsObjectNameEXT");
+		
+		VkDebugUtilsBuilder()
+			.setDebugCallback(debugCallback)
+			.build(storage);
 	}
 
 	VkResult VulkanRenderer::createDebugUtilsMessengerExt(const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
 		const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) const
 	{
-		const auto func = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT"));
+		const auto func = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(storage.instance, "vkCreateDebugUtilsMessengerEXT"));
 		if (func != nullptr)
 		{
-			return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
+			return func(storage.instance, pCreateInfo, pAllocator, pDebugMessenger);
 		}
 
 		return VK_ERROR_EXTENSION_NOT_PRESENT;
@@ -538,7 +533,7 @@ namespace parus::vulkan
 
 	void VulkanRenderer::setDebugObjectName(const uint64_t objectHandle, const VkObjectType objectType, const char* name) const
 	{
-		if (vkSetDebugUtilsObjectNameEXT)
+		if (storage.vkSetDebugUtilsObjectNameEXT)
 		{
 			VkDebugUtilsObjectNameInfoEXT nameInfo{};
 			nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
@@ -546,7 +541,7 @@ namespace parus::vulkan
 			nameInfo.objectHandle = objectHandle;
 			nameInfo.pObjectName = name;
 
-			vkSetDebugUtilsObjectNameEXT(logicalDevice, &nameInfo);
+			storage.vkSetDebugUtilsObjectNameEXT(logicalDevice, &nameInfo);
 		}
 		else
 		{
@@ -557,7 +552,7 @@ namespace parus::vulkan
 
 	void VulkanRenderer::createSurface()
 	{
-		surface = Services::get<Platform>()->createVulkanSurface(instance);
+		surface = Services::get<Platform>()->createVulkanSurface(storage.instance);
 	}
 
 	QueueFamilyIndices findQueueFamilies(const VkPhysicalDevice& physicalDevice, const VkSurfaceKHR& surface)
@@ -676,12 +671,12 @@ namespace parus::vulkan
 	void VulkanRenderer::pickAnySuitableDevice()
 	{
 		uint32_t deviceCount = 0;
-		vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
+		vkEnumeratePhysicalDevices(storage.instance, &deviceCount, nullptr);
 
 		ASSERT(deviceCount != 0, "failed to find GPUs with Vulkan support.");
 
 		std::vector<VkPhysicalDevice> devices(deviceCount);
-		vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
+		vkEnumeratePhysicalDevices(storage.instance, &deviceCount, devices.data());
 
 		for (const auto& device : devices)
 		{

@@ -3,13 +3,15 @@
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
-namespace parus
+#include "services/renderer/vulkan/storage/VulkanStorage.h"
+
+namespace parus::vulkan
 {
     
     class VkInstanceBuilder
     {
     public:
-        void build(VkInstance& instance) const;
+        void build(VulkanStorage& storage) const;
 
         VkInstanceBuilder& setApplicationName(const std::string& newApplicationName);
         VkInstanceBuilder& setVersion(const int newVersionMajor, const int newVersionMinor, const int newVersionPatch);

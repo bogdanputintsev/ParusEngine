@@ -13,6 +13,7 @@
 #include "mesh/Mesh.h"
 #include "mesh/MeshInstance.h"
 #include "services/renderer/Renderer.h"
+#include "storage/VulkanStorage.h"
 #include "texture/VulkanTexture.h"
 
 
@@ -87,6 +88,8 @@ namespace parus::vulkan
 		friend VulkanTexture createSolidColorTexture(const math::Vector3& color);
 		
 	private:
+		VulkanStorage storage;
+		
 		static constexpr float Z_NEAR = 0.1f;
 		static constexpr float Z_FAR = 1500.0f;
 		static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
@@ -133,7 +136,6 @@ namespace parus::vulkan
 			const VkAllocationCallbacks* pAllocator,
 			VkDebugUtilsMessengerEXT* pDebugMessenger) const;
 		void setDebugObjectName(uint64_t objectHandle, VkObjectType objectType, const char* name) const;
-		PFN_vkSetDebugUtilsObjectNameEXT vkSetDebugUtilsObjectNameEXT;
 
 		
 		// Surface.
@@ -268,8 +270,6 @@ namespace parus::vulkan
 
 		static std::array<VkVertexInputAttributeDescription, 4> getAttributeDescriptions();
 
-		VkInstance instance = VK_NULL_HANDLE;
-		VkDebugUtilsMessengerEXT debugMessenger = nullptr;
 		VkSurfaceKHR surface = VK_NULL_HANDLE;
 		VkDevice logicalDevice = VK_NULL_HANDLE;
 		VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
