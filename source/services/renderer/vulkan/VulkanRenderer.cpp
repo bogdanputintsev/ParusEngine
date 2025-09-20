@@ -167,7 +167,7 @@ namespace parus::vulkan
 			destroyDebugUtilsMessengerExt(storage.debugMessenger, nullptr);
 		}
 
-		vkDestroySurfaceKHR(storage.instance, surface, nullptr);
+		vkDestroySurfaceKHR(storage.instance, storage.surface, nullptr);
 		vkDestroyInstance(storage.instance, nullptr);
 	}
 
@@ -552,7 +552,7 @@ namespace parus::vulkan
 
 	void VulkanRenderer::createSurface()
 	{
-		surface = Services::get<Platform>()->createVulkanSurface(storage.instance);
+		Services::get<Platform>()->createVulkanSurface(storage);
 	}
 
 	QueueFamilyIndices findQueueFamilies(const VkPhysicalDevice& physicalDevice, const VkSurfaceKHR& surface)
@@ -621,7 +621,7 @@ namespace parus::vulkan
 		// Create logical device.
 		ASSERT(physicalDevice, "Devices hasn't been picked successfully.");
 
-		const auto [graphicsFamily, presentFamily] = findQueueFamilies(physicalDevice, surface);
+		const auto [graphicsFamily, presentFamily] = findQueueFamilies(physicalDevice, storage.surface);
 		ASSERT(graphicsFamily.has_value() && presentFamily.has_value(), "queue family indices are not complete.");
 
 		std::set uniqueQueueFamilies = { graphicsFamily.value(), presentFamily.value() };
@@ -680,7 +680,7 @@ namespace parus::vulkan
 
 		for (const auto& device : devices)
 		{
-			if (isDeviceSuitable(device, surface))
+			if (isDeviceSuitable(device, storage.surface))
 			{
 				physicalDevice = device;
 				msaaSamples = getMaxUsableSampleCount();
@@ -749,7 +749,7 @@ namespace parus::vulkan
 
 	void VulkanRenderer::createQueues()
 	{
-		const auto [graphicsFamily, presentFamily] = findQueueFamilies(physicalDevice, surface);
+		const auto [graphicsFamily, presentFamily] = findQueueFamilies(physicalDevice, storage.surface);
 
 		ASSERT(graphicsFamily.has_value() && presentFamily.has_value(), "queue family is undefined.");
 
@@ -760,7 +760,7 @@ namespace parus::vulkan
 
 	void VulkanRenderer::createSwapChain()
 	{
-		const auto [capabilities, formats, presentModes] = querySwapChainSupport(physicalDevice, surface);
+		const auto [capabilities, formats, presentModes] = querySwapChainSupport(physicalDevice, storage.surface);
 
 		const auto [format, colorSpace] = chooseSwapSurfaceFormat(formats);
 		const VkPresentModeKHR presentMode = chooseSwapPresentMode(presentModes);
@@ -776,7 +776,7 @@ namespace parus::vulkan
 
 		VkSwapchainCreateInfoKHR createInfo{};
 		createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-		createInfo.surface = surface;
+		createInfo.surface = storage.surface;
 		createInfo.minImageCount = imageCount;
 		createInfo.imageFormat = format;
 		createInfo.imageColorSpace = colorSpace;
@@ -784,7 +784,7 @@ namespace parus::vulkan
 		createInfo.imageArrayLayers = 1;
 		createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-		const auto [graphicsFamily, presentFamily] = findQueueFamilies(physicalDevice, surface);
+		const auto [graphicsFamily, presentFamily] = findQueueFamilies(physicalDevice, storage.surface);
 		ASSERT(graphicsFamily.has_value() && presentFamily.has_value(), "Queue families are not complete.");
 		const uint32_t queueFamilyIndices[] = { graphicsFamily.value(), presentFamily.value() };
 
@@ -1840,7 +1840,7 @@ namespace parus::vulkan
 	{
 		VkCommandPool newCommandPool;
 		
-		const auto [graphicsFamily, presentFamily] = findQueueFamilies(physicalDevice, surface);
+		const auto [graphicsFamily, presentFamily] = findQueueFamilies(physicalDevice, storage.surface);
 		ASSERT(graphicsFamily.has_value(), "Graphics family is incomplete.");
 		VkCommandPoolCreateInfo poolInfo{};
 		poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;

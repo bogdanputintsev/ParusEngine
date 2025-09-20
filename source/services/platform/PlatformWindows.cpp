@@ -14,6 +14,7 @@
 #include "engine/input/Input.h"
 #include "services/Services.h"
 #include "services/config/Configs.h"
+#include "services/renderer/vulkan/storage/VulkanStorage.h"
 
 namespace parus
 {
@@ -170,7 +171,7 @@ namespace parus
         QueryPerformanceCounter(&platformState.startTime);
     }
 
-    VkSurfaceKHR Platform::createVulkanSurface(const VkInstance& instance) const
+    void Platform::createVulkanSurface(vulkan::VulkanStorage& vulkanStorage) const
     {
         VkWin32SurfaceCreateInfoKHR createInfo = {};
         createInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
@@ -178,11 +179,8 @@ namespace parus
         createInfo.hwnd = platformState.hwnd;
         createInfo.pNext = nullptr;
 
-        VkSurfaceKHR surface;
-        ASSERT(vkCreateWin32SurfaceKHR(instance, &createInfo, nullptr, &surface) == VK_SUCCESS,
+        ASSERT(vkCreateWin32SurfaceKHR(vulkanStorage.instance, &createInfo, nullptr, &vulkanStorage.surface) == VK_SUCCESS,
             "Vulkan surface creation failed");
-
-        return surface;
     }
 
     void Platform::clean()

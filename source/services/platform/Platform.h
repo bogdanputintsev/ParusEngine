@@ -4,6 +4,7 @@
 
 #include "engine/Defines.h"
 #include "services/Service.h"
+#include "services/renderer/vulkan/storage/VulkanStorage.h"
 
 #ifdef WITH_WINDOWS_PLATFORM
 #define NOMINMAX
@@ -26,7 +27,7 @@ namespace parus
 
         static void getMessages();
         void processOnResize() const;
-        [[nodiscard]] VkSurfaceKHR createVulkanSurface(const VkInstance& instance) const;
+        void createVulkanSurface(vulkan::VulkanStorage& vulkanStorage) const;
         
         friend class parus::imgui::ImGuiLibrary;
     private:

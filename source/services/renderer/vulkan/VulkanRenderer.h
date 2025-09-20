@@ -270,7 +270,6 @@ namespace parus::vulkan
 
 		static std::array<VkVertexInputAttributeDescription, 4> getAttributeDescriptions();
 
-		VkSurfaceKHR surface = VK_NULL_HANDLE;
 		VkDevice logicalDevice = VK_NULL_HANDLE;
 		VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
 
