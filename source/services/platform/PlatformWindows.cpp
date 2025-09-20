@@ -14,6 +14,7 @@
 #include "engine/input/Input.h"
 #include "services/Services.h"
 #include "services/config/Configs.h"
+#include "services/renderer/vulkan/builder/VkSurfaceBuilder.h"
 #include "services/renderer/vulkan/storage/VulkanStorage.h"
 
 namespace parus
@@ -105,15 +106,15 @@ namespace parus
     
     void Platform::init()
     {
-        platformState.hinstance = GetModuleHandleA(nullptr);
+        platformStorage.hinstance = GetModuleHandleA(nullptr);
 
-        const HICON icon = LoadIcon(platformState.hinstance, IDI_APPLICATION);
+        const HICON icon = LoadIcon(platformStorage.hinstance, IDI_APPLICATION);
         WNDCLASSA wc = {};
         wc.style = CS_DBLCLKS;  // Get double-clicks
         wc.lpfnWndProc = win32ProcessMessage;
         wc.cbClsExtra = 0;
         wc.cbWndExtra = 0;
-        wc.hInstance = platformState.hinstance;
+        wc.hInstance = platformStorage.hinstance;
         wc.hIcon = icon;
         wc.hCursor = LoadCursor(nullptr, IDC_ARROW);  // NULL; // Manage the cursor manually
         wc.hbrBackground = nullptr;                   // Transparent
@@ -155,40 +156,28 @@ namespace parus
         const HWND handle = CreateWindowExA(
             windowExStyle, "parus_window_class", title.c_str(),
             windowStyle, positionX, positionY, width, height,
-            nullptr, nullptr, platformState.hinstance, nullptr);
+            nullptr, nullptr, platformStorage.hinstance, nullptr);
 
         ASSERT(handle, "Window creation failed!");
-        platformState.hwnd = handle;
+        platformStorage.hwnd = handle;
         
         // If initially minimized, use SW_MINIMIZE : SW_SHOWMINNOACTIVE;
         // If initially maximized, use SW_SHOWMAXIMIZED : SW_MAXIMIZE
-        ShowWindow(platformState.hwnd, SW_SHOW);
+        ShowWindow(platformStorage.hwnd, SW_SHOW);
 
         // Clock setup
         LARGE_INTEGER frequency;
         QueryPerformanceFrequency(&frequency);
-        platformState.clockFrequency = 1.0f / static_cast<float>(frequency.QuadPart);
-        QueryPerformanceCounter(&platformState.startTime);
-    }
-
-    void Platform::createVulkanSurface(vulkan::VulkanStorage& vulkanStorage) const
-    {
-        VkWin32SurfaceCreateInfoKHR createInfo = {};
-        createInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
-        createInfo.hinstance = platformState.hinstance;
-        createInfo.hwnd = platformState.hwnd;
-        createInfo.pNext = nullptr;
-
-        ASSERT(vkCreateWin32SurfaceKHR(vulkanStorage.instance, &createInfo, nullptr, &vulkanStorage.surface) == VK_SUCCESS,
-            "Vulkan surface creation failed");
+        platformStorage.clockFrequency = 1.0f / static_cast<float>(frequency.QuadPart);
+        QueryPerformanceCounter(&platformStorage.startTime);
     }
 
     void Platform::clean()
     {
-        if (platformState.hwnd)
+        if (platformStorage.hwnd)
         {
-            DestroyWindow(platformState.hwnd);
-            platformState.hwnd = nullptr;
+            DestroyWindow(platformStorage.hwnd);
+            platformStorage.hwnd = nullptr;
         }
     }
 
@@ -205,7 +194,7 @@ namespace parus
     void Platform::processOnResize() const
     {
         RECT r;
-        GetClientRect(platformState.hwnd, &r);
+        GetClientRect(platformStorage.hwnd, &r);
         const int newWidth = r.right - r.left;
         const int newHeight = r.bottom - r.top;
 

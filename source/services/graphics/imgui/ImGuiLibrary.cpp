@@ -17,7 +17,7 @@ namespace parus::imgui
 	void ImGuiLibrary::init()
 	{
 		const auto& vulkanContext = Services::get<vulkan::VulkanRenderer>();
-		const auto& windowsContext = Services::get<Platform>()->platformState;
+		const auto& windowsContext = Services::get<Platform>()->platformStorage;
 
 		IMGUI_CHECKVERSION();
 		ImGui::CreateContext();

@@ -11,6 +11,7 @@
 
 #include "builder/VkDebugUtilsBuilder.h"
 #include "builder/VkInstanceBuilder.h"
+#include "builder/VkSurfaceBuilder.h"
 #include "engine/input/Input.h"
 #include "services/platform/Platform.h"
 #include "engine/Event.h"
@@ -552,7 +553,7 @@ namespace parus::vulkan
 
 	void VulkanRenderer::createSurface()
 	{
-		Services::get<Platform>()->createVulkanSurface(storage);
+		VkSurfaceBuilder::build(storage);
 	}
 
 	QueueFamilyIndices findQueueFamilies(const VkPhysicalDevice& physicalDevice, const VkSurfaceKHR& surface)

@@ -1,10 +1,7 @@
 ﻿#pragma once
 
-#include <vulkan/vulkan_core.h>
-
 #include "engine/Defines.h"
 #include "services/Service.h"
-#include "services/renderer/vulkan/storage/VulkanStorage.h"
 
 #ifdef WITH_WINDOWS_PLATFORM
 #define NOMINMAX
@@ -19,6 +16,19 @@ namespace parus::imgui
 namespace parus
 {
     
+#ifdef WITH_WINDOWS_PLATFORM
+    struct PlatformStorage
+    {
+    public:
+        HINSTANCE hinstance;
+        HWND hwnd;
+        float clockFrequency;
+        LARGE_INTEGER startTime;
+
+        friend class parus::imgui::ImGuiLibrary;
+    };
+#endif
+    
     class Platform final : public Service
     {
     public:
@@ -27,23 +37,13 @@ namespace parus
 
         static void getMessages();
         void processOnResize() const;
-        void createVulkanSurface(vulkan::VulkanStorage& vulkanStorage) const;
+
+        [[nodiscard]] PlatformStorage getPlatformStorage() const { return platformStorage; }
         
         friend class parus::imgui::ImGuiLibrary;
+        
     private:
-#ifdef WITH_WINDOWS_PLATFORM
-        struct PlatformState
-        {
-        public:
-            HINSTANCE hinstance;
-            HWND hwnd;
-            float clockFrequency;
-            LARGE_INTEGER startTime;
-
-            friend class parus::imgui::ImGuiLibrary;
-        };
-#endif
-        PlatformState platformState;
+        PlatformStorage platformStorage;
         
     };
     
