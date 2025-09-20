@@ -1,9 +1,15 @@
 ﻿#pragma once
 
+#include <array>
+#include <optional>
 #include <vulkan/vulkan_core.h>
 
-#include "services/renderer/vulkan/VulkanRenderer.h"
 #include "engine/EngineCore.h"
+
+namespace parus::vulkan
+{
+	struct VulkanStorage;
+}
 
 namespace parus::vulkan::utils
 {
@@ -28,6 +34,14 @@ namespace parus::vulkan::utils
 	};
 	
 	SwapChainSupportDetails querySwapChainSupport(const VkPhysicalDevice& device, const VkSurfaceKHR& surface);
+
+	struct SwapChainImageDetails
+	{
+		VkFormat swapChainImageFormat{};
+		VkExtent2D swapChainExtent{};
+		std::vector<VkImage> swapChainImages{};
+		
+	};
     
 	constexpr bool validationLayersEnabled()
 	{

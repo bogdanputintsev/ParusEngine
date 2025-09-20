@@ -15,6 +15,7 @@
 #include "services/renderer/Renderer.h"
 #include "storage/VulkanStorage.h"
 #include "texture/VulkanTexture.h"
+#include "utils/VulkanUtils.h"
 
 
 namespace parus::imgui
@@ -24,12 +25,7 @@ namespace parus::imgui
 
 namespace parus::vulkan
 {
-	struct SwapChainImageDetails
-	{
-		VkFormat swapChainImageFormat{};
-		VkExtent2D swapChainExtent{};
-		std::vector<VkImage> swapChainImages{};
-	};
+
 	
 	struct GlobalGeometryBuffers
 	{
@@ -115,27 +111,20 @@ namespace parus::vulkan
 
 		// DebugManager
 		void createDebugManager();
-		VkResult createDebugUtilsMessengerExt(const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
-			const VkAllocationCallbacks* pAllocator,
-			VkDebugUtilsMessengerEXT* pDebugMessenger) const;
 		void setDebugObjectName(uint64_t objectHandle, VkObjectType objectType, const char* name) const;
-
 		
 		// Surface.
 		void createSurface();
 
 		// Devices.
 		void createDevices();
-		static bool isDeviceSuitable(const VkPhysicalDevice& device, const VkSurfaceKHR& surface);
 
 		// Queues
 		void createQueues();
 
 		// SwapChain
 		void createSwapChain();
-		static VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
-		static VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
-		static VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
+
 		[[nodiscard]] std::optional<uint32_t> acquireNextImage();
 		void recreateSwapChain();
 		void cleanupSwapChain() const;
@@ -251,8 +240,6 @@ namespace parus::vulkan
 
 		static std::array<VkVertexInputAttributeDescription, 4> getAttributeDescriptions();
 		
-		VkSwapchainKHR swapChain = VK_NULL_HANDLE;
-		SwapChainImageDetails swapChainDetails{};
 		std::vector<VkImageView> swapChainImageViews{};
 		
 		VkRenderPass renderPass = VK_NULL_HANDLE;

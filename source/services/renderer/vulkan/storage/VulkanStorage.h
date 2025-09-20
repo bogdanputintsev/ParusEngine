@@ -4,6 +4,8 @@
 #include <vulkan/vulkan_core.h>
 #include <mutex>
 
+#include "services/renderer/vulkan/utils/VulkanUtils.h"
+
 namespace parus::vulkan
 {
     
@@ -19,7 +21,8 @@ namespace parus::vulkan
 		VkQueue presentQueue = VK_NULL_HANDLE;
         std::mutex graphicsQueueMutex;
 		VkQueue graphicsQueue = VK_NULL_HANDLE;
-        
+		utils::SwapChainImageDetails swapChainDetails{};
+		VkSwapchainKHR swapChain = VK_NULL_HANDLE;
     };
 
 }

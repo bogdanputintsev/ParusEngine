@@ -1,9 +1,7 @@
 #include "VulkanRenderer.h"
 
-#include <algorithm>
 #include <array>
 #include <cassert>
-#include <chrono>
 #include <set>
 #include <stdexcept>
 #include <unordered_map>
@@ -14,6 +12,7 @@
 #include "builder/VkInstanceBuilder.h"
 #include "builder/VkQueuesBuilder.h"
 #include "builder/VkSurfaceBuilder.h"
+#include "builder/VkSwapChainBuilder.h"
 #include "engine/input/Input.h"
 #include "services/platform/Platform.h"
 #include "engine/Event.h"
@@ -39,8 +38,8 @@ namespace parus::vulkan
 		createSurface();
 		createDevices();
 		createQueues();
-		
 		createSwapChain();
+		
 		createImageViews();
 		createRenderPass();
 		createDescriptorSetLayout();
@@ -228,7 +227,7 @@ namespace parus::vulkan
 		presentInfo.waitSemaphoreCount = 1;
 		presentInfo.pWaitSemaphores = signalSemaphores;
 
-		const VkSwapchainKHR swapChains[] = { swapChain };
+		const VkSwapchainKHR swapChains[] = { storage.swapChain };
 		presentInfo.swapchainCount = 1;
 		presentInfo.pSwapchains = swapChains;
 		presentInfo.pImageIndices = &imageIndex.value();
@@ -523,18 +522,6 @@ namespace parus::vulkan
 			.build(storage);
 	}
 
-	VkResult VulkanRenderer::createDebugUtilsMessengerExt(const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
-		const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) const
-	{
-		const auto func = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(storage.instance, "vkCreateDebugUtilsMessengerEXT"));
-		if (func != nullptr)
-		{
-			return func(storage.instance, pCreateInfo, pAllocator, pDebugMessenger);
-		}
-
-		return VK_ERROR_EXTENSION_NOT_PRESENT;
-	}
-
 	void VulkanRenderer::setDebugObjectName(const uint64_t objectHandle, const VkObjectType objectType, const char* name) const
 	{
 		if (storage.vkSetDebugUtilsObjectNameEXT)
@@ -551,7 +538,6 @@ namespace parus::vulkan
 		{
 			LOG_WARNING("VkDebugUtilsObjectNameInfoEXT is not properly set.");
 		}
-		
 	}
 
 	void VulkanRenderer::createSurface()
@@ -559,64 +545,9 @@ namespace parus::vulkan
 		VkSurfaceBuilder::build(storage);
 	}
 
-	// Logical device extensions.
-	std::vector<const char*> getRequiredDeviceExtensions()
-	{
-		return { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
-	}
-
-	bool isDeviceExtensionSupported(const VkPhysicalDevice& device)
-	{
-		const std::vector<const char*> requiredExtensions = getRequiredDeviceExtensions();
-
-		uint32_t extensionCount;
-		vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
-
-		std::vector<VkExtensionProperties> availableExtensions(extensionCount);
-		vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtensions.data());
-
-		std::set<std::string> requiredExtensionsSet(requiredExtensions.begin(), requiredExtensions.end());
-
-		for (const auto& extension : availableExtensions)
-		{
-			requiredExtensionsSet.erase(extension.extensionName);
-		}
-
-		return requiredExtensionsSet.empty();
-	}
-
 	void VulkanRenderer::createDevices()
 	{
 		VkDeviceBuilder::build(storage);
-	}
-
-	bool VulkanRenderer::isDeviceSuitable(const VkPhysicalDevice& device, const VkSurfaceKHR& surface)
-	{
-		// Basic device properties like the name, type and supported Vulkan version.
-		[[maybe_unused]] VkPhysicalDeviceProperties deviceProperties;
-		vkGetPhysicalDeviceProperties(device, &deviceProperties);
-
-		// The support for optional features like texture compression, 64-bit floats and multi viewport rendering.
-		[[maybe_unused]] VkPhysicalDeviceFeatures deviceFeatures;
-		vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
-
-		// Check if device can process the commands we want to use.
-		const utils::QueueFamilyIndices queueFamilyIndices = utils::findQueueFamilies(device, surface);
-
-		// Check if physical device supports swap chain extension.
-		const bool extensionsSupported = isDeviceExtensionSupported(device);
-
-		// Check if physical device supports swap chain.
-		const utils::SwapChainSupportDetails swapChainSupport = utils::querySwapChainSupport(device, surface);
-
-		// Check anisotropic filtering
-		VkPhysicalDeviceFeatures supportedFeatures;
-		vkGetPhysicalDeviceFeatures(device, &supportedFeatures);
-
-		return queueFamilyIndices.isComplete()
-			&& extensionsSupported
-			&& swapChainSupport.isComplete()
-			&& supportedFeatures.samplerAnisotropy;
 	}
 
 	void VulkanRenderer::createQueues()
@@ -626,112 +557,7 @@ namespace parus::vulkan
 
 	void VulkanRenderer::createSwapChain()
 	{
-		const auto [capabilities, formats, presentModes] = utils::querySwapChainSupport(storage.physicalDevice, storage.surface);
-
-		const auto [format, colorSpace] = chooseSwapSurfaceFormat(formats);
-		const VkPresentModeKHR presentMode = chooseSwapPresentMode(presentModes);
-		const VkExtent2D extent = chooseSwapExtent(capabilities);
-
-		uint32_t imageCount = capabilities.minImageCount + 1;
-		if (capabilities.maxImageCount > 0 && imageCount > capabilities.maxImageCount)
-		{
-			imageCount = capabilities.maxImageCount;
-		}
-
-		ASSERT(extent.width != 0 && extent.height != 0, "Swap chain extent is invalid (window may be minimized)");
-
-		VkSwapchainCreateInfoKHR createInfo{};
-		createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-		createInfo.surface = storage.surface;
-		createInfo.minImageCount = imageCount;
-		createInfo.imageFormat = format;
-		createInfo.imageColorSpace = colorSpace;
-		createInfo.imageExtent = extent;
-		createInfo.imageArrayLayers = 1;
-		createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-
-		const auto [graphicsFamily, presentFamily] = utils::findQueueFamilies(storage.physicalDevice, storage.surface);
-		ASSERT(graphicsFamily.has_value() && presentFamily.has_value(), "Queue families are not complete.");
-		const uint32_t queueFamilyIndices[] = { graphicsFamily.value(), presentFamily.value() };
-
-		if (graphicsFamily != presentFamily) {
-			createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
-			createInfo.queueFamilyIndexCount = 2;
-			createInfo.pQueueFamilyIndices = queueFamilyIndices;
-		}
-		else {
-			createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-			createInfo.queueFamilyIndexCount = 0;
-			createInfo.pQueueFamilyIndices = nullptr;
-		}
-
-		createInfo.preTransform = capabilities.currentTransform;
-		createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-		createInfo.presentMode = presentMode;
-		createInfo.clipped = VK_TRUE;
-		createInfo.oldSwapchain = VK_NULL_HANDLE;
-
-		ASSERT(vkCreateSwapchainKHR(storage.logicalDevice, &createInfo, nullptr, &swapChain) == VK_SUCCESS, "failed to create swap chain.");
-
-		std::vector<VkImage> swapChainImages;
-		vkGetSwapchainImagesKHR(storage.logicalDevice, swapChain, &imageCount, nullptr);
-		swapChainImages.resize(imageCount);
-		vkGetSwapchainImagesKHR(storage.logicalDevice, swapChain, &imageCount, swapChainImages.data());
-
-		swapChainDetails = { format, extent, swapChainImages };
-	}
-
-	VkSurfaceFormatKHR VulkanRenderer::chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats)
-	{
-		assert(!availableFormats.empty());
-
-		for (const auto& availableFormat : availableFormats)
-		{
-			if (availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB && availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
-			{
-				return availableFormat;
-			}
-		}
-
-		return availableFormats[0];
-	}
-
-	VkPresentModeKHR VulkanRenderer::chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes)
-	{
-		// TODO: Replace with std::find.
-		for (const auto& availablePresentMode : availablePresentModes)
-		{
-			if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR)
-			{
-				return availablePresentMode;
-			}
-		}
-
-		// Only the VK_PRESENT_MODE_FIFO_KHR mode is guaranteed to be available.
-		return VK_PRESENT_MODE_FIFO_KHR;
-	}
-
-	VkExtent2D VulkanRenderer::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities)
-	{
-		if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max())
-		{
-			return capabilities.currentExtent;
-		}
-
-		const int width = Services::get<Configs>()->getAsBool("Window", "width").value_or(0);
-		const int height = Services::get<Configs>()->getAsBool("Window", "width").value_or(0);
-
-		ASSERT(width != 0 && height != 0, "Failed to get window width and height.");
-		
-		VkExtent2D actualExtent = {
-			static_cast<uint32_t>(width),
-			static_cast<uint32_t>(height)
-		};
-
-		actualExtent.width = std::clamp(actualExtent.width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
-		actualExtent.height = std::clamp(actualExtent.height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
-
-		return actualExtent;
+		VkSwapChainBuilder::build(storage);
 	}
 
 	std::optional<uint32_t> VulkanRenderer::acquireNextImage()
@@ -739,7 +565,7 @@ namespace parus::vulkan
 		ASSERT(static_cast<size_t>(currentFrame) < imageAvailableSemaphores.size() && currentFrame >= 0, "current frame number is larger than number of fences.");
 
 		uint32_t imageIndex;
-		const VkResult result = vkAcquireNextImageKHR(storage.logicalDevice, swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
+		const VkResult result = vkAcquireNextImageKHR(storage.logicalDevice, storage.swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
 
 		if (result == VK_ERROR_OUT_OF_DATE_KHR)
 		{
@@ -784,13 +610,13 @@ namespace parus::vulkan
 			vkDestroyImageView(storage.logicalDevice, imageView, nullptr);
 		}
 
-		vkDestroySwapchainKHR(storage.logicalDevice, swapChain, nullptr);
+		vkDestroySwapchainKHR(storage.logicalDevice, storage.swapChain, nullptr);
 	}
 
 	void VulkanRenderer::createImageViews()
 	{
 		const auto& [swapChainImageFormat, swapChainExtent, swapChainImages]
-			= swapChainDetails;
+			= storage.swapChainDetails;
 
 		swapChainImageViews.resize(swapChainImages.size());
 
@@ -822,7 +648,7 @@ namespace parus::vulkan
 	void VulkanRenderer::createRenderPass()
 	{
 		VkAttachmentDescription colorAttachment{};
-		colorAttachment.format = swapChainDetails.swapChainImageFormat;
+		colorAttachment.format = storage.swapChainDetails.swapChainImageFormat;
 		colorAttachment.samples = storage.msaaSamples;
 		colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 		colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -842,7 +668,7 @@ namespace parus::vulkan
 		depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
 		VkAttachmentDescription colorAttachmentResolve{};
-		colorAttachmentResolve.format = swapChainDetails.swapChainImageFormat;
+		colorAttachmentResolve.format = storage.swapChainDetails.swapChainImageFormat;
 		colorAttachmentResolve.samples = VK_SAMPLE_COUNT_1_BIT;
 		colorAttachmentResolve.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 		colorAttachmentResolve.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -1477,7 +1303,7 @@ namespace parus::vulkan
 				swapChainImageViews[i]
 			};
 
-			const auto& [width, height] = swapChainDetails.swapChainExtent;
+			const auto& [width, height] = storage.swapChainDetails.swapChainExtent;
 
 			VkFramebufferCreateInfo framebufferInfo{};
 			framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -1524,15 +1350,15 @@ namespace parus::vulkan
 		VkViewport viewport{};
 		viewport.x = 0.0f;
 		viewport.y = 0.0f;
-		viewport.width = static_cast<float>(swapChainDetails.swapChainExtent.width);
-		viewport.height = static_cast<float>(swapChainDetails.swapChainExtent.height);
+		viewport.width = static_cast<float>(storage.swapChainDetails.swapChainExtent.width);
+		viewport.height = static_cast<float>(storage.swapChainDetails.swapChainExtent.height);
 		viewport.minDepth = 0.0f;
 		viewport.maxDepth = 1.0f;
 		vkCmdSetViewport(commandBufferToRecord, 0, 1, &viewport);
 
 		VkRect2D scissor{};
 		scissor.offset = { .x = 0, .y = 0 };
-		scissor.extent = swapChainDetails.swapChainExtent;
+		scissor.extent = storage.swapChainDetails.swapChainExtent;
 		vkCmdSetScissor(commandBufferToRecord, 0, 1, &scissor);
 
 		const VkBuffer vertexBuffers[] = { globalBuffers.vertexBuffer };
@@ -1608,7 +1434,7 @@ namespace parus::vulkan
 		renderPassInfo.renderPass = renderPass;
 		renderPassInfo.framebuffer = swapChainFramebuffers[imageIndex];
 		renderPassInfo.renderArea.offset = { .x = 0, .y = 0};
-		renderPassInfo.renderArea.extent = swapChainDetails.swapChainExtent;
+		renderPassInfo.renderArea.extent = storage.swapChainDetails.swapChainExtent;
 
 		std::array<VkClearValue, 2> clearValues{};
 		clearValues[0].color = { {0.0f, 0.0f, 0.0f, 1.0f} };
@@ -1649,15 +1475,15 @@ namespace parus::vulkan
 		VkViewport viewport{};
 		viewport.x = 0.0f;
 		viewport.y = 0.0f;
-		viewport.width = static_cast<float>(swapChainDetails.swapChainExtent.width);
-		viewport.height = static_cast<float>(swapChainDetails.swapChainExtent.height);
+		viewport.width = static_cast<float>(storage.swapChainDetails.swapChainExtent.width);
+		viewport.height = static_cast<float>(storage.swapChainDetails.swapChainExtent.height);
 		viewport.minDepth = 0.0f;
 		viewport.maxDepth = 1.0f;
 		vkCmdSetViewport(commandBufferToRecord, 0, 1, &viewport);
 
 		VkRect2D scissor{};
 		scissor.offset = { .x = 0, .y = 0 };
-		scissor.extent = swapChainDetails.swapChainExtent;
+		scissor.extent = storage.swapChainDetails.swapChainExtent;
 		vkCmdSetScissor(commandBufferToRecord, 0, 1, &scissor);
 
 		// Sky vertices
@@ -1760,8 +1586,8 @@ namespace parus::vulkan
 	{
 		const VkFormat depthFormat = findDepthFormat();
 
-		createImage(swapChainDetails.swapChainExtent.width,
-			swapChainDetails.swapChainExtent.height,
+		createImage(storage.swapChainDetails.swapChainExtent.width,
+			storage.swapChainDetails.swapChainExtent.height,
 			1,
 			storage.msaaSamples,
 			depthFormat,
@@ -2048,9 +1874,8 @@ namespace parus::vulkan
 
 	void VulkanRenderer::createColorResources()
 	{
-		const VkFormat colorFormat = swapChainDetails.swapChainImageFormat;
-		const auto test = swapChainDetails;
-		createImage(swapChainDetails.swapChainExtent.width, swapChainDetails.swapChainExtent.height, 1, storage.msaaSamples, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, colorImage, colorImageMemory);
+		const VkFormat colorFormat = storage.swapChainDetails.swapChainImageFormat;
+		createImage(storage.swapChainDetails.swapChainExtent.width, storage.swapChainDetails.swapChainExtent.height, 1, storage.msaaSamples, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, colorImage, colorImageMemory);
 		colorImageView = createImageView(colorImage, colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
 	}
 
@@ -2347,7 +2172,7 @@ namespace parus::vulkan
 
 		globalUbo.projection = math::Matrix4x4::perspective(
 			math::radians(45.0f),
-			static_cast<float>(swapChainDetails.swapChainExtent.width) / static_cast<float>(swapChainDetails.swapChainExtent.height),
+			static_cast<float>(storage.swapChainDetails.swapChainExtent.width) / static_cast<float>(storage.swapChainDetails.swapChainExtent.height),
 			Z_NEAR, Z_FAR).trivial();
 
 		globalUbo.cameraPosition = camera.getPosition().trivial();

@@ -2,6 +2,8 @@
 
 #include <mutex>
 
+#include "services/renderer/vulkan/storage/VulkanStorage.h"
+
 namespace parus::vulkan::utils
 {
     
