@@ -10,6 +10,10 @@ namespace parus::vulkan
         VkDebugUtilsMessengerEXT debugMessenger = VK_NULL_HANDLE;
 		PFN_vkSetDebugUtilsObjectNameEXT vkSetDebugUtilsObjectNameEXT;
 		VkSurfaceKHR surface = VK_NULL_HANDLE;
+		VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
+		VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT;
+		VkDevice logicalDevice = VK_NULL_HANDLE;
+        
     };
 
 }

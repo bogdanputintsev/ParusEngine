@@ -36,9 +36,9 @@ namespace parus::vulkan
 		vulkanRenderer->createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
 
 		void* data;
-		vkMapMemory(vulkanRenderer->logicalDevice, stagingBufferMemory, 0, imageSize, 0, &data);
+		vkMapMemory(vulkanRenderer->storage.logicalDevice, stagingBufferMemory, 0, imageSize, 0, &data);
 		memcpy(data, pixels, static_cast<size_t>(imageSize));
-		vkUnmapMemory(vulkanRenderer->logicalDevice, stagingBufferMemory);
+		vkUnmapMemory(vulkanRenderer->storage.logicalDevice, stagingBufferMemory);
 		
 		stbi_image_free(pixels);
 
@@ -54,8 +54,8 @@ namespace parus::vulkan
 		vulkanRenderer->transitionImageLayout(newTexture.image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, newTexture.maxMipLevels);
 		vulkanRenderer->copyBufferToImage(stagingBuffer, newTexture.image, static_cast<uint32_t>(textureWidth), static_cast<uint32_t>(textureHeight));
 
-		vkDestroyBuffer(vulkanRenderer->logicalDevice, stagingBuffer, nullptr);
-		vkFreeMemory(vulkanRenderer->logicalDevice, stagingBufferMemory, nullptr);
+		vkDestroyBuffer(vulkanRenderer->storage.logicalDevice, stagingBuffer, nullptr);
+		vkFreeMemory(vulkanRenderer->storage.logicalDevice, stagingBufferMemory, nullptr);
 
 		vulkanRenderer->generateMipmaps(newTexture, VK_FORMAT_R8G8B8A8_SRGB, textureWidth, textureHeight);
 
@@ -84,21 +84,21 @@ namespace parus::vulkan
 		imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 		imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
-		vkCreateImage(vulkanRenderer->logicalDevice, &imageInfo, nullptr, &image);
+		vkCreateImage(vulkanRenderer->storage.logicalDevice, &imageInfo, nullptr, &image);
 
 		// 2. Allocate Memory
 		VkDeviceMemory imageMemory;
 		
 		VkMemoryRequirements memRequirements;
-		vkGetImageMemoryRequirements(vulkanRenderer->logicalDevice, image, &memRequirements);
+		vkGetImageMemoryRequirements(vulkanRenderer->storage.logicalDevice, image, &memRequirements);
 
 		VkMemoryAllocateInfo allocInfo{};
 		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 		allocInfo.allocationSize = memRequirements.size;
 		allocInfo.memoryTypeIndex = vulkanRenderer->findMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-		vkAllocateMemory(vulkanRenderer->logicalDevice, &allocInfo, nullptr, &imageMemory);
-		vkBindImageMemory(vulkanRenderer->logicalDevice, image, imageMemory, 0);
+		vkAllocateMemory(vulkanRenderer->storage.logicalDevice, &allocInfo, nullptr, &imageMemory);
+		vkBindImageMemory(vulkanRenderer->storage.logicalDevice, image, imageMemory, 0);
 		vulkanRenderer->setDebugObjectName(reinterpret_cast<uint64_t>(imageMemory), VK_OBJECT_TYPE_DEVICE_MEMORY, "DEFAULT_TEXTURE_DEVICE_MEMORY");
 
 		// 3. Transition Image Layout
@@ -125,14 +125,14 @@ namespace parus::vulkan
 		vulkanRenderer->setDebugObjectName(reinterpret_cast<uint64_t>(stagingBufferMemory), VK_OBJECT_TYPE_DEVICE_MEMORY, "DEFAULT_TEXTURE_DEVICE_MEMORY");
 		
 		void* data;
-		vkMapMemory(vulkanRenderer->logicalDevice, stagingBufferMemory, 0, sizeof(colorData), 0, &data);
+		vkMapMemory(vulkanRenderer->storage.logicalDevice, stagingBufferMemory, 0, sizeof(colorData), 0, &data);
 		memcpy(data, colorData, sizeof(colorData));
-		vkUnmapMemory(vulkanRenderer->logicalDevice, stagingBufferMemory);
+		vkUnmapMemory(vulkanRenderer->storage.logicalDevice, stagingBufferMemory);
 
 		vulkanRenderer->copyBufferToImage(stagingBuffer, image, 1, 1);
 
-		vkDestroyBuffer(vulkanRenderer->logicalDevice, stagingBuffer, nullptr);
-		vkFreeMemory(vulkanRenderer->logicalDevice, stagingBufferMemory, nullptr);
+		vkDestroyBuffer(vulkanRenderer->storage.logicalDevice, stagingBuffer, nullptr);
+		vkFreeMemory(vulkanRenderer->storage.logicalDevice, stagingBufferMemory, nullptr);
 
 		// 5. Transition to Shader-Readable Layout
 		vulkanRenderer->transitionImageLayout(
@@ -156,7 +156,7 @@ namespace parus::vulkan
 		viewInfo.subresourceRange.baseArrayLayer = 0;
 		viewInfo.subresourceRange.layerCount = 1;
 
-		vkCreateImageView(vulkanRenderer->logicalDevice, &viewInfo, nullptr, &imageView);
+		vkCreateImageView(vulkanRenderer->storage.logicalDevice, &viewInfo, nullptr, &imageView);
 
 		// 7. Create Sampler
 		VkSampler sampler;
@@ -175,7 +175,7 @@ namespace parus::vulkan
 		samplerInfo.compareEnable = VK_FALSE;
 		samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
 
-		vkCreateSampler(vulkanRenderer->logicalDevice, &samplerInfo, nullptr, &sampler);
+		vkCreateSampler(vulkanRenderer->storage.logicalDevice, &samplerInfo, nullptr, &sampler);
 
 		// 8. Return Result
 		const VulkanTexture newTexture =

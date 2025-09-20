@@ -10,6 +10,7 @@
 #include <unordered_set>
 
 #include "builder/VkDebugUtilsBuilder.h"
+#include "builder/VkDeviceBuilder.h"
 #include "builder/VkInstanceBuilder.h"
 #include "builder/VkSurfaceBuilder.h"
 #include "engine/input/Input.h"
@@ -23,6 +24,7 @@
 #include "services/config/Configs.h"
 #include "services/threading/ThreadPool.h"
 #include "services/world/World.h"
+#include "utils/VulkanUtils.h"
 
 
 namespace parus::vulkan
@@ -35,6 +37,7 @@ namespace parus::vulkan
 		createDebugManager();
 		createSurface();
 		createDevices();
+		
 		createQueues();
 		createSwapChain();
 		createImageViews();
@@ -101,67 +104,67 @@ namespace parus::vulkan
 	{
 		cleanupSwapChain();
 
-		vkDestroyPipeline(logicalDevice, graphicsPipeline, nullptr);
-		vkDestroyPipelineLayout(logicalDevice, pipelineLayout, nullptr);
-		vkDestroyPipeline(logicalDevice, skyPipeline, nullptr);
-		vkDestroyPipelineLayout(logicalDevice, skyPipelineLayout, nullptr);
-		vkDestroyRenderPass(logicalDevice, renderPass, nullptr);
+		vkDestroyPipeline(storage.logicalDevice, graphicsPipeline, nullptr);
+		vkDestroyPipelineLayout(storage.logicalDevice, pipelineLayout, nullptr);
+		vkDestroyPipeline(storage.logicalDevice, skyPipeline, nullptr);
+		vkDestroyPipelineLayout(storage.logicalDevice, skyPipelineLayout, nullptr);
+		vkDestroyRenderPass(storage.logicalDevice, renderPass, nullptr);
 
 		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 		{
-			vkDestroyBuffer(logicalDevice, globalUboBuffer.frameBuffers[i], nullptr);
-			vkDestroyBuffer(logicalDevice, instanceUboBuffer.frameBuffers[i], nullptr);
-			vkDestroyBuffer(logicalDevice, directionalLightUboBuffer.frameBuffers[i], nullptr);
-			vkFreeMemory(logicalDevice, globalUboBuffer.memory[i], nullptr);
-			vkFreeMemory(logicalDevice, instanceUboBuffer.memory[i], nullptr);
-			vkFreeMemory(logicalDevice, directionalLightUboBuffer.memory[i], nullptr);
+			vkDestroyBuffer(storage.logicalDevice, globalUboBuffer.frameBuffers[i], nullptr);
+			vkDestroyBuffer(storage.logicalDevice, instanceUboBuffer.frameBuffers[i], nullptr);
+			vkDestroyBuffer(storage.logicalDevice, directionalLightUboBuffer.frameBuffers[i], nullptr);
+			vkFreeMemory(storage.logicalDevice, globalUboBuffer.memory[i], nullptr);
+			vkFreeMemory(storage.logicalDevice, instanceUboBuffer.memory[i], nullptr);
+			vkFreeMemory(storage.logicalDevice, directionalLightUboBuffer.memory[i], nullptr);
 		}
 
-		vkDestroyDescriptorPool(logicalDevice, descriptorPool, nullptr);
+		vkDestroyDescriptorPool(storage.logicalDevice, descriptorPool, nullptr);
 		
 		for (const auto& texture : Services::get<World>()->getStorage()->getAllTextures())
 		{
-			vkDestroySampler(logicalDevice, texture->sampler, nullptr);
-			vkDestroyImageView(logicalDevice, texture->imageView, nullptr);
-			vkDestroyImage(logicalDevice, texture->image, nullptr);
-			vkFreeMemory(logicalDevice, texture->imageMemory, nullptr);
+			vkDestroySampler(storage.logicalDevice, texture->sampler, nullptr);
+			vkDestroyImageView(storage.logicalDevice, texture->imageView, nullptr);
+			vkDestroyImage(storage.logicalDevice, texture->image, nullptr);
+			vkFreeMemory(storage.logicalDevice, texture->imageMemory, nullptr);
 		}
 
-		vkDestroySampler(logicalDevice, cubemap.cubemapSampler, nullptr);
-		vkDestroyImageView(logicalDevice, cubemap.cubemapImageView, nullptr);
-		vkDestroyImage(logicalDevice, cubemap.cubemapImage, nullptr);
-		vkFreeMemory(logicalDevice, cubemap.cubemapImageMemory, nullptr);
+		vkDestroySampler(storage.logicalDevice, cubemap.cubemapSampler, nullptr);
+		vkDestroyImageView(storage.logicalDevice, cubemap.cubemapImageView, nullptr);
+		vkDestroyImage(storage.logicalDevice, cubemap.cubemapImage, nullptr);
+		vkFreeMemory(storage.logicalDevice, cubemap.cubemapImageMemory, nullptr);
 		
-		vkDestroyDescriptorSetLayout(logicalDevice, globalDescriptorSetLayout, nullptr);
-		vkDestroyDescriptorSetLayout(logicalDevice, instanceDescriptorSetLayout, nullptr);
-		vkDestroyDescriptorSetLayout(logicalDevice, materialDescriptorSetLayout, nullptr);
-		vkDestroyDescriptorSetLayout(logicalDevice, lightsDescriptorSetLayout, nullptr);
+		vkDestroyDescriptorSetLayout(storage.logicalDevice, globalDescriptorSetLayout, nullptr);
+		vkDestroyDescriptorSetLayout(storage.logicalDevice, instanceDescriptorSetLayout, nullptr);
+		vkDestroyDescriptorSetLayout(storage.logicalDevice, materialDescriptorSetLayout, nullptr);
+		vkDestroyDescriptorSetLayout(storage.logicalDevice, lightsDescriptorSetLayout, nullptr);
 
-		vkDestroyBuffer(logicalDevice, globalBuffers.indexBuffer, nullptr);
-		vkFreeMemory(logicalDevice, globalBuffers.indexBufferMemory, nullptr);
+		vkDestroyBuffer(storage.logicalDevice, globalBuffers.indexBuffer, nullptr);
+		vkFreeMemory(storage.logicalDevice, globalBuffers.indexBufferMemory, nullptr);
 		
-		vkDestroyBuffer(logicalDevice, globalBuffers.vertexBuffer, nullptr);
-		vkFreeMemory(logicalDevice, globalBuffers.vertexBufferMemory, nullptr);
+		vkDestroyBuffer(storage.logicalDevice, globalBuffers.vertexBuffer, nullptr);
+		vkFreeMemory(storage.logicalDevice, globalBuffers.vertexBufferMemory, nullptr);
 
-		vkDestroyBuffer(logicalDevice, globalBuffers.skyIndexBuffer, nullptr);
-		vkFreeMemory(logicalDevice, globalBuffers.skyIndexBufferMemory, nullptr);
+		vkDestroyBuffer(storage.logicalDevice, globalBuffers.skyIndexBuffer, nullptr);
+		vkFreeMemory(storage.logicalDevice, globalBuffers.skyIndexBufferMemory, nullptr);
 
-		vkDestroyBuffer(logicalDevice, globalBuffers.skyVertexBuffer, nullptr);
-		vkFreeMemory(logicalDevice, globalBuffers.skyVertexBufferMemory, nullptr);
+		vkDestroyBuffer(storage.logicalDevice, globalBuffers.skyVertexBuffer, nullptr);
+		vkFreeMemory(storage.logicalDevice, globalBuffers.skyVertexBufferMemory, nullptr);
 		
 		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 		{
-			vkDestroySemaphore(logicalDevice, renderFinishedSemaphores[i], nullptr);
-			vkDestroySemaphore(logicalDevice, imageAvailableSemaphores[i], nullptr);
-			vkDestroyFence(logicalDevice, inFlightFences[i], nullptr);
+			vkDestroySemaphore(storage.logicalDevice, renderFinishedSemaphores[i], nullptr);
+			vkDestroySemaphore(storage.logicalDevice, imageAvailableSemaphores[i], nullptr);
+			vkDestroyFence(storage.logicalDevice, inFlightFences[i], nullptr);
 		}
 
 		for (const auto& [_, commandPool]: threadCommandPools)
 		{
-			vkDestroyCommandPool(logicalDevice, commandPool, nullptr);
+			vkDestroyCommandPool(storage.logicalDevice, commandPool, nullptr);
 		}
 
-		vkDestroyDevice(logicalDevice, nullptr);
+		vkDestroyDevice(storage.logicalDevice, nullptr);
 
 		if (validationLayersAreEnabled())
 		{
@@ -183,7 +186,7 @@ namespace parus::vulkan
 
 		cleanupFrameResources();
 		
-		vkWaitForFences(logicalDevice, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
+		vkWaitForFences(storage.logicalDevice, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
 
 		const std::optional<uint32_t> imageIndex = acquireNextImage();
 		if (!imageIndex.has_value())
@@ -193,7 +196,7 @@ namespace parus::vulkan
 
 		updateUniformBuffer(currentFrame);
 		processLoadedMeshes();
-		vkResetFences(logicalDevice, 1, &inFlightFences[currentFrame]);
+		vkResetFences(storage.logicalDevice, 1, &inFlightFences[currentFrame]);
 
 		const auto commandBuffer = getCommandBuffer(currentFrame);
 
@@ -247,7 +250,7 @@ namespace parus::vulkan
 
 	void VulkanRenderer::deviceWaitIdle()
 	{
-		vkDeviceWaitIdle(logicalDevice);
+		vkDeviceWaitIdle(storage.logicalDevice);
 	}
 	
 	void VulkanRenderer::importMesh(const std::string& meshPath, const MeshType meshType)
@@ -542,7 +545,7 @@ namespace parus::vulkan
 			nameInfo.objectHandle = objectHandle;
 			nameInfo.pObjectName = name;
 
-			storage.vkSetDebugUtilsObjectNameEXT(logicalDevice, &nameInfo);
+			storage.vkSetDebugUtilsObjectNameEXT(storage.logicalDevice, &nameInfo);
 		}
 		else
 		{
@@ -554,39 +557,6 @@ namespace parus::vulkan
 	void VulkanRenderer::createSurface()
 	{
 		VkSurfaceBuilder::build(storage);
-	}
-
-	QueueFamilyIndices findQueueFamilies(const VkPhysicalDevice& physicalDevice, const VkSurfaceKHR& surface)
-	{
-		QueueFamilyIndices familyIndices;
-
-		uint32_t queueFamilyCount = 0;
-		vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, nullptr);
-
-		std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
-		vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, queueFamilies.data());
-
-		for (uint32_t i = 0; i < queueFamilyCount; ++i)
-		{
-			if (queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)
-			{
-				familyIndices.graphicsFamily = i;
-			}
-
-			VkBool32 presentSupport = false;
-			vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, i, surface, &presentSupport);
-			if (presentSupport)
-			{
-				familyIndices.presentFamily = i;
-			}
-
-			if (familyIndices.isComplete())
-			{
-				break;
-			}
-		}
-
-		return familyIndices;
 	}
 
 	// Logical device extensions.
@@ -617,79 +587,7 @@ namespace parus::vulkan
 
 	void VulkanRenderer::createDevices()
 	{
-		pickAnySuitableDevice();
-
-		// Create logical device.
-		ASSERT(physicalDevice, "Devices hasn't been picked successfully.");
-
-		const auto [graphicsFamily, presentFamily] = findQueueFamilies(physicalDevice, storage.surface);
-		ASSERT(graphicsFamily.has_value() && presentFamily.has_value(), "queue family indices are not complete.");
-
-		std::set uniqueQueueFamilies = { graphicsFamily.value(), presentFamily.value() };
-
-		constexpr float queuePriority = 1.0f;
-		std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
-
-		for (uint32_t queueFamily : uniqueQueueFamilies)
-		{
-			VkDeviceQueueCreateInfo queueCreateInfo{};
-			queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-			queueCreateInfo.queueFamilyIndex = queueFamily;
-			queueCreateInfo.queueCount = 1;
-			queueCreateInfo.pQueuePriorities = &queuePriority;
-			queueCreateInfos.emplace_back(queueCreateInfo);
-		}
-
-		// Specifying used device features.
-		VkPhysicalDeviceFeatures deviceFeatures{};
-		deviceFeatures.samplerAnisotropy = VK_TRUE;
-
-		VkDeviceCreateInfo createInfo{};
-		createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-		createInfo.pQueueCreateInfos = queueCreateInfos.data();
-		createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
-		createInfo.pEnabledFeatures = &deviceFeatures;
-
-		const auto requiredExtensions = getRequiredDeviceExtensions();
-		createInfo.enabledExtensionCount = static_cast<uint32_t>(requiredExtensions.size());
-		createInfo.ppEnabledExtensionNames = requiredExtensions.data();
-
-		// Distinction between instance and device specific validation no longer the case. This was added for back compatibility.
-		const std::vector<const char*> validationLayers = getValidationLayers();
-		if (validationLayersAreEnabled())
-		{
-			createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
-			createInfo.ppEnabledLayerNames = validationLayers.data();
-		}
-		else
-		{
-			createInfo.enabledLayerCount = 0;
-		}
-
-		ASSERT(vkCreateDevice(physicalDevice, &createInfo, nullptr, &logicalDevice) == VK_SUCCESS, "failed to create logical device.");
-	}
-
-	void VulkanRenderer::pickAnySuitableDevice()
-	{
-		uint32_t deviceCount = 0;
-		vkEnumeratePhysicalDevices(storage.instance, &deviceCount, nullptr);
-
-		ASSERT(deviceCount != 0, "failed to find GPUs with Vulkan support.");
-
-		std::vector<VkPhysicalDevice> devices(deviceCount);
-		vkEnumeratePhysicalDevices(storage.instance, &deviceCount, devices.data());
-
-		for (const auto& device : devices)
-		{
-			if (isDeviceSuitable(device, storage.surface))
-			{
-				physicalDevice = device;
-				msaaSamples = getMaxUsableSampleCount();
-				break;
-			}
-		}
-
-		ASSERT(physicalDevice != VK_NULL_HANDLE, "failed to find a suitable GPU.");
+		VkDeviceBuilder::build(storage);
 	}
 
 	bool VulkanRenderer::isDeviceSuitable(const VkPhysicalDevice& device, const VkSurfaceKHR& surface)
@@ -703,13 +601,13 @@ namespace parus::vulkan
 		vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
 
 		// Check if device can process the commands we want to use.
-		const QueueFamilyIndices queueFamilyIndices = findQueueFamilies(device, surface);
+		const utils::QueueFamilyIndices queueFamilyIndices = utils::findQueueFamilies(device, surface);
 
 		// Check if physical device supports swap chain extension.
 		const bool extensionsSupported = isDeviceExtensionSupported(device);
 
 		// Check if physical device supports swap chain.
-		const SwapChainSupportDetails swapChainSupport = querySwapChainSupport(device, surface);
+		const utils::SwapChainSupportDetails swapChainSupport = utils::querySwapChainSupport(device, surface);
 
 		// Check anisotropic filtering
 		VkPhysicalDeviceFeatures supportedFeatures;
@@ -721,47 +619,20 @@ namespace parus::vulkan
 			&& supportedFeatures.samplerAnisotropy;
 	}
 
-	SwapChainSupportDetails VulkanRenderer::querySwapChainSupport(const VkPhysicalDevice& device, const VkSurfaceKHR& surface)
-	{
-		SwapChainSupportDetails details;
-
-		vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &details.capabilities);
-
-		uint32_t formatCount;
-		vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, nullptr);
-
-		if (formatCount != 0)
-		{
-			details.formats.resize(formatCount);
-			vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, details.formats.data());
-		}
-
-		uint32_t presentModeCount;
-		vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentModeCount, nullptr);
-
-		if (presentModeCount != 0)
-		{
-			details.presentModes.resize(presentModeCount);
-			vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentModeCount, details.presentModes.data());
-		}
-
-		return details;
-	}
-
 	void VulkanRenderer::createQueues()
 	{
-		const auto [graphicsFamily, presentFamily] = findQueueFamilies(physicalDevice, storage.surface);
+		const auto [graphicsFamily, presentFamily] = utils::findQueueFamilies(storage.physicalDevice, storage.surface);
 
 		ASSERT(graphicsFamily.has_value() && presentFamily.has_value(), "queue family is undefined.");
 
 		std::lock_guard lock(graphicsQueueMutex);
-		vkGetDeviceQueue(logicalDevice, graphicsFamily.value(), 0, &graphicsQueue);
-		vkGetDeviceQueue(logicalDevice, presentFamily.value(), 0, &presentQueue);
+		vkGetDeviceQueue(storage.logicalDevice, graphicsFamily.value(), 0, &graphicsQueue);
+		vkGetDeviceQueue(storage.logicalDevice, presentFamily.value(), 0, &presentQueue);
 	}
 
 	void VulkanRenderer::createSwapChain()
 	{
-		const auto [capabilities, formats, presentModes] = querySwapChainSupport(physicalDevice, storage.surface);
+		const auto [capabilities, formats, presentModes] = utils::querySwapChainSupport(storage.physicalDevice, storage.surface);
 
 		const auto [format, colorSpace] = chooseSwapSurfaceFormat(formats);
 		const VkPresentModeKHR presentMode = chooseSwapPresentMode(presentModes);
@@ -785,7 +656,7 @@ namespace parus::vulkan
 		createInfo.imageArrayLayers = 1;
 		createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-		const auto [graphicsFamily, presentFamily] = findQueueFamilies(physicalDevice, storage.surface);
+		const auto [graphicsFamily, presentFamily] = utils::findQueueFamilies(storage.physicalDevice, storage.surface);
 		ASSERT(graphicsFamily.has_value() && presentFamily.has_value(), "Queue families are not complete.");
 		const uint32_t queueFamilyIndices[] = { graphicsFamily.value(), presentFamily.value() };
 
@@ -806,12 +677,12 @@ namespace parus::vulkan
 		createInfo.clipped = VK_TRUE;
 		createInfo.oldSwapchain = VK_NULL_HANDLE;
 
-		ASSERT(vkCreateSwapchainKHR(logicalDevice, &createInfo, nullptr, &swapChain) == VK_SUCCESS, "failed to create swap chain.");
+		ASSERT(vkCreateSwapchainKHR(storage.logicalDevice, &createInfo, nullptr, &swapChain) == VK_SUCCESS, "failed to create swap chain.");
 
 		std::vector<VkImage> swapChainImages;
-		vkGetSwapchainImagesKHR(logicalDevice, swapChain, &imageCount, nullptr);
+		vkGetSwapchainImagesKHR(storage.logicalDevice, swapChain, &imageCount, nullptr);
 		swapChainImages.resize(imageCount);
-		vkGetSwapchainImagesKHR(logicalDevice, swapChain, &imageCount, swapChainImages.data());
+		vkGetSwapchainImagesKHR(storage.logicalDevice, swapChain, &imageCount, swapChainImages.data());
 
 		swapChainDetails = { format, extent, swapChainImages };
 	}
@@ -874,7 +745,7 @@ namespace parus::vulkan
 		ASSERT(static_cast<size_t>(currentFrame) < imageAvailableSemaphores.size() && currentFrame >= 0, "current frame number is larger than number of fences.");
 
 		uint32_t imageIndex;
-		const VkResult result = vkAcquireNextImageKHR(logicalDevice, swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
+		const VkResult result = vkAcquireNextImageKHR(storage.logicalDevice, swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
 
 		if (result == VK_ERROR_OUT_OF_DATE_KHR)
 		{
@@ -903,23 +774,23 @@ namespace parus::vulkan
 
 	void VulkanRenderer::cleanupSwapChain() const
 	{
-		vkDestroyImageView(logicalDevice, depthImageView, nullptr);
-		vkDestroyImage(logicalDevice, depthImage, nullptr);
-		vkFreeMemory(logicalDevice, depthImageMemory, nullptr);
+		vkDestroyImageView(storage.logicalDevice, depthImageView, nullptr);
+		vkDestroyImage(storage.logicalDevice, depthImage, nullptr);
+		vkFreeMemory(storage.logicalDevice, depthImageMemory, nullptr);
 
-		vkDestroyImageView(logicalDevice, colorImageView, nullptr);
-		vkDestroyImage(logicalDevice, colorImage, nullptr);
-		vkFreeMemory(logicalDevice, colorImageMemory, nullptr);
+		vkDestroyImageView(storage.logicalDevice, colorImageView, nullptr);
+		vkDestroyImage(storage.logicalDevice, colorImage, nullptr);
+		vkFreeMemory(storage.logicalDevice, colorImageMemory, nullptr);
 
 		for (const auto framebuffer : swapChainFramebuffers) {
-			vkDestroyFramebuffer(logicalDevice, framebuffer, nullptr);
+			vkDestroyFramebuffer(storage.logicalDevice, framebuffer, nullptr);
 		}
 
 		for (const auto imageView : swapChainImageViews) {
-			vkDestroyImageView(logicalDevice, imageView, nullptr);
+			vkDestroyImageView(storage.logicalDevice, imageView, nullptr);
 		}
 
-		vkDestroySwapchainKHR(logicalDevice, swapChain, nullptr);
+		vkDestroySwapchainKHR(storage.logicalDevice, swapChain, nullptr);
 	}
 
 	void VulkanRenderer::createImageViews()
@@ -949,7 +820,7 @@ namespace parus::vulkan
 		viewInfo.subresourceRange.layerCount = 1;
 
 		VkImageView imageView;
-		ASSERT(vkCreateImageView(logicalDevice, &viewInfo, nullptr, &imageView) == VK_SUCCESS, "failed to create texture image view.");
+		ASSERT(vkCreateImageView(storage.logicalDevice, &viewInfo, nullptr, &imageView) == VK_SUCCESS, "failed to create texture image view.");
 
 		return imageView;
 	}
@@ -958,7 +829,7 @@ namespace parus::vulkan
 	{
 		VkAttachmentDescription colorAttachment{};
 		colorAttachment.format = swapChainDetails.swapChainImageFormat;
-		colorAttachment.samples = msaaSamples;
+		colorAttachment.samples = storage.msaaSamples;
 		colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 		colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 		colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
@@ -968,7 +839,7 @@ namespace parus::vulkan
 
 		VkAttachmentDescription depthAttachment{};
 		depthAttachment.format = findDepthFormat();
-		depthAttachment.samples = msaaSamples;
+		depthAttachment.samples = storage.msaaSamples;
 		depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 		depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 		depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
@@ -1024,7 +895,7 @@ namespace parus::vulkan
 		renderPassInfo.dependencyCount = 1;
 		renderPassInfo.pDependencies = &dependency;
 
-		ASSERT(vkCreateRenderPass(logicalDevice, &renderPassInfo, nullptr, &renderPass) == VK_SUCCESS, "failed to create render pass.");
+		ASSERT(vkCreateRenderPass(storage.logicalDevice, &renderPassInfo, nullptr, &renderPass) == VK_SUCCESS, "failed to create render pass.");
 	}
 
 	void VulkanRenderer::createDescriptorSetLayout()
@@ -1059,7 +930,7 @@ namespace parus::vulkan
 				.pBindings = globalBindings.data()
 			};
 	
-		ASSERT(vkCreateDescriptorSetLayout(logicalDevice, &layoutInfo, nullptr, &globalDescriptorSetLayout) == VK_SUCCESS,
+		ASSERT(vkCreateDescriptorSetLayout(storage.logicalDevice, &layoutInfo, nullptr, &globalDescriptorSetLayout) == VK_SUCCESS,
 			   "failed to create global descriptor set layout.");
 	}
 
@@ -1087,7 +958,7 @@ namespace parus::vulkan
 					.pBindings = instanceBindings.data()
 			};
 		
-		ASSERT(vkCreateDescriptorSetLayout(logicalDevice, &layoutInfo, nullptr, &instanceDescriptorSetLayout) == VK_SUCCESS,
+		ASSERT(vkCreateDescriptorSetLayout(storage.logicalDevice, &layoutInfo, nullptr, &instanceDescriptorSetLayout) == VK_SUCCESS,
 			   "failed to create instance descriptor set layout.");
 	}
 
@@ -1147,7 +1018,7 @@ namespace parus::vulkan
 				.pBindings = materialBindings.data()
 			};
 		
-		ASSERT(vkCreateDescriptorSetLayout(logicalDevice, &layoutInfo, nullptr, &materialDescriptorSetLayout) == VK_SUCCESS,
+		ASSERT(vkCreateDescriptorSetLayout(storage.logicalDevice, &layoutInfo, nullptr, &materialDescriptorSetLayout) == VK_SUCCESS,
 			   "failed to create material descriptor set layout.");
 	}
 
@@ -1183,7 +1054,7 @@ namespace parus::vulkan
 				.pBindings = lightBindings.data()
 			};
 		
-		ASSERT(vkCreateDescriptorSetLayout(logicalDevice, &layoutInfo, nullptr, &lightsDescriptorSetLayout) == VK_SUCCESS,
+		ASSERT(vkCreateDescriptorSetLayout(storage.logicalDevice, &layoutInfo, nullptr, &lightsDescriptorSetLayout) == VK_SUCCESS,
 			   "failed to create lights descriptor set layout.");
 	}
 
@@ -1207,14 +1078,14 @@ namespace parus::vulkan
 		imageInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT; // Кубмапа
 
 		VkImage cubemapImage;
-		if (vkCreateImage(logicalDevice, &imageInfo, nullptr, &cubemapImage) != VK_SUCCESS) {
+		if (vkCreateImage(storage.logicalDevice, &imageInfo, nullptr, &cubemapImage) != VK_SUCCESS) {
 			throw std::runtime_error("failed to create cubemap image!");
 		}
 
 		cubemap.cubemapImage = cubemapImage;
 
 		VkMemoryRequirements memRequirements;
-		vkGetImageMemoryRequirements(logicalDevice, cubemapImage, &memRequirements);
+		vkGetImageMemoryRequirements(storage.logicalDevice, cubemapImage, &memRequirements);
 
 		VkMemoryAllocateInfo allocInfo{};
 		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
@@ -1222,13 +1093,13 @@ namespace parus::vulkan
 		allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
 		VkDeviceMemory cubemapImageMemory;
-		if (vkAllocateMemory(logicalDevice, &allocInfo, nullptr, &cubemapImageMemory) != VK_SUCCESS) {
+		if (vkAllocateMemory(storage.logicalDevice, &allocInfo, nullptr, &cubemapImageMemory) != VK_SUCCESS) {
 			throw std::runtime_error("failed to allocate cubemap image memory!");
 		}
 		cubemap.cubemapImageMemory = cubemapImageMemory;
 
 
-		vkBindImageMemory(logicalDevice, cubemapImage, cubemapImageMemory, 0);
+		vkBindImageMemory(storage.logicalDevice, cubemapImage, cubemapImageMemory, 0);
 
 		VkImageViewCreateInfo viewInfo{};
 		viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -1246,7 +1117,7 @@ namespace parus::vulkan
 		viewInfo.subresourceRange.layerCount = 6;
 
 		VkImageView cubemapImageView;
-		if (vkCreateImageView(logicalDevice, &viewInfo, nullptr, &cubemapImageView) != VK_SUCCESS) {
+		if (vkCreateImageView(storage.logicalDevice, &viewInfo, nullptr, &cubemapImageView) != VK_SUCCESS) {
 			throw std::runtime_error("failed to create cubemap image view!");
 		}
 		cubemap.cubemapImageView = cubemapImageView;
@@ -1268,7 +1139,7 @@ namespace parus::vulkan
 		samplerInfo.maxLod = 1.0f;
 
 		VkSampler cubemapSampler;
-		if (vkCreateSampler(logicalDevice, &samplerInfo, nullptr, &cubemapSampler) != VK_SUCCESS) {
+		if (vkCreateSampler(storage.logicalDevice, &samplerInfo, nullptr, &cubemapSampler) != VK_SUCCESS) {
 			throw std::runtime_error("failed to create cubemap sampler!");
 		}
 
@@ -1278,11 +1149,11 @@ namespace parus::vulkan
 
 	void VulkanRenderer::createSkyPipeline()
 	{
-		const auto vertexShaderCode = utils::readFile("bin/shaders/sky.vert.spv");
-		VkShaderModule vertexShaderModule = createShaderModule(vertexShaderCode, logicalDevice);
+		const auto vertexShaderCode = ::parus::utils::readFile("bin/shaders/sky.vert.spv");
+		VkShaderModule vertexShaderModule = createShaderModule(vertexShaderCode, storage.logicalDevice);
 
-		const auto fragmentShaderCode = utils::readFile("bin/shaders/sky.frag.spv");
-		VkShaderModule fragmentShaderModule = createShaderModule(fragmentShaderCode, logicalDevice);
+		const auto fragmentShaderCode = ::parus::utils::readFile("bin/shaders/sky.frag.spv");
+		VkShaderModule fragmentShaderModule = createShaderModule(fragmentShaderCode, storage.logicalDevice);
 
 		VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
 		vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -1341,7 +1212,7 @@ namespace parus::vulkan
 		multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
 		multisampling.sampleShadingEnable = VK_FALSE;
 		multisampling.minSampleShading = 1.0f;
-		multisampling.rasterizationSamples = msaaSamples;
+		multisampling.rasterizationSamples = storage.msaaSamples;
 		multisampling.pSampleMask = nullptr;
 		multisampling.alphaToCoverageEnable = VK_FALSE;
 		multisampling.alphaToOneEnable = VK_FALSE;
@@ -1404,7 +1275,7 @@ namespace parus::vulkan
 				.pPushConstantRanges = nullptr,
 			};
 
-		ASSERT(vkCreatePipelineLayout(logicalDevice, &pipelineLayoutInfo, nullptr, &skyPipelineLayout) == VK_SUCCESS,
+		ASSERT(vkCreatePipelineLayout(storage.logicalDevice, &pipelineLayoutInfo, nullptr, &skyPipelineLayout) == VK_SUCCESS,
 			"Failed to create pipeline layout.");
 
 		VkGraphicsPipelineCreateInfo pipelineInfo{};
@@ -1425,20 +1296,20 @@ namespace parus::vulkan
 		pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 		pipelineInfo.basePipelineIndex = -1;
 
-		ASSERT(vkCreateGraphicsPipelines(logicalDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &skyPipeline) == VK_SUCCESS,
+		ASSERT(vkCreateGraphicsPipelines(storage.logicalDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &skyPipeline) == VK_SUCCESS,
 			"Failed to create sky pipeline.");
 		
-		vkDestroyShaderModule(logicalDevice, fragmentShaderModule, nullptr);
-		vkDestroyShaderModule(logicalDevice, vertexShaderModule, nullptr);
+		vkDestroyShaderModule(storage.logicalDevice, fragmentShaderModule, nullptr);
+		vkDestroyShaderModule(storage.logicalDevice, vertexShaderModule, nullptr);
 	}
 
 	void VulkanRenderer::createGraphicsPipeline()
 	{
-		const auto vertexShaderCode = utils::readFile("bin/shaders/main.vert.spv");
-		VkShaderModule vertexShaderModule = createShaderModule(vertexShaderCode, logicalDevice);
+		const auto vertexShaderCode = ::parus::utils::readFile("bin/shaders/main.vert.spv");
+		VkShaderModule vertexShaderModule = createShaderModule(vertexShaderCode, storage.logicalDevice);
 
-		const auto fragmentShaderCode = utils::readFile("bin/shaders/main.frag.spv");
-		VkShaderModule fragmentShaderModule = createShaderModule(fragmentShaderCode, logicalDevice);
+		const auto fragmentShaderCode = ::parus::utils::readFile("bin/shaders/main.frag.spv");
+		VkShaderModule fragmentShaderModule = createShaderModule(fragmentShaderCode, storage.logicalDevice);
 
 		VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
 		vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -1495,7 +1366,7 @@ namespace parus::vulkan
 		multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
 		multisampling.sampleShadingEnable = VK_FALSE;
 		multisampling.minSampleShading = 1.0f;
-		multisampling.rasterizationSamples = msaaSamples;
+		multisampling.rasterizationSamples = storage.msaaSamples;
 		multisampling.pSampleMask = nullptr;
 		multisampling.alphaToCoverageEnable = VK_FALSE;
 		multisampling.alphaToOneEnable = VK_FALSE;
@@ -1561,7 +1432,7 @@ namespace parus::vulkan
 				.pPushConstantRanges = nullptr,
 			};
 
-		ASSERT(vkCreatePipelineLayout(logicalDevice, &pipelineLayoutInfo, nullptr, &pipelineLayout) == VK_SUCCESS,
+		ASSERT(vkCreatePipelineLayout(storage.logicalDevice, &pipelineLayoutInfo, nullptr, &pipelineLayout) == VK_SUCCESS,
 			"Failed to create pipeline layout.");
 
 		VkGraphicsPipelineCreateInfo pipelineInfo{};
@@ -1582,9 +1453,9 @@ namespace parus::vulkan
 		pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 		pipelineInfo.basePipelineIndex = -1;
 
-		ASSERT(vkCreateGraphicsPipelines(logicalDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) == VK_SUCCESS, "failed to create graphics pipeline.");
-		vkDestroyShaderModule(logicalDevice, fragmentShaderModule, nullptr);
-		vkDestroyShaderModule(logicalDevice, vertexShaderModule, nullptr);
+		ASSERT(vkCreateGraphicsPipelines(storage.logicalDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) == VK_SUCCESS, "failed to create graphics pipeline.");
+		vkDestroyShaderModule(storage.logicalDevice, fragmentShaderModule, nullptr);
+		vkDestroyShaderModule(storage.logicalDevice, vertexShaderModule, nullptr);
 	}
 
 	VkShaderModule VulkanRenderer::createShaderModule(const std::vector<char>& code, const VkDevice& device)
@@ -1623,7 +1494,7 @@ namespace parus::vulkan
 			framebufferInfo.height = height;
 			framebufferInfo.layers = 1;
 
-			ASSERT(vkCreateFramebuffer(logicalDevice, &framebufferInfo, nullptr, &swapChainFramebuffers[i]) == VK_SUCCESS, "failed to create framebuffer.");
+			ASSERT(vkCreateFramebuffer(storage.logicalDevice, &framebufferInfo, nullptr, &swapChainFramebuffers[i]) == VK_SUCCESS, "failed to create framebuffer.");
 		}
 	}
 
@@ -1637,7 +1508,7 @@ namespace parus::vulkan
 		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 		allocInfo.commandBufferCount = static_cast<uint32_t>(commandBuffers.size());
 
-		ASSERT(vkAllocateCommandBuffers(logicalDevice, &allocInfo, commandBuffers.data()) == VK_SUCCESS, "failed to allocate command buffers.");
+		ASSERT(vkAllocateCommandBuffers(storage.logicalDevice, &allocInfo, commandBuffers.data()) == VK_SUCCESS, "failed to allocate command buffers.");
 	}
 
 	void VulkanRenderer::resetCommandBuffer(const int bufferId) const
@@ -1841,14 +1712,14 @@ namespace parus::vulkan
 	{
 		VkCommandPool newCommandPool;
 		
-		const auto [graphicsFamily, presentFamily] = findQueueFamilies(physicalDevice, storage.surface);
+		const auto [graphicsFamily, presentFamily] = utils::findQueueFamilies(storage.physicalDevice, storage.surface);
 		ASSERT(graphicsFamily.has_value(), "Graphics family is incomplete.");
 		VkCommandPoolCreateInfo poolInfo{};
 		poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 		poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 		poolInfo.queueFamilyIndex = graphicsFamily.value();
 
-		ASSERT(vkCreateCommandPool(logicalDevice, &poolInfo, nullptr, &newCommandPool) == VK_SUCCESS, "failed to create command pool.");
+		ASSERT(vkCreateCommandPool(storage.logicalDevice, &poolInfo, nullptr, &newCommandPool) == VK_SUCCESS, "failed to create command pool.");
 		return newCommandPool;
 	}
 
@@ -1861,7 +1732,7 @@ namespace parus::vulkan
 		allocInfo.commandBufferCount = 1;
 
 		VkCommandBuffer commandBuffer;
-		vkAllocateCommandBuffers(logicalDevice, &allocInfo, &commandBuffer);
+		vkAllocateCommandBuffers(storage.logicalDevice, &allocInfo, &commandBuffer);
 
 		VkCommandBufferBeginInfo beginInfo{};
 		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -1886,7 +1757,7 @@ namespace parus::vulkan
 			std::lock_guard lock(graphicsQueueMutex);
 			vkQueueWaitIdle(graphicsQueue);
 		}
-		vkFreeCommandBuffers(logicalDevice, getCommandPool(), 1, &commandBuffer);
+		vkFreeCommandBuffers(storage.logicalDevice, getCommandPool(), 1, &commandBuffer);
 	}
 
 	void VulkanRenderer::createDepthResources()
@@ -1896,7 +1767,7 @@ namespace parus::vulkan
 		createImage(swapChainDetails.swapChainExtent.width,
 			swapChainDetails.swapChainExtent.height,
 			1,
-			msaaSamples,
+			storage.msaaSamples,
 			depthFormat,
 			VK_IMAGE_TILING_OPTIMAL,
 			VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
@@ -1910,7 +1781,7 @@ namespace parus::vulkan
 		std::optional<VkFormat> supportedFormat;
 		for (VkFormat format : candidates) {
 			VkFormatProperties props;
-			vkGetPhysicalDeviceFormatProperties(physicalDevice, format, &props);
+			vkGetPhysicalDeviceFormatProperties(storage.physicalDevice, format, &props);
 
 			if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features) {
 				supportedFormat = format;
@@ -1944,7 +1815,7 @@ namespace parus::vulkan
 	{
 		// Check if image format supports linear blitting
 		VkFormatProperties formatProperties;
-		vkGetPhysicalDeviceFormatProperties(physicalDevice, imageFormat, &formatProperties);
+		vkGetPhysicalDeviceFormatProperties(storage.physicalDevice, imageFormat, &formatProperties);
 
 		ASSERT(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT, "texture image format does not support linear blitting.");
 
@@ -2054,19 +1925,19 @@ namespace parus::vulkan
 		imageInfo.samples = numberOfSamples;
 		imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-		ASSERT(vkCreateImage(logicalDevice, &imageInfo, nullptr, &image) == VK_SUCCESS, "failed to create image.");
+		ASSERT(vkCreateImage(storage.logicalDevice, &imageInfo, nullptr, &image) == VK_SUCCESS, "failed to create image.");
 
 		VkMemoryRequirements memRequirements;
-		vkGetImageMemoryRequirements(logicalDevice, image, &memRequirements);
+		vkGetImageMemoryRequirements(storage.logicalDevice, image, &memRequirements);
 
 		VkMemoryAllocateInfo allocInfo{};
 		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 		allocInfo.allocationSize = memRequirements.size;
 		allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
 
-		ASSERT(vkAllocateMemory(logicalDevice, &allocInfo, nullptr, &imageMemory) == VK_SUCCESS, "failed to allocate image memory.");
+		ASSERT(vkAllocateMemory(storage.logicalDevice, &allocInfo, nullptr, &imageMemory) == VK_SUCCESS, "failed to allocate image memory.");
 
-		vkBindImageMemory(logicalDevice, image, imageMemory, 0);
+		vkBindImageMemory(storage.logicalDevice, image, imageMemory, 0);
 	}
 
 	void VulkanRenderer::transitionImageLayout(
@@ -2154,7 +2025,7 @@ namespace parus::vulkan
 		VkSampler textureSampler;
 		
 		VkPhysicalDeviceProperties properties{};
-		vkGetPhysicalDeviceProperties(physicalDevice, &properties);
+		vkGetPhysicalDeviceProperties(storage.physicalDevice, &properties);
 
 		VkSamplerCreateInfo samplerInfo{};
 		samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -2174,7 +2045,7 @@ namespace parus::vulkan
 		samplerInfo.maxLod = static_cast<float>(maxMipLevels);
 		samplerInfo.mipLodBias = 0.0f; // Optional
 
-		ASSERT(vkCreateSampler(logicalDevice, &samplerInfo, nullptr, &textureSampler) == VK_SUCCESS, "failed to create texture sampler.");
+		ASSERT(vkCreateSampler(storage.logicalDevice, &samplerInfo, nullptr, &textureSampler) == VK_SUCCESS, "failed to create texture sampler.");
 
 		return textureSampler;
 	}
@@ -2183,7 +2054,7 @@ namespace parus::vulkan
 	{
 		const VkFormat colorFormat = swapChainDetails.swapChainImageFormat;
 		const auto test = swapChainDetails;
-		createImage(swapChainDetails.swapChainExtent.width, swapChainDetails.swapChainExtent.height, 1, msaaSamples, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, colorImage, colorImageMemory);
+		createImage(swapChainDetails.swapChainExtent.width, swapChainDetails.swapChainExtent.height, 1, storage.msaaSamples, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, colorImage, colorImageMemory);
 		colorImageView = createImageView(colorImage, colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
 	}
 
@@ -2210,9 +2081,9 @@ namespace parus::vulkan
 
 		// Fill vertex buffer data.
 		void* data;
-		vkMapMemory(logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);
+		vkMapMemory(storage.logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);
 		memcpy(data, vertices.data(), bufferSize);
-		vkUnmapMemory(logicalDevice, stagingBufferMemory);
+		vkUnmapMemory(storage.logicalDevice, stagingBufferMemory);
 
 		createBuffer(
 			bufferSize,
@@ -2222,8 +2093,8 @@ namespace parus::vulkan
 			globalBuffers.vertexBufferMemory);
 		
 		copyBuffer(stagingBuffer, globalBuffers.vertexBuffer, bufferSize);
-		vkDestroyBuffer(logicalDevice, stagingBuffer, nullptr);
-		vkFreeMemory(logicalDevice, stagingBufferMemory, nullptr);
+		vkDestroyBuffer(storage.logicalDevice, stagingBuffer, nullptr);
+		vkFreeMemory(storage.logicalDevice, stagingBufferMemory, nullptr);
 	}
 
 	void VulkanRenderer::createSkyVertexBuffer(const std::vector<math::Vertex>& vertices)
@@ -2249,9 +2120,9 @@ namespace parus::vulkan
 
 		// Fill vertex buffer data.
 		void* data;
-		vkMapMemory(logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);
+		vkMapMemory(storage.logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);
 		memcpy(data, vertices.data(), bufferSize);
-		vkUnmapMemory(logicalDevice, stagingBufferMemory);
+		vkUnmapMemory(storage.logicalDevice, stagingBufferMemory);
 
 		createBuffer(
 			bufferSize,
@@ -2261,8 +2132,8 @@ namespace parus::vulkan
 			globalBuffers.skyVertexBufferMemory);
 		
 		copyBuffer(stagingBuffer, globalBuffers.skyVertexBuffer, bufferSize);
-		vkDestroyBuffer(logicalDevice, stagingBuffer, nullptr);
-		vkFreeMemory(logicalDevice, stagingBufferMemory, nullptr);
+		vkDestroyBuffer(storage.logicalDevice, stagingBuffer, nullptr);
+		vkFreeMemory(storage.logicalDevice, stagingBufferMemory, nullptr);
 	}
 
 	void VulkanRenderer::createBuffer(const VkDeviceSize size, const VkBufferUsageFlags usage, const VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) const
@@ -2276,7 +2147,7 @@ namespace parus::vulkan
 		bufferInfo.usage = usage;
 		bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-		ASSERT(vkCreateBuffer(logicalDevice, &bufferInfo, nullptr, &buffer) == VK_SUCCESS,
+		ASSERT(vkCreateBuffer(storage.logicalDevice, &bufferInfo, nullptr, &buffer) == VK_SUCCESS,
 			"Failed to create buffer.");
 		
 		ASSERT(buffer != VK_NULL_HANDLE,
@@ -2284,7 +2155,7 @@ namespace parus::vulkan
 
 		// Calculate memory requirements.
 		VkMemoryRequirements memRequirements;
-		vkGetBufferMemoryRequirements(logicalDevice, buffer, &memRequirements);
+		vkGetBufferMemoryRequirements(storage.logicalDevice, buffer, &memRequirements);
 
 		// Allocate vertex buffer memory.
 		VkMemoryAllocateInfo allocInfo{};
@@ -2292,17 +2163,17 @@ namespace parus::vulkan
 		allocInfo.allocationSize = memRequirements.size;
 		allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
 
-		ASSERT(vkAllocateMemory(logicalDevice, &allocInfo, nullptr, &bufferMemory) == VK_SUCCESS,
+		ASSERT(vkAllocateMemory(storage.logicalDevice, &allocInfo, nullptr, &bufferMemory) == VK_SUCCESS,
 			"Failed to allocate buffer memory");
 
-		ASSERT(vkBindBufferMemory(logicalDevice, buffer, bufferMemory, 0) == VK_SUCCESS,
+		ASSERT(vkBindBufferMemory(storage.logicalDevice, buffer, bufferMemory, 0) == VK_SUCCESS,
 			"Failed to bind buffer memory");
 	}
 
 	uint32_t VulkanRenderer::findMemoryType(const uint32_t typeFilter, const VkMemoryPropertyFlags properties) const
 	{
 		VkPhysicalDeviceMemoryProperties memProperties;
-		vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
+		vkGetPhysicalDeviceMemoryProperties(storage.physicalDevice, &memProperties);
 
 		std::optional<uint32_t> memoryIndex;
 
@@ -2351,9 +2222,9 @@ namespace parus::vulkan
 			stagingBufferMemory);
 
 		void* data;
-		vkMapMemory(logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);
+		vkMapMemory(storage.logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);
 		memcpy(data, indices.data(), bufferSize);
-		vkUnmapMemory(logicalDevice, stagingBufferMemory);
+		vkUnmapMemory(storage.logicalDevice, stagingBufferMemory);
 
 		createBuffer(bufferSize,
 			VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
@@ -2363,8 +2234,8 @@ namespace parus::vulkan
 
 		copyBuffer(stagingBuffer, globalBuffers.skyIndexBuffer, bufferSize);
 
-		vkDestroyBuffer(logicalDevice, stagingBuffer, nullptr);
-		vkFreeMemory(logicalDevice, stagingBufferMemory, nullptr);
+		vkDestroyBuffer(storage.logicalDevice, stagingBuffer, nullptr);
+		vkFreeMemory(storage.logicalDevice, stagingBufferMemory, nullptr);
 	}
 
 	void VulkanRenderer::createIndexBuffer(const std::vector<uint32_t>& indices)
@@ -2388,9 +2259,9 @@ namespace parus::vulkan
 			stagingBufferMemory);
 
 		void* data;
-		vkMapMemory(logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);
+		vkMapMemory(storage.logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);
 		memcpy(data, indices.data(), (size_t)bufferSize);
-		vkUnmapMemory(logicalDevice, stagingBufferMemory);
+		vkUnmapMemory(storage.logicalDevice, stagingBufferMemory);
 
 		createBuffer(bufferSize,
 			VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
@@ -2400,8 +2271,8 @@ namespace parus::vulkan
 
 		copyBuffer(stagingBuffer, globalBuffers.indexBuffer, bufferSize);
 
-		vkDestroyBuffer(logicalDevice, stagingBuffer, nullptr);
-		vkFreeMemory(logicalDevice, stagingBufferMemory, nullptr);
+		vkDestroyBuffer(storage.logicalDevice, stagingBuffer, nullptr);
+		vkFreeMemory(storage.logicalDevice, stagingBufferMemory, nullptr);
 	}
 
 	void VulkanRenderer::createUniformBuffer()
@@ -2420,7 +2291,7 @@ namespace parus::vulkan
 
 			ASSERT(globalUboBuffer.frameBuffers[i] != VK_NULL_HANDLE, "Global Buffer must be valid");
 			vkMapMemory(
-				logicalDevice,
+				storage.logicalDevice,
 				globalUboBuffer.memory[i],
 				0,
 				globalUboSize,
@@ -2443,7 +2314,7 @@ namespace parus::vulkan
 
 			ASSERT(instanceUboBuffer.frameBuffers[i] != VK_NULL_HANDLE, "Instance Buffer must be valid");
 
-			vkMapMemory(logicalDevice, instanceUboBuffer.memory[i], 0, instanceUboSize, 0, &instanceUboBuffer.mapped[i]);
+			vkMapMemory(storage.logicalDevice, instanceUboBuffer.memory[i], 0, instanceUboSize, 0, &instanceUboBuffer.mapped[i]);
 		}
 
 		ASSERT(instanceUboBuffer.frameBuffers[0] != VK_NULL_HANDLE, "Instance Buffer must be valid");
@@ -2461,7 +2332,7 @@ namespace parus::vulkan
 
 			ASSERT(directionalLightUboBuffer.frameBuffers[i] != VK_NULL_HANDLE, "Directional Light Buffer must be valid");
 
-			vkMapMemory(logicalDevice, directionalLightUboBuffer.memory[i], 0, lightUboSize, 0, &directionalLightUboBuffer.mapped[i]);
+			vkMapMemory(storage.logicalDevice, directionalLightUboBuffer.memory[i], 0, lightUboSize, 0, &directionalLightUboBuffer.mapped[i]);
 		}
 	
 	}
@@ -2537,7 +2408,7 @@ namespace parus::vulkan
 		poolInfo.maxSets
 			= static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT * MAX_NUMBER_OF_MESHES * NUMBER_OF_TEXTURE_TYPES + IMAGE_SAMPLER_POOL_SIZE + 1);
 
-		ASSERT(vkCreateDescriptorPool(logicalDevice, &poolInfo, nullptr, &descriptorPool) == VK_SUCCESS, "failed to create descriptor pool.");
+		ASSERT(vkCreateDescriptorPool(storage.logicalDevice, &poolInfo, nullptr, &descriptorPool) == VK_SUCCESS, "failed to create descriptor pool.");
 	}
 
 	void VulkanRenderer::createMeshDescriptorSets(const std::shared_ptr<Mesh>& mesh)
@@ -2556,7 +2427,7 @@ namespace parus::vulkan
 		globalAllocateInfo.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
 		globalAllocateInfo.pSetLayouts = globalLayouts.data();
 
-		ASSERT(vkAllocateDescriptorSets(logicalDevice, &globalAllocateInfo, globalDescriptorSets.data()) == VK_SUCCESS,
+		ASSERT(vkAllocateDescriptorSets(storage.logicalDevice, &globalAllocateInfo, globalDescriptorSets.data()) == VK_SUCCESS,
 			"Failed to allocate global descriptor sets.");
 
 		for (size_t frameIndex = 0; frameIndex < MAX_FRAMES_IN_FLIGHT; frameIndex++)
@@ -2583,7 +2454,7 @@ namespace parus::vulkan
 				.pTexelBufferView = nullptr
 			};
 
-			vkUpdateDescriptorSets(logicalDevice, 1, &globalWrite, 0, nullptr);
+			vkUpdateDescriptorSets(storage.logicalDevice, 1, &globalWrite, 0, nullptr);
 		}
 	}
 	
@@ -2599,7 +2470,7 @@ namespace parus::vulkan
 			instanceSetAllocateInfo.pSetLayouts = instanceLayouts.data();
 
 			meshInstance.instanceDescriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
-			ASSERT(vkAllocateDescriptorSets(logicalDevice, &instanceSetAllocateInfo, meshInstance.instanceDescriptorSets.data()) == VK_SUCCESS,
+			ASSERT(vkAllocateDescriptorSets(storage.logicalDevice, &instanceSetAllocateInfo, meshInstance.instanceDescriptorSets.data()) == VK_SUCCESS,
 				"Failed to allocate instance descriptor sets.");
 
 			for (size_t frameIndex = 0; frameIndex < MAX_FRAMES_IN_FLIGHT; frameIndex++)
@@ -2626,7 +2497,7 @@ namespace parus::vulkan
 						.pTexelBufferView = nullptr
 					};
 
-				vkUpdateDescriptorSets(logicalDevice, 1, &descriptorWrite, 0, nullptr);
+				vkUpdateDescriptorSets(storage.logicalDevice, 1, &descriptorWrite, 0, nullptr);
 			}
 		}
 	}
@@ -2645,7 +2516,7 @@ namespace parus::vulkan
 			allocInfo.descriptorSetCount = 1;
 			allocInfo.pSetLayouts = &materialDescriptorSetLayout;
 
-			ASSERT(vkAllocateDescriptorSets(logicalDevice, &allocInfo, &material->materialDescriptorSet) == VK_SUCCESS,
+			ASSERT(vkAllocateDescriptorSets(storage.logicalDevice, &allocInfo, &material->materialDescriptorSet) == VK_SUCCESS,
 				"Failed to allocate material descriptor sets.");
         
 			std::vector<VkDescriptorImageInfo> imageInfos;
@@ -2679,7 +2550,7 @@ namespace parus::vulkan
 				});
 			}
 
-			vkUpdateDescriptorSets(logicalDevice,
+			vkUpdateDescriptorSets(storage.logicalDevice,
 				static_cast<uint32_t>(descriptorWrites.size()),
 				descriptorWrites.data(),
 				0, nullptr);
@@ -2701,7 +2572,7 @@ namespace parus::vulkan
 		lightSetAllocateInfo.pSetLayouts = lightLayouts.data();
 
 		directionalLight.descriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
-		ASSERT(vkAllocateDescriptorSets(logicalDevice, &lightSetAllocateInfo, directionalLight.descriptorSets.data()) == VK_SUCCESS,
+		ASSERT(vkAllocateDescriptorSets(storage.logicalDevice, &lightSetAllocateInfo, directionalLight.descriptorSets.data()) == VK_SUCCESS,
 			"Failed to allocate instance descriptor sets.");
 
 		for (size_t frameIndex = 0; frameIndex < MAX_FRAMES_IN_FLIGHT; frameIndex++)
@@ -2749,7 +2620,7 @@ namespace parus::vulkan
 					.pTexelBufferView = nullptr
 				};
 			
-			vkUpdateDescriptorSets(logicalDevice, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+			vkUpdateDescriptorSets(storage.logicalDevice, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 		}
 	}
 
@@ -2768,9 +2639,9 @@ namespace parus::vulkan
 
 		for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
 		{
-			ASSERT(vkCreateSemaphore(logicalDevice, &semaphoreInfo, nullptr, &imageAvailableSemaphores[i]) == VK_SUCCESS &&
-				vkCreateSemaphore(logicalDevice, &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]) == VK_SUCCESS &&
-				vkCreateFence(logicalDevice, &fenceInfo, nullptr, &inFlightFences[i]) == VK_SUCCESS,
+			ASSERT(vkCreateSemaphore(storage.logicalDevice, &semaphoreInfo, nullptr, &imageAvailableSemaphores[i]) == VK_SUCCESS &&
+				vkCreateSemaphore(storage.logicalDevice, &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]) == VK_SUCCESS &&
+				vkCreateFence(storage.logicalDevice, &fenceInfo, nullptr, &inFlightFences[i]) == VK_SUCCESS,
 				"failed to create semaphores.");
 		}
 	}
@@ -2779,15 +2650,15 @@ namespace parus::vulkan
 	{
 		ASSERT(static_cast<size_t>(currentFrame) < inFlightFences.size() && currentFrame >= 0, "current frame number is larger than number of fences.");
 
-		vkWaitForFences(logicalDevice, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
-		vkResetFences(logicalDevice, 1, &inFlightFences[currentFrame]);
+		vkWaitForFences(storage.logicalDevice, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
+		vkResetFences(storage.logicalDevice, 1, &inFlightFences[currentFrame]);
 	}
 
 	void VulkanRenderer::resetFences() const
 	{
 		ASSERT(static_cast<size_t>(currentFrame) < inFlightFences.size() && currentFrame >= 0, "current frame number is larger than number of fences.");
 
-		vkResetFences(logicalDevice, 1, &inFlightFences[currentFrame]);
+		vkResetFences(storage.logicalDevice, 1, &inFlightFences[currentFrame]);
 	}
 
 	void VulkanRenderer::onResize()
@@ -2798,7 +2669,7 @@ namespace parus::vulkan
 	VkSampleCountFlagBits VulkanRenderer::getMaxUsableSampleCount() const
 	{
 		VkPhysicalDeviceProperties physicalDeviceProperties;
-		vkGetPhysicalDeviceProperties(physicalDevice, &physicalDeviceProperties);
+		vkGetPhysicalDeviceProperties(storage.physicalDevice, &physicalDeviceProperties);
 
 		const VkSampleCountFlags counts = physicalDeviceProperties.limits.framebufferColorSampleCounts & physicalDeviceProperties.limits.framebufferDepthSampleCounts;
 		if (counts & VK_SAMPLE_COUNT_64_BIT) { return VK_SAMPLE_COUNT_64_BIT; }
@@ -2859,8 +2730,8 @@ namespace parus::vulkan
     
 		for (auto& [buffer, memory] : frames[frameToClean].buffersToDelete)
 		{
-			vkDestroyBuffer(logicalDevice, buffer, nullptr);
-			vkFreeMemory(logicalDevice, memory, nullptr);
+			vkDestroyBuffer(storage.logicalDevice, buffer, nullptr);
+			vkFreeMemory(storage.logicalDevice, memory, nullptr);
 		}
 		frames[frameToClean].buffersToDelete.clear();
 	}

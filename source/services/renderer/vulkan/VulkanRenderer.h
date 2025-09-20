@@ -24,28 +24,11 @@ namespace parus::imgui
 
 namespace parus::vulkan
 {
-	struct SwapChainSupportDetails
-	{
-		VkSurfaceCapabilitiesKHR capabilities{};
-		std::vector<VkSurfaceFormatKHR> formats{};
-		std::vector<VkPresentModeKHR> presentModes{};
-
-		[[nodiscard]] bool isComplete() const { return !formats.empty() && !presentModes.empty(); }
-	};
-
 	struct SwapChainImageDetails
 	{
 		VkFormat swapChainImageFormat{};
 		VkExtent2D swapChainExtent{};
 		std::vector<VkImage> swapChainImages{};
-	};
-
-	struct QueueFamilyIndices
-	{
-		std::optional<uint32_t> graphicsFamily;
-		std::optional<uint32_t> presentFamily;
-
-		[[nodiscard]] bool isComplete() const { return graphicsFamily.has_value() && presentFamily.has_value(); }
 	};
 	
 	struct GlobalGeometryBuffers
@@ -143,9 +126,7 @@ namespace parus::vulkan
 
 		// Devices.
 		void createDevices();
-		void pickAnySuitableDevice();
 		static bool isDeviceSuitable(const VkPhysicalDevice& device, const VkSurfaceKHR& surface);
-		static SwapChainSupportDetails querySwapChainSupport(const VkPhysicalDevice& device, const VkSurfaceKHR& surface);
 
 		// Queues
 		void createQueues();
@@ -270,8 +251,6 @@ namespace parus::vulkan
 
 		static std::array<VkVertexInputAttributeDescription, 4> getAttributeDescriptions();
 
-		VkDevice logicalDevice = VK_NULL_HANDLE;
-		VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
 
 		std::mutex graphicsQueueMutex;
 		VkQueue graphicsQueue = VK_NULL_HANDLE;
@@ -310,7 +289,6 @@ namespace parus::vulkan
 		VkImage depthImage;
 		VkDeviceMemory depthImageMemory;
 		VkImageView depthImageView;
-		VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT;
 		VkImage colorImage;
 		VkDeviceMemory colorImageMemory;
 		VkImageView colorImageView;

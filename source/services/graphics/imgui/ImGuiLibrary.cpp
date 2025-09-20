@@ -32,14 +32,14 @@ namespace parus::imgui
 		//this initializes imgui for Vulkan
 		ImGui_ImplVulkan_InitInfo initInfo = {};
 		initInfo.Instance = vulkanContext->storage.instance;
-		initInfo.PhysicalDevice = vulkanContext->physicalDevice;
-		initInfo.Device = vulkanContext->logicalDevice;
+		initInfo.PhysicalDevice = vulkanContext->storage.physicalDevice;
+		initInfo.Device = vulkanContext->storage.logicalDevice;
 		initInfo.Queue = vulkanContext->graphicsQueue;
 		initInfo.DescriptorPool = vulkanContext->descriptorPool;
 		initInfo.RenderPass = vulkanContext->renderPass;
 		initInfo.MinImageCount = 2;
 		initInfo.ImageCount = 2;
-		initInfo.MSAASamples = vulkanContext->msaaSamples;
+		initInfo.MSAASamples = vulkanContext->storage.msaaSamples;
 
 		ImGui_ImplVulkan_Init(&initInfo);
 
