@@ -1,5 +1,7 @@
 ﻿#include "VulkanUtils.h"
 
+#include <mutex>
+
 namespace parus::vulkan::utils
 {
     
@@ -65,4 +67,15 @@ namespace parus::vulkan::utils
         return details;
     }
 
+    VkResult threadSafeQueueSubmit(VulkanStorage& vulkanStorage, const VkSubmitInfo* submitInfo, VkFence fence)
+    {
+        std::lock_guard lock(vulkanStorage.graphicsQueueMutex);
+        return vkQueueSubmit(vulkanStorage.graphicsQueue, 1, submitInfo, fence);
+    }
+
+    VkResult threadSafePresent(VulkanStorage& vulkanStorage, const VkPresentInfoKHR* presentInfo)
+    {
+        std::lock_guard lock(vulkanStorage.graphicsQueueMutex);
+        return vkQueuePresentKHR(vulkanStorage.graphicsQueue, presentInfo);
+    }
 }

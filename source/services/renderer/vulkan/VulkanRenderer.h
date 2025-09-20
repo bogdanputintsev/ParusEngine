@@ -250,23 +250,7 @@ namespace parus::vulkan
 		static VkVertexInputBindingDescription getBindingDescription();
 
 		static std::array<VkVertexInputAttributeDescription, 4> getAttributeDescriptions();
-
-
-		std::mutex graphicsQueueMutex;
-		VkQueue graphicsQueue = VK_NULL_HANDLE;
-		VkResult threadSafeQueueSubmit(const VkSubmitInfo* submitInfo, VkFence fence)
-		{
-			std::lock_guard<std::mutex> lock(graphicsQueueMutex);
-			return vkQueueSubmit(graphicsQueue, 1, submitInfo, fence);
-		}
-
-		VkResult threadSafePresent(const VkPresentInfoKHR* presentInfo)
-		{
-			std::lock_guard<std::mutex> lock(graphicsQueueMutex);
-			return vkQueuePresentKHR(graphicsQueue, presentInfo);
-		}
-
-		VkQueue presentQueue = VK_NULL_HANDLE;
+		
 		VkSwapchainKHR swapChain = VK_NULL_HANDLE;
 		SwapChainImageDetails swapChainDetails{};
 		std::vector<VkImageView> swapChainImageViews{};

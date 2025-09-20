@@ -39,5 +39,9 @@ namespace parus::vulkan::utils
 	}
 	
     static constexpr std::array<const char*, 1> REQUIRED_VALIDATION_LAYERS = { "VK_LAYER_KHRONOS_validation" };
+
+	VkResult threadSafeQueueSubmit(VulkanStorage& vulkanStorage, const VkSubmitInfo* submitInfo, VkFence fence);
+	
+	VkResult threadSafePresent(VulkanStorage& vulkanStorage, const VkPresentInfoKHR* presentInfo);
 	
 }

@@ -12,6 +12,7 @@
 #include "builder/VkDebugUtilsBuilder.h"
 #include "builder/VkDeviceBuilder.h"
 #include "builder/VkInstanceBuilder.h"
+#include "builder/VkQueuesBuilder.h"
 #include "builder/VkSurfaceBuilder.h"
 #include "engine/input/Input.h"
 #include "services/platform/Platform.h"
@@ -37,8 +38,8 @@ namespace parus::vulkan
 		createDebugManager();
 		createSurface();
 		createDevices();
-		
 		createQueues();
+		
 		createSwapChain();
 		createImageViews();
 		createRenderPass();
@@ -218,7 +219,7 @@ namespace parus::vulkan
 		submitInfo.signalSemaphoreCount = 1;
 		submitInfo.pSignalSemaphores = signalSemaphores;
 
-		ASSERT(threadSafeQueueSubmit(&submitInfo, inFlightFences[currentFrame]) == VK_SUCCESS, "failed to submit draw command buffer.");
+		ASSERT(utils::threadSafeQueueSubmit(storage, &submitInfo, inFlightFences[currentFrame]) == VK_SUCCESS, "failed to submit draw command buffer.");
 
 		// Submit result back to swap chain to have it eventually show up on the screen. 
 		VkPresentInfoKHR presentInfo{};
@@ -232,9 +233,8 @@ namespace parus::vulkan
 		presentInfo.pSwapchains = swapChains;
 		presentInfo.pImageIndices = &imageIndex.value();
 		presentInfo.pResults = nullptr;
-
 		
-		const VkResult result = threadSafePresent(&presentInfo);
+		const VkResult result = utils::threadSafePresent(storage, &presentInfo);
 
 		if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebufferResized)
 		{
@@ -621,13 +621,7 @@ namespace parus::vulkan
 
 	void VulkanRenderer::createQueues()
 	{
-		const auto [graphicsFamily, presentFamily] = utils::findQueueFamilies(storage.physicalDevice, storage.surface);
-
-		ASSERT(graphicsFamily.has_value() && presentFamily.has_value(), "queue family is undefined.");
-
-		std::lock_guard lock(graphicsQueueMutex);
-		vkGetDeviceQueue(storage.logicalDevice, graphicsFamily.value(), 0, &graphicsQueue);
-		vkGetDeviceQueue(storage.logicalDevice, presentFamily.value(), 0, &presentQueue);
+		VkQueuesBuilder::build(storage);
 	}
 
 	void VulkanRenderer::createSwapChain()
@@ -1752,11 +1746,13 @@ namespace parus::vulkan
 		submitInfo.commandBufferCount = 1;
 		submitInfo.pCommandBuffers = &commandBuffer;
 
-		threadSafeQueueSubmit(&submitInfo, nullptr);
+		utils::threadSafeQueueSubmit(storage, &submitInfo, nullptr);
+		
 		{
-			std::lock_guard lock(graphicsQueueMutex);
-			vkQueueWaitIdle(graphicsQueue);
+			std::lock_guard lock(storage.graphicsQueueMutex);
+			vkQueueWaitIdle(storage.graphicsQueue);
 		}
+		
 		vkFreeCommandBuffers(storage.logicalDevice, getCommandPool(), 1, &commandBuffer);
 	}
 
