@@ -17,7 +17,7 @@ namespace parus::vulkan
 		ASSERT(storage.physicalDevice, "Devices hasn't been picked successfully.");
  
 		const auto [graphicsFamily, presentFamily] = utils::findQueueFamilies(storage.physicalDevice, storage.surface);
-		ASSERT(graphicsFamily.has_value() && presentFamily.has_value(), "queue family indices are not complete.");
+		ASSERT(graphicsFamily.has_value() && presentFamily.has_value(), "Queue family indices are not complete.");
  
 		std::set uniqueQueueFamilies = { graphicsFamily.value(), presentFamily.value() };
  
@@ -58,6 +58,10 @@ namespace parus::vulkan
 		}
  
 		ASSERT(vkCreateDevice(storage.physicalDevice, &createInfo, nullptr, &storage.logicalDevice) == VK_SUCCESS, "failed to create logical device.");
+
+        utils::setDebugName(storage, storage.instance, VK_OBJECT_TYPE_INSTANCE, "Main Vulkan Instance");
+    	utils::setDebugName(storage, storage.physicalDevice, VK_OBJECT_TYPE_PHYSICAL_DEVICE, "Main Physical Device");
+    	utils::setDebugName(storage, storage.logicalDevice, VK_OBJECT_TYPE_DEVICE, "Main Logical Device");
     }
  
     void VkDeviceBuilder::pickAnySuitableDevice(VulkanStorage& storage)
@@ -81,6 +85,7 @@ namespace parus::vulkan
         }
  
         ASSERT(storage.physicalDevice != VK_NULL_HANDLE, "Failed to find a suitable GPU.");
+
     }
  
     bool VkDeviceBuilder::isDeviceSuitable(const VkPhysicalDevice& device, VulkanStorage& storage)

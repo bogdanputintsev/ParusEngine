@@ -544,7 +544,8 @@ namespace parus::vulkan
 
 	std::optional<uint32_t> VulkanRenderer::acquireNextImage()
 	{
-		ASSERT(static_cast<size_t>(currentFrame) < imageAvailableSemaphores.size() && currentFrame >= 0, "current frame number is larger than number of fences.");
+		ASSERT(static_cast<size_t>(currentFrame) < imageAvailableSemaphores.size() && currentFrame >= 0,
+			"Current frame number is larger than the number of fences.");
 
 		uint32_t imageIndex;
 		const VkResult result = vkAcquireNextImageKHR(storage.logicalDevice, storage.swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
@@ -1549,7 +1550,7 @@ namespace parus::vulkan
 				.setFormat(depthFormat)
 				.setAspectFlags(VK_IMAGE_ASPECT_DEPTH_BIT)
 				.setMipLevels(1)
-				.build(storage);
+				.build("Depth Image View", storage);
 	}
 
 	VkFormat VulkanRenderer::findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features)
@@ -1835,7 +1836,7 @@ namespace parus::vulkan
 			.setFormat(colorFormat)
 			.setAspectFlags(VK_IMAGE_ASPECT_COLOR_BIT)
 			.setMipLevels(1)
-			.build(storage);
+			.build("Color Image View", storage);
 	}
 
 	void VulkanRenderer::createVertexBuffer(const std::vector<math::Vertex>& vertices)

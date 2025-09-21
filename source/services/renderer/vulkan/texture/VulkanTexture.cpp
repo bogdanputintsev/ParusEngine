@@ -65,7 +65,7 @@ namespace parus::vulkan
 			.setFormat(VK_FORMAT_R8G8B8A8_SRGB)
 			.setAspectFlags(VK_IMAGE_ASPECT_COLOR_BIT)
 			.setMipLevels(newTexture.maxMipLevels)
-			.build(vulkanRenderer->storage);
+			.build("Texture Image View [" + filePath + "]", vulkanRenderer->storage);
 		
 		newTexture.sampler = vulkanRenderer->createTextureSampler(newTexture.maxMipLevels);
 

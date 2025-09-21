@@ -7,7 +7,7 @@ namespace parus::vulkan
     class VkImageViewBuilder
     {
     public:
-        VkImageView build(const VulkanStorage& vulkanStorage) const;
+        [[nodiscard]] VkImageView build(const std::string& name, const VulkanStorage& vulkanStorage) const;
 
         VkImageViewBuilder& setImage(const VkImage& newImage);
         VkImageViewBuilder& setFormat(const VkFormat& newFormat);

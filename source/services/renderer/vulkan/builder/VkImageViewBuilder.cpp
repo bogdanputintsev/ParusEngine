@@ -3,7 +3,7 @@
 
 namespace parus::vulkan
 {
-    VkImageView VkImageViewBuilder::build(const VulkanStorage& vulkanStorage) const
+    VkImageView VkImageViewBuilder::build(const std::string& name, const VulkanStorage& vulkanStorage) const
     {
         VkImageViewCreateInfo viewInfo{};
         viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -19,6 +19,8 @@ namespace parus::vulkan
         VkImageView imageView;
         ASSERT(vkCreateImageView(vulkanStorage.logicalDevice, &viewInfo, nullptr, &imageView) == VK_SUCCESS, "Failed to create texture image view.");
 
+        utils::setDebugName(vulkanStorage, imageView, VK_OBJECT_TYPE_IMAGE_VIEW, name.c_str());
+        
         return imageView;
     }
 
