@@ -13,7 +13,8 @@ namespace parus::vulkan
 
 namespace parus::vulkan::utils
 {
-
+	void setDebugName(const VulkanStorage& vulkanStorage, const void* objectHandle, const VkObjectType objectType, const char* name);
+	
 	struct QueueFamilyIndices
 	{
 		std::optional<uint32_t> graphicsFamily;
@@ -40,7 +41,7 @@ namespace parus::vulkan::utils
 		VkFormat swapChainImageFormat{};
 		VkExtent2D swapChainExtent{};
 		std::vector<VkImage> swapChainImages{};
-		
+		std::vector<VkImageView> swapChainImageViews{};
 	};
     
 	constexpr bool validationLayersEnabled()

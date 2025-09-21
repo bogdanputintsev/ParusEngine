@@ -6,6 +6,7 @@
 #include "engine/EngineCore.h"
 #include "services/renderer/vulkan/VulkanRenderer.h"
 #include "services/Services.h"
+#include "services/renderer/vulkan/builder/VkImageViewBuilder.h"
 
 namespace parus::vulkan
 {
@@ -59,7 +60,13 @@ namespace parus::vulkan
 
 		vulkanRenderer->generateMipmaps(newTexture, VK_FORMAT_R8G8B8A8_SRGB, textureWidth, textureHeight);
 
-		newTexture.imageView = vulkanRenderer->createImageView(newTexture.image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, newTexture.maxMipLevels);
+		newTexture.imageView = VkImageViewBuilder()
+			.setImage(newTexture.image)
+			.setFormat(VK_FORMAT_R8G8B8A8_SRGB)
+			.setAspectFlags(VK_IMAGE_ASPECT_COLOR_BIT)
+			.setMipLevels(newTexture.maxMipLevels)
+			.build(vulkanRenderer->storage);
+		
 		newTexture.sampler = vulkanRenderer->createTextureSampler(newTexture.maxMipLevels);
 
         return newTexture;
@@ -99,7 +106,7 @@ namespace parus::vulkan
 
 		vkAllocateMemory(vulkanRenderer->storage.logicalDevice, &allocInfo, nullptr, &imageMemory);
 		vkBindImageMemory(vulkanRenderer->storage.logicalDevice, image, imageMemory, 0);
-		vulkanRenderer->setDebugObjectName(reinterpret_cast<uint64_t>(imageMemory), VK_OBJECT_TYPE_DEVICE_MEMORY, "DEFAULT_TEXTURE_DEVICE_MEMORY");
+		utils::setDebugName(vulkanRenderer->storage, imageMemory, VK_OBJECT_TYPE_DEVICE_MEMORY, "DEFAULT_TEXTURE_DEVICE_MEMORY");
 
 		// 3. Transition Image Layout
 		vulkanRenderer->transitionImageLayout(
@@ -121,8 +128,8 @@ namespace parus::vulkan
 			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
 			stagingBuffer, stagingBufferMemory);
 
-		vulkanRenderer->setDebugObjectName(reinterpret_cast<uint64_t>(stagingBuffer), VK_OBJECT_TYPE_BUFFER, "DEFAULT_TEXTURE_BUFFER");
-		vulkanRenderer->setDebugObjectName(reinterpret_cast<uint64_t>(stagingBufferMemory), VK_OBJECT_TYPE_DEVICE_MEMORY, "DEFAULT_TEXTURE_DEVICE_MEMORY");
+		utils::setDebugName(vulkanRenderer->storage, stagingBuffer, VK_OBJECT_TYPE_BUFFER, "DEFAULT_TEXTURE_BUFFER");
+		utils::setDebugName(vulkanRenderer->storage, stagingBufferMemory, VK_OBJECT_TYPE_DEVICE_MEMORY, "DEFAULT_TEXTURE_DEVICE_MEMORY");
 		
 		void* data;
 		vkMapMemory(vulkanRenderer->storage.logicalDevice, stagingBufferMemory, 0, sizeof(colorData), 0, &data);

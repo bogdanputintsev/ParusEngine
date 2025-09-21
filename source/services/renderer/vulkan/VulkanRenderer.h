@@ -1,4 +1,5 @@
 #pragma once
+
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -15,7 +16,6 @@
 #include "services/renderer/Renderer.h"
 #include "storage/VulkanStorage.h"
 #include "texture/VulkanTexture.h"
-#include "utils/VulkanUtils.h"
 
 
 namespace parus::imgui
@@ -111,7 +111,6 @@ namespace parus::vulkan
 
 		// DebugManager
 		void createDebugManager();
-		void setDebugObjectName(uint64_t objectHandle, VkObjectType objectType, const char* name) const;
 		
 		// Surface.
 		void createSurface();
@@ -128,10 +127,6 @@ namespace parus::vulkan
 		[[nodiscard]] std::optional<uint32_t> acquireNextImage();
 		void recreateSwapChain();
 		void cleanupSwapChain() const;
-
-		// Image View
-		void createImageViews();
-		VkImageView createImageView(const VkImage image, const VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels) const;
 
 		// Render Pass
 		void createRenderPass();
@@ -240,7 +235,6 @@ namespace parus::vulkan
 
 		static std::array<VkVertexInputAttributeDescription, 4> getAttributeDescriptions();
 		
-		std::vector<VkImageView> swapChainImageViews{};
 		
 		VkRenderPass renderPass = VK_NULL_HANDLE;
 		

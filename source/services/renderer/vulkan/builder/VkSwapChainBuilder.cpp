@@ -1,5 +1,6 @@
 ﻿#include "VkSwapChainBuilder.h"
 
+#include "VkImageViewBuilder.h"
 #include "services/config/Configs.h"
 #include "services/renderer/vulkan/utils/VulkanUtils.h"
 
@@ -58,15 +59,30 @@ namespace parus::vulkan
 
 		ASSERT(vkCreateSwapchainKHR(storage.logicalDevice, &createInfo, nullptr, &storage.swapChain) == VK_SUCCESS, "Failed to create swap chain.");
 
+    	// Get Swap Chain Images
 		std::vector<VkImage> swapChainImages;
 		vkGetSwapchainImagesKHR(storage.logicalDevice, storage.swapChain, &imageCount, nullptr);
 		swapChainImages.resize(imageCount);
 		vkGetSwapchainImagesKHR(storage.logicalDevice, storage.swapChain, &imageCount, swapChainImages.data());
 
+    	// Get Swap Chain Image Views
+    	std::vector<VkImageView> swapChainImageViews;
+    	swapChainImageViews.resize(swapChainImages.size());
+    	for (size_t i = 0; i < swapChainImageViews.size(); i++)
+    	{
+    		swapChainImageViews[i] = VkImageViewBuilder()
+				.setImage(swapChainImages[i])
+				.setFormat(format)
+				.setAspectFlags(VK_IMAGE_ASPECT_COLOR_BIT)
+				.setMipLevels(1)
+				.build(storage);
+    	}
+    	
 		storage.swapChainDetails = {
 			.swapChainImageFormat = format,
 			.swapChainExtent = extent,
-			.swapChainImages = swapChainImages
+			.swapChainImages = swapChainImages,
+    		.swapChainImageViews = swapChainImageViews
 		};
     }
 

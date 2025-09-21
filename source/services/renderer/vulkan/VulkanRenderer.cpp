@@ -9,6 +9,7 @@
 
 #include "builder/VkDebugUtilsBuilder.h"
 #include "builder/VkDeviceBuilder.h"
+#include "builder/VkImageViewBuilder.h"
 #include "builder/VkInstanceBuilder.h"
 #include "builder/VkQueuesBuilder.h"
 #include "builder/VkSurfaceBuilder.h"
@@ -40,7 +41,6 @@ namespace parus::vulkan
 		createQueues();
 		createSwapChain();
 		
-		createImageViews();
 		createRenderPass();
 		createDescriptorSetLayout();
 		createSkyPipeline();
@@ -522,24 +522,6 @@ namespace parus::vulkan
 			.build(storage);
 	}
 
-	void VulkanRenderer::setDebugObjectName(const uint64_t objectHandle, const VkObjectType objectType, const char* name) const
-	{
-		if (storage.vkSetDebugUtilsObjectNameEXT)
-		{
-			VkDebugUtilsObjectNameInfoEXT nameInfo{};
-			nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
-			nameInfo.objectType = objectType;
-			nameInfo.objectHandle = objectHandle;
-			nameInfo.pObjectName = name;
-
-			storage.vkSetDebugUtilsObjectNameEXT(storage.logicalDevice, &nameInfo);
-		}
-		else
-		{
-			LOG_WARNING("VkDebugUtilsObjectNameInfoEXT is not properly set.");
-		}
-	}
-
 	void VulkanRenderer::createSurface()
 	{
 		VkSurfaceBuilder::build(storage);
@@ -586,7 +568,6 @@ namespace parus::vulkan
 		cleanupSwapChain();
 
 		createSwapChain();
-		createImageViews();
 		createColorResources();
 		createDepthResources();
 		createFramebuffers();
@@ -606,43 +587,11 @@ namespace parus::vulkan
 			vkDestroyFramebuffer(storage.logicalDevice, framebuffer, nullptr);
 		}
 
-		for (const auto imageView : swapChainImageViews) {
+		for (const auto imageView : storage.swapChainDetails.swapChainImageViews) {
 			vkDestroyImageView(storage.logicalDevice, imageView, nullptr);
 		}
 
 		vkDestroySwapchainKHR(storage.logicalDevice, storage.swapChain, nullptr);
-	}
-
-	void VulkanRenderer::createImageViews()
-	{
-		const auto& [swapChainImageFormat, swapChainExtent, swapChainImages]
-			= storage.swapChainDetails;
-
-		swapChainImageViews.resize(swapChainImages.size());
-
-		for (size_t i = 0; i < swapChainImageViews.size(); i++)
-		{
-			swapChainImageViews[i] = createImageView(swapChainImages[i], swapChainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
-		}
-	}
-
-	VkImageView VulkanRenderer::createImageView(const VkImage image, const VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels) const
-	{
-		VkImageViewCreateInfo viewInfo{};
-		viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-		viewInfo.image = image;
-		viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		viewInfo.format = format;
-		viewInfo.subresourceRange.aspectMask = aspectFlags;
-		viewInfo.subresourceRange.baseMipLevel = 0;
-		viewInfo.subresourceRange.levelCount = mipLevels;
-		viewInfo.subresourceRange.baseArrayLayer = 0;
-		viewInfo.subresourceRange.layerCount = 1;
-
-		VkImageView imageView;
-		ASSERT(vkCreateImageView(storage.logicalDevice, &viewInfo, nullptr, &imageView) == VK_SUCCESS, "failed to create texture image view.");
-
-		return imageView;
 	}
 
 	void VulkanRenderer::createRenderPass()
@@ -1293,14 +1242,14 @@ namespace parus::vulkan
 
 	void VulkanRenderer::createFramebuffers()
 	{
-		swapChainFramebuffers.resize(swapChainImageViews.size());
+		swapChainFramebuffers.resize(storage.swapChainDetails.swapChainImageViews.size());
 
-		for (size_t i = 0; i < swapChainImageViews.size(); ++i)
+		for (size_t i = 0; i < storage.swapChainDetails.swapChainImageViews.size(); ++i)
 		{
 			std::array attachments = {
 				colorImageView,
 				depthImageView,
-				swapChainImageViews[i]
+				storage.swapChainDetails.swapChainImageViews[i]
 			};
 
 			const auto& [width, height] = storage.swapChainDetails.swapChainExtent;
@@ -1595,7 +1544,12 @@ namespace parus::vulkan
 			VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, depthImage, depthImageMemory);
 
-		depthImageView = createImageView(depthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, 1);
+		depthImageView = VkImageViewBuilder()
+				.setImage(depthImage)
+				.setFormat(depthFormat)
+				.setAspectFlags(VK_IMAGE_ASPECT_DEPTH_BIT)
+				.setMipLevels(1)
+				.build(storage);
 	}
 
 	VkFormat VulkanRenderer::findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features)
@@ -1876,7 +1830,12 @@ namespace parus::vulkan
 	{
 		const VkFormat colorFormat = storage.swapChainDetails.swapChainImageFormat;
 		createImage(storage.swapChainDetails.swapChainExtent.width, storage.swapChainDetails.swapChainExtent.height, 1, storage.msaaSamples, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, colorImage, colorImageMemory);
-		colorImageView = createImageView(colorImage, colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
+		colorImageView = VkImageViewBuilder()
+			.setImage(colorImage)
+			.setFormat(colorFormat)
+			.setAspectFlags(VK_IMAGE_ASPECT_COLOR_BIT)
+			.setMipLevels(1)
+			.build(storage);
 	}
 
 	void VulkanRenderer::createVertexBuffer(const std::vector<math::Vertex>& vertices)

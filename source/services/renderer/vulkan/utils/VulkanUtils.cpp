@@ -6,7 +6,24 @@
 
 namespace parus::vulkan::utils
 {
-    
+    void setDebugName(const VulkanStorage& vulkanStorage, const void* objectHandle, const VkObjectType objectType, const char* name)
+    {
+        if (vulkanStorage.vkSetDebugUtilsObjectNameEXT)
+        {
+            VkDebugUtilsObjectNameInfoEXT nameInfo{};
+            nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
+            nameInfo.objectType = objectType;
+            nameInfo.objectHandle = reinterpret_cast<uint64_t>(objectHandle);
+            nameInfo.pObjectName = name;
+
+            vulkanStorage.vkSetDebugUtilsObjectNameEXT(vulkanStorage.logicalDevice, &nameInfo);
+        }
+        else
+        {
+            LOG_WARNING("VkDebugUtilsObjectNameInfoEXT is not properly set.");
+        }
+    }
+
     QueueFamilyIndices findQueueFamilies(
         const VkPhysicalDevice& physicalDevice,
         const VkSurfaceKHR& surface)
