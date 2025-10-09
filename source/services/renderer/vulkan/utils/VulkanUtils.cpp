@@ -97,4 +97,38 @@ namespace parus::vulkan::utils
         std::lock_guard lock(vulkanStorage.graphicsQueueMutex);
         return vkQueuePresentKHR(vulkanStorage.graphicsQueue, presentInfo);
     }
+
+    VkFormat findSupportedFormat(const VulkanStorage& vulkanStorage, const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features)
+    {
+        std::optional<VkFormat> supportedFormat;
+        
+        for (VkFormat format : candidates)
+        {
+            VkFormatProperties props;
+            vkGetPhysicalDeviceFormatProperties(vulkanStorage.physicalDevice, format, &props);
+
+            if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features)
+            {
+                supportedFormat = format;
+            }
+            else if (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features)
+            {
+                supportedFormat = format;
+            }
+        }
+
+        ASSERT(supportedFormat.has_value(), "failed to find supported format.");
+
+        return supportedFormat.value();
+    }
+
+    VkFormat findDepthFormat(const VulkanStorage& vulkanStorage)
+    {
+        return findSupportedFormat(
+            vulkanStorage,
+            { VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT },
+            VK_IMAGE_TILING_OPTIMAL,
+            VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
+        );
+    }
 }

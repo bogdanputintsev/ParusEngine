@@ -170,8 +170,6 @@ namespace parus::vulkan
 
 		// Depth resources
 		void createDepthResources();
-		VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
-		VkFormat findDepthFormat();
 		static bool hasStencilComponent(VkFormat format);
 
 		// Texture image
@@ -236,7 +234,6 @@ namespace parus::vulkan
 		static std::array<VkVertexInputAttributeDescription, 4> getAttributeDescriptions();
 		
 		
-		VkRenderPass renderPass = VK_NULL_HANDLE;
 		
 		VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
 		VkPipeline graphicsPipeline = VK_NULL_HANDLE;

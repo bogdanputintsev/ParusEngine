@@ -4,7 +4,7 @@
 
 namespace parus::vulkan
 {
-    class VkImageViewBuilder
+    class VkImageViewBuilder final
     {
     public:
         [[nodiscard]] VkImageView build(const std::string& name, const VulkanStorage& vulkanStorage) const;
@@ -24,6 +24,5 @@ namespace parus::vulkan
         VkImageAspectFlags aspectMask = 0;
         uint32_t levelCount = 1;
         uint32_t layerCount = 1;
-        
     };
 }

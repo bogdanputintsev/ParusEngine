@@ -12,6 +12,7 @@
 #include "builder/VkImageViewBuilder.h"
 #include "builder/VkInstanceBuilder.h"
 #include "builder/VkQueuesBuilder.h"
+#include "builder/VkRenderPassBuilder.h"
 #include "builder/VkSurfaceBuilder.h"
 #include "builder/VkSwapChainBuilder.h"
 #include "engine/input/Input.h"
@@ -108,7 +109,7 @@ namespace parus::vulkan
 		vkDestroyPipelineLayout(storage.logicalDevice, pipelineLayout, nullptr);
 		vkDestroyPipeline(storage.logicalDevice, skyPipeline, nullptr);
 		vkDestroyPipelineLayout(storage.logicalDevice, skyPipelineLayout, nullptr);
-		vkDestroyRenderPass(storage.logicalDevice, renderPass, nullptr);
+		vkDestroyRenderPass(storage.logicalDevice, storage.renderPass, nullptr);
 
 		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 		{
@@ -597,75 +598,8 @@ namespace parus::vulkan
 
 	void VulkanRenderer::createRenderPass()
 	{
-		VkAttachmentDescription colorAttachment{};
-		colorAttachment.format = storage.swapChainDetails.swapChainImageFormat;
-		colorAttachment.samples = storage.msaaSamples;
-		colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-		colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-		colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-		colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		colorAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-		VkAttachmentDescription depthAttachment{};
-		depthAttachment.format = findDepthFormat();
-		depthAttachment.samples = storage.msaaSamples;
-		depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-		depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-		depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-		VkAttachmentDescription colorAttachmentResolve{};
-		colorAttachmentResolve.format = storage.swapChainDetails.swapChainImageFormat;
-		colorAttachmentResolve.samples = VK_SAMPLE_COUNT_1_BIT;
-		colorAttachmentResolve.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-		colorAttachmentResolve.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-		colorAttachmentResolve.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-		colorAttachmentResolve.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		colorAttachmentResolve.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		colorAttachmentResolve.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-
-		VkAttachmentReference colorAttachmentRef{};
-		colorAttachmentRef.attachment = 0;
-		colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-		VkAttachmentReference depthAttachmentRef{};
-		depthAttachmentRef.attachment = 1;
-		depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-		VkAttachmentReference colorAttachmentResolveRef{};
-		colorAttachmentResolveRef.attachment = 2;
-		colorAttachmentResolveRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-		VkSubpassDescription subpass{};
-		subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-		subpass.colorAttachmentCount = 1;
-		subpass.pColorAttachments = &colorAttachmentRef;
-		subpass.pResolveAttachments = &colorAttachmentResolveRef;
-		subpass.pDepthStencilAttachment = &depthAttachmentRef;
-
-		VkSubpassDependency dependency{};
-		dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-		dependency.dstSubpass = 0;
-		dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-		dependency.srcAccessMask = 0;
-		dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-		dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-
-		const std::array attachments = { colorAttachment, depthAttachment, colorAttachmentResolve };
-
-		VkRenderPassCreateInfo renderPassInfo{};
-		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-		renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
-		renderPassInfo.pAttachments = attachments.data();
-		renderPassInfo.subpassCount = 1;
-		renderPassInfo.pSubpasses = &subpass;
-		renderPassInfo.dependencyCount = 1;
-		renderPassInfo.pDependencies = &dependency;
-
-		ASSERT(vkCreateRenderPass(storage.logicalDevice, &renderPassInfo, nullptr, &renderPass) == VK_SUCCESS, "failed to create render pass.");
+		VkRenderPassBuilder::build("Main Render Pass", storage);
+		
 	}
 
 	void VulkanRenderer::createDescriptorSetLayout()
@@ -1049,7 +983,7 @@ namespace parus::vulkan
 		pipelineInfo.pColorBlendState = &colorBlending;
 		pipelineInfo.pDynamicState = &dynamicState;
 		pipelineInfo.layout = skyPipelineLayout;
-		pipelineInfo.renderPass = renderPass;
+		pipelineInfo.renderPass = storage.renderPass;
 		pipelineInfo.subpass = 0;
 		pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 		pipelineInfo.basePipelineIndex = -1;
@@ -1206,7 +1140,7 @@ namespace parus::vulkan
 		pipelineInfo.pColorBlendState = &colorBlending;
 		pipelineInfo.pDynamicState = &dynamicState;
 		pipelineInfo.layout = pipelineLayout;
-		pipelineInfo.renderPass = renderPass;
+		pipelineInfo.renderPass = storage.renderPass;
 		pipelineInfo.subpass = 0;
 		pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 		pipelineInfo.basePipelineIndex = -1;
@@ -1245,7 +1179,7 @@ namespace parus::vulkan
 
 			VkFramebufferCreateInfo framebufferInfo{};
 			framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-			framebufferInfo.renderPass = renderPass;
+			framebufferInfo.renderPass = storage.renderPass;
 			framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
 			framebufferInfo.pAttachments = attachments.data();
 			framebufferInfo.width = width;
@@ -1369,7 +1303,7 @@ namespace parus::vulkan
 		// Start the rendering pass
 		VkRenderPassBeginInfo renderPassInfo{};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-		renderPassInfo.renderPass = renderPass;
+		renderPassInfo.renderPass = storage.renderPass;
 		renderPassInfo.framebuffer = swapChainFramebuffers[imageIndex];
 		renderPassInfo.renderArea.offset = { .x = 0, .y = 0};
 		renderPassInfo.renderArea.extent = storage.swapChainDetails.swapChainExtent;
@@ -1522,7 +1456,7 @@ namespace parus::vulkan
 
 	void VulkanRenderer::createDepthResources()
 	{
-		const VkFormat depthFormat = findDepthFormat();
+		const VkFormat depthFormat = utils::findDepthFormat(storage);
 
 		createImage(storage.swapChainDetails.swapChainExtent.width,
 			storage.swapChainDetails.swapChainExtent.height,
@@ -1540,37 +1474,7 @@ namespace parus::vulkan
 				.setLevelCount(1)
 				.build("Depth Image View", storage);
 	}
-
-	VkFormat VulkanRenderer::findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features)
-	{
-		std::optional<VkFormat> supportedFormat;
-		for (VkFormat format : candidates) {
-			VkFormatProperties props;
-			vkGetPhysicalDeviceFormatProperties(storage.physicalDevice, format, &props);
-
-			if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features) {
-				supportedFormat = format;
-			}
-			else if (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features) {
-				supportedFormat = format;
-			}
-		}
-
-		ASSERT(supportedFormat.has_value(), "failed to find supported format.");
-
-		return supportedFormat.value();
-
-	}
-
-	VkFormat VulkanRenderer::findDepthFormat()
-	{
-		return findSupportedFormat(
-			{ VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT },
-			VK_IMAGE_TILING_OPTIMAL,
-			VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
-		);
-	}
-
+	
 	bool VulkanRenderer::hasStencilComponent(const VkFormat format)
 	{
 		return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;

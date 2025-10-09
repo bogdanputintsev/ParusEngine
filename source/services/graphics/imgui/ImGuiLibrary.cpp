@@ -36,7 +36,7 @@ namespace parus::imgui
 		initInfo.Device = vulkanContext->storage.logicalDevice;
 		initInfo.Queue = vulkanContext->storage.graphicsQueue;
 		initInfo.DescriptorPool = vulkanContext->descriptorPool;
-		initInfo.RenderPass = vulkanContext->renderPass;
+		initInfo.RenderPass = vulkanContext->storage.renderPass;
 		initInfo.MinImageCount = 2;
 		initInfo.ImageCount = 2;
 		initInfo.MSAASamples = vulkanContext->storage.msaaSamples;

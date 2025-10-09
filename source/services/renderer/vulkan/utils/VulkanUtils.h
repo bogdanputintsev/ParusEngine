@@ -58,5 +58,9 @@ namespace parus::vulkan::utils
 	VkResult threadSafeQueueSubmit(VulkanStorage& vulkanStorage, const VkSubmitInfo* submitInfo, VkFence fence);
 	
 	VkResult threadSafePresent(VulkanStorage& vulkanStorage, const VkPresentInfoKHR* presentInfo);
+
+	VkFormat findSupportedFormat(const VulkanStorage& vulkanStorage, const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
 	
+	VkFormat findDepthFormat(const VulkanStorage& vulkanStorage);
+
 }

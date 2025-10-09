@@ -23,6 +23,8 @@ namespace parus::vulkan
 		VkQueue graphicsQueue = VK_NULL_HANDLE;
 		utils::SwapChainImageDetails swapChainDetails{};
 		VkSwapchainKHR swapChain = VK_NULL_HANDLE;
+		VkRenderPass renderPass = VK_NULL_HANDLE;
+    	
     };
 
 }
