@@ -81,8 +81,8 @@ namespace parus::vulkan
     		swapChainImageViews[i] = VkImageViewBuilder()
 				.setImage(swapChainImages[i])
 				.setFormat(format)
-				.setAspectFlags(VK_IMAGE_ASPECT_COLOR_BIT)
-				.setMipLevels(1)
+				.setAspectMask(VK_IMAGE_ASPECT_COLOR_BIT)
+				.setLevelCount(1)
 				.build("Swap Chain Image View (" + std::to_string(i) + ")", storage);
     	}
     	

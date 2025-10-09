@@ -830,22 +830,21 @@ namespace parus::vulkan
 
 	void VulkanRenderer::createCubemapTexture()
 	{
-		
 		VkImageCreateInfo imageInfo{};
 		imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 		imageInfo.imageType = VK_IMAGE_TYPE_2D;
-		imageInfo.extent.width = 512; // Ширина каждой грани
-		imageInfo.extent.height = 512; // Высота каждой грани
+		imageInfo.extent.width = 512;
+		imageInfo.extent.height = 512;
 		imageInfo.extent.depth = 1;
-		imageInfo.mipLevels = 1; // Для кубмапы не будем использовать mip-уровни
-		imageInfo.arrayLayers = 6; // 6 граней для кубмапы
-		imageInfo.format = VK_FORMAT_R32G32B32A32_SFLOAT; // Формат данных
+		imageInfo.mipLevels = 1;
+		imageInfo.arrayLayers = 6;
+		imageInfo.format = VK_FORMAT_R32G32B32A32_SFLOAT;
 		imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
 		imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 		imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 		imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 		imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-		imageInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT; // Кубмапа
+		imageInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
 
 		VkImage cubemapImage;
 		if (vkCreateImage(storage.logicalDevice, &imageInfo, nullptr, &cubemapImage) != VK_SUCCESS) {
@@ -867,29 +866,18 @@ namespace parus::vulkan
 			throw std::runtime_error("failed to allocate cubemap image memory!");
 		}
 		cubemap.cubemapImageMemory = cubemapImageMemory;
-
-
+		
 		vkBindImageMemory(storage.logicalDevice, cubemapImage, cubemapImageMemory, 0);
 
-		VkImageViewCreateInfo viewInfo{};
-		viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-		viewInfo.image = cubemapImage;
-		viewInfo.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
-		viewInfo.format = VK_FORMAT_R32G32B32A32_SFLOAT;
-		viewInfo.components.r = VK_COMPONENT_SWIZZLE_R;
-		viewInfo.components.g = VK_COMPONENT_SWIZZLE_G;
-		viewInfo.components.b = VK_COMPONENT_SWIZZLE_B;
-		viewInfo.components.a = VK_COMPONENT_SWIZZLE_A;
-		viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		viewInfo.subresourceRange.baseMipLevel = 0;
-		viewInfo.subresourceRange.levelCount = 1;
-		viewInfo.subresourceRange.baseArrayLayer = 0;
-		viewInfo.subresourceRange.layerCount = 6;
-
-		VkImageView cubemapImageView;
-		if (vkCreateImageView(storage.logicalDevice, &viewInfo, nullptr, &cubemapImageView) != VK_SUCCESS) {
-			throw std::runtime_error("failed to create cubemap image view!");
-		}
+		const VkImageView cubemapImageView = VkImageViewBuilder()
+			.setImage(cubemapImage)
+			.setViewType(VK_IMAGE_VIEW_TYPE_CUBE)
+			.setFormat(VK_FORMAT_R32G32B32A32_SFLOAT)
+			.setComponents({VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A})
+			.setAspectMask(VK_IMAGE_ASPECT_COLOR_BIT)
+			.setLayerCount(6)
+			.build("Cubemap Image View", storage);
+		
 		cubemap.cubemapImageView = cubemapImageView;
 
 		VkSamplerCreateInfo samplerInfo{};
@@ -1548,8 +1536,8 @@ namespace parus::vulkan
 		depthImageView = VkImageViewBuilder()
 				.setImage(depthImage)
 				.setFormat(depthFormat)
-				.setAspectFlags(VK_IMAGE_ASPECT_DEPTH_BIT)
-				.setMipLevels(1)
+				.setAspectMask(VK_IMAGE_ASPECT_DEPTH_BIT)
+				.setLevelCount(1)
 				.build("Depth Image View", storage);
 	}
 
@@ -1834,8 +1822,8 @@ namespace parus::vulkan
 		colorImageView = VkImageViewBuilder()
 			.setImage(colorImage)
 			.setFormat(colorFormat)
-			.setAspectFlags(VK_IMAGE_ASPECT_COLOR_BIT)
-			.setMipLevels(1)
+			.setAspectMask(VK_IMAGE_ASPECT_COLOR_BIT)
+			.setLevelCount(1)
 			.build("Color Image View", storage);
 	}
 

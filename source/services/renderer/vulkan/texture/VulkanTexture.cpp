@@ -63,8 +63,8 @@ namespace parus::vulkan
 		newTexture.imageView = VkImageViewBuilder()
 			.setImage(newTexture.image)
 			.setFormat(VK_FORMAT_R8G8B8A8_SRGB)
-			.setAspectFlags(VK_IMAGE_ASPECT_COLOR_BIT)
-			.setMipLevels(newTexture.maxMipLevels)
+			.setAspectMask(VK_IMAGE_ASPECT_COLOR_BIT)
+			.setLevelCount(newTexture.maxMipLevels)
 			.build("Texture Image View [" + filePath + "]", vulkanRenderer->storage);
 		
 		newTexture.sampler = vulkanRenderer->createTextureSampler(newTexture.maxMipLevels);
@@ -150,21 +150,14 @@ namespace parus::vulkan
 			1);
 
 		// 6. Create Image View
-		VkImageView imageView;
+		const std::string imageViewName = "Solid Color Texture Image View (" + std::to_string(color.x) + ", " + std::to_string(color.y) + ", " + std::to_string(color.z) + ")";
+		const VkImageView imageView = VkImageViewBuilder()
+			.setImage(image)
+			.setFormat(VK_FORMAT_R8G8B8A8_UNORM)
+			.setAspectMask(VK_IMAGE_ASPECT_COLOR_BIT)
+			.setLevelCount(1)
+			.build(imageViewName, vulkanRenderer->storage);
 		
-		VkImageViewCreateInfo viewInfo{};
-		viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-		viewInfo.image = image;
-		viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		viewInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
-		viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		viewInfo.subresourceRange.baseMipLevel = 0;
-		viewInfo.subresourceRange.levelCount = 1;
-		viewInfo.subresourceRange.baseArrayLayer = 0;
-		viewInfo.subresourceRange.layerCount = 1;
-
-		vkCreateImageView(vulkanRenderer->storage.logicalDevice, &viewInfo, nullptr, &imageView);
-
 		// 7. Create Sampler
 		VkSampler sampler;
 		
