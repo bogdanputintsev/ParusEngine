@@ -8,6 +8,7 @@
 #include <unordered_set>
 
 #include "builder/VkDebugUtilsBuilder.h"
+#include "builder/VkDescriptorSetLayoutBuilder.h"
 #include "builder/VkDeviceBuilder.h"
 #include "builder/VkImageViewBuilder.h"
 #include "builder/VkInstanceBuilder.h"
@@ -41,9 +42,11 @@ namespace parus::vulkan
 		createDevices();
 		createQueues();
 		createSwapChain();
-		
 		createRenderPass();
+		
 		createDescriptorSetLayout();
+		createDescriptorPool();
+		
 		createSkyPipeline();
 		createGraphicsPipeline();
 		createColorResources();
@@ -51,7 +54,6 @@ namespace parus::vulkan
 		createFramebuffers();
 
 		createUniformBuffer();
-		createDescriptorPool();
 
 		directionalLight = 
 			{
@@ -599,167 +601,70 @@ namespace parus::vulkan
 	void VulkanRenderer::createRenderPass()
 	{
 		VkRenderPassBuilder::build("Main Render Pass", storage);
-		
 	}
 
 	void VulkanRenderer::createDescriptorSetLayout()
 	{
-		createGlobalDescriptorSetLayout();
-		createInstanceDescriptorSetLayout();
-		createMaterialDescriptorSetLayout();
-		createLightsDescriptorSetLayout();
-	}
-
-	void VulkanRenderer::createGlobalDescriptorSetLayout()
-	{
-		// Descriptor Set 0 - Global UBO
-		const std::array<VkDescriptorSetLayoutBinding, 1> globalBindings =
-			{{
-				// Binding 0: Global UBO
+		globalDescriptorSetLayout = VkDescriptorSetLayoutBuilder("Descriptor Set 0 - Global UBO")
+			.withBindings({
 				{
-					.binding= 0,
-					.descriptorType= VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-					.descriptorCount= 1,
-					.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-					.pImmutableSamplers= nullptr
-				},
-			}};
+					.bindingName = "Binding 0: Global UBO",
+					.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+					.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT
+				}})
+			.build(storage);
 
-		const VkDescriptorSetLayoutCreateInfo layoutInfo =
-			{
-				.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-				.pNext = nullptr,
-				.flags = 0,
-				.bindingCount = static_cast<uint32_t>(globalBindings.size()),
-				.pBindings = globalBindings.data()
-			};
-	
-		ASSERT(vkCreateDescriptorSetLayout(storage.logicalDevice, &layoutInfo, nullptr, &globalDescriptorSetLayout) == VK_SUCCESS,
-			   "failed to create global descriptor set layout.");
-	}
-
-	void VulkanRenderer::createInstanceDescriptorSetLayout()
-	{
-		// Descriptor Set 1 - Instance UBO
-		const std::array<VkDescriptorSetLayoutBinding, 1> instanceBindings =
-			{{
-				// Binding 0: Instance UBO
+		instanceDescriptorSetLayout = VkDescriptorSetLayoutBuilder("Descriptor Set 1 - Instance UBO")
+			.withBindings({
 				{
-					.binding= 0,
-					.descriptorType= VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-					.descriptorCount= 1,
-					.stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
-					.pImmutableSamplers= nullptr\
-				},
-			}};
+					.bindingName = "Binding 0: Instance UBO",
+					.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+					.stageFlags = VK_SHADER_STAGE_VERTEX_BIT
+				}})
+			.build(storage);
 
-		const VkDescriptorSetLayoutCreateInfo layoutInfo =
-			{
-					.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-					.pNext = nullptr,
-					.flags = 0,
-					.bindingCount = static_cast<uint32_t>(instanceBindings.size()),
-					.pBindings = instanceBindings.data()
-			};
+		materialDescriptorSetLayout = VkDescriptorSetLayoutBuilder("Descriptor Set 2 - Material")
+			.withBindings({
+				{
+					.bindingName = "Binding 0: Albedo",
+					.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+					.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT
+				},
+				{
+					.bindingName = "Binding 1: Normal",
+					.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+					.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT
+				},
+				{
+					.bindingName = "Binding 2: Metallic",
+					.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+					.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT
+				},
+				{
+					.bindingName = "Binding 3: Roughness",
+					.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+					.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT
+				},
+				{
+					.bindingName = "Binding 4: Ambient Occlusion",
+					.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+					.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT
+				}})
+			.build(storage);
 		
-		ASSERT(vkCreateDescriptorSetLayout(storage.logicalDevice, &layoutInfo, nullptr, &instanceDescriptorSetLayout) == VK_SUCCESS,
-			   "failed to create instance descriptor set layout.");
-	}
-
-	void VulkanRenderer::createMaterialDescriptorSetLayout()
-	{
-		// Descriptor Set 2 - Material
-		const std::array<VkDescriptorSetLayoutBinding, NUMBER_OF_TEXTURE_TYPES> materialBindings = 
-			{{
-				// Binding 0: Albedo
+		lightsDescriptorSetLayout = VkDescriptorSetLayoutBuilder("Descriptor Set 3 - Lights")
+			.withBindings({
 				{
-					.binding= 0,
-					.descriptorType= VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-					.descriptorCount= 1,
-					.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
-					.pImmutableSamplers= nullptr
+					.bindingName = "Binding 0: Light UBO",
+					.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+					.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT
 				},
-				// Binding 1: Normal
 				{
-					.binding= 1,
-					.descriptorType= VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-					.descriptorCount= 1,
-					.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
-					.pImmutableSamplers= nullptr
-				},
-				// Binding 2: Metallic
-				{
-					.binding= 2,
-					.descriptorType= VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-					.descriptorCount= 1,
-					.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
-					.pImmutableSamplers= nullptr
-				},
-				// Binding 3: Roughness
-				{
-					.binding= 3,
-					.descriptorType= VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-					.descriptorCount= 1,
-					.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
-					.pImmutableSamplers= nullptr
-				},
-				// Binding 4: Ambient Occlusion
-				{
-					.binding= 4,
-					.descriptorType= VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-					.descriptorCount= 1,
-					.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
-					.pImmutableSamplers= nullptr
-				},
-			}};
-
-		const VkDescriptorSetLayoutCreateInfo layoutInfo =
-			{
-				.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-				.pNext = nullptr,
-				.flags = 0,
-				.bindingCount = static_cast<uint32_t>(materialBindings.size()),
-				.pBindings = materialBindings.data()
-			};
-		
-		ASSERT(vkCreateDescriptorSetLayout(storage.logicalDevice, &layoutInfo, nullptr, &materialDescriptorSetLayout) == VK_SUCCESS,
-			   "failed to create material descriptor set layout.");
-	}
-
-	void VulkanRenderer::createLightsDescriptorSetLayout()
-	{
-		// Descriptor Set 3 - Lights
-		const std::array<VkDescriptorSetLayoutBinding, 2> lightBindings = 
-			{{
-				// Binding 0: Light UBO
-				{
-					.binding= 0,
-					.descriptorType= VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-					.descriptorCount= 1,
-					.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
-					.pImmutableSamplers= nullptr
-				},
-				// Binding 1: Cube map
-				{
-					.binding= 1,
-					.descriptorType= VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-					.descriptorCount= 1,
-					.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
-					.pImmutableSamplers= nullptr
-				}
-			}};
-
-		const VkDescriptorSetLayoutCreateInfo layoutInfo =
-			{
-				.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-				.pNext = nullptr,
-				.flags = 0,
-				.bindingCount = static_cast<uint32_t>(lightBindings.size()),
-				.pBindings = lightBindings.data()
-			};
-		
-		ASSERT(vkCreateDescriptorSetLayout(storage.logicalDevice, &layoutInfo, nullptr, &lightsDescriptorSetLayout) == VK_SUCCESS,
-			   "failed to create lights descriptor set layout.");
+					.bindingName = "Binding 1: Cube map",
+					.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+					.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT
+				}})
+			.build(storage);
 	}
 
 	void VulkanRenderer::createCubemapTexture()

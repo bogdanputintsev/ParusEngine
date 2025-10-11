@@ -167,6 +167,7 @@
     <ClCompile Include="source\services\platform\PlatformWindows.cpp" />
     <ClCompile Include="source\services\renderer\Renderer.cpp" />
     <ClCompile Include="source\services\renderer\vulkan\builder\VkDebugUtilsBuilder.cpp" />
+    <ClCompile Include="source\services\renderer\vulkan\builder\VkDescriptorSetLayoutBuilder.cpp" />
     <ClCompile Include="source\services\renderer\vulkan\builder\VkDeviceBuilder.cpp" />
     <ClCompile Include="source\services\renderer\vulkan\builder\VkImageViewBuilder.cpp" />
     <ClCompile Include="source\services\renderer\vulkan\builder\VkInstanceBuilder.cpp" />
@@ -204,6 +205,7 @@
     <ClInclude Include="source\services\platform\Platform.h" />
     <ClInclude Include="source\services\renderer\Renderer.h" />
     <ClInclude Include="source\services\renderer\vulkan\builder\VkDebugUtilsBuilder.h" />
+    <ClInclude Include="source\services\renderer\vulkan\builder\VkDescriptorSetLayoutBuilder.h" />
     <ClInclude Include="source\services\renderer\vulkan\builder\VkDeviceBuilder.h" />
     <ClInclude Include="source\services\renderer\vulkan\builder\VkImageViewBuilder.h" />
     <ClInclude Include="source\services\renderer\vulkan\builder\VkInstanceBuilder.h" />
