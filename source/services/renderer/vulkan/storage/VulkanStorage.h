@@ -31,6 +31,12 @@ namespace parus::vulkan
     	VkDescriptorSetLayout materialDescriptorSetLayout = VK_NULL_HANDLE;
     	VkDescriptorSetLayout lightsDescriptorSetLayout = VK_NULL_HANDLE;
 		VkDescriptorPool descriptorPool;
+
+    	// Pipeline
+    	VkPipelineLayout skyPipelineLayout = VK_NULL_HANDLE;
+    	VkPipeline skyPipeline = VK_NULL_HANDLE;
+    	VkPipelineLayout mainPipelineLayout = VK_NULL_HANDLE;
+    	VkPipeline mainPipeline = VK_NULL_HANDLE;
     	
     };
 

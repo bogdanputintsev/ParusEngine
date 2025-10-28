@@ -219,17 +219,10 @@ namespace parus::vulkan
 
 		VkSampleCountFlagBits getMaxUsableSampleCount() const;
 
-		static VkVertexInputBindingDescription getBindingDescription();
+		
 
-		static std::array<VkVertexInputAttributeDescription, 4> getAttributeDescriptions();
-		
-		
-		
-		VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
-		VkPipeline graphicsPipeline = VK_NULL_HANDLE;
 
-		VkPipelineLayout skyPipelineLayout = VK_NULL_HANDLE;
-		VkPipeline skyPipeline = VK_NULL_HANDLE;
+	
 		
 		std::vector<VkFramebuffer> swapChainFramebuffers{};
 		std::vector<VkCommandBuffer> commandBuffers{};
