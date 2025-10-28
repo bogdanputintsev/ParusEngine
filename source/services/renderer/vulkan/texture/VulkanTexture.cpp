@@ -6,6 +6,7 @@
 #include "engine/EngineCore.h"
 #include "services/renderer/vulkan/VulkanRenderer.h"
 #include "services/Services.h"
+#include "services/renderer/vulkan/builder/VkImageBuilder.h"
 #include "services/renderer/vulkan/builder/VkImageViewBuilder.h"
 
 namespace parus::vulkan
@@ -43,7 +44,10 @@ namespace parus::vulkan
 		
 		stbi_image_free(pixels);
 
-		vulkanRenderer->createImage(textureWidth, textureHeight,
+		vulkanRenderer->createImage(
+			"Image " + filePath,
+			textureWidth,
+			textureHeight,
 			newTexture.maxMipLevels,
 			VK_SAMPLE_COUNT_1_BIT,
 			VK_FORMAT_R8G8B8A8_SRGB,
@@ -77,22 +81,16 @@ namespace parus::vulkan
 		const auto& vulkanRenderer = Services::get<vulkan::VulkanRenderer>();
 
 		// 1. Create VkImage
-		VkImage image;
+		const std::string imageName =
+			"Solid Color (" + std::to_string(color.x) + ", " + std::to_string(color.y) + ", " + std::to_string(color.z) + ")";
 		
-		VkImageCreateInfo imageInfo{};
-		imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-		imageInfo.imageType = VK_IMAGE_TYPE_2D;
-		imageInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
-		imageInfo.extent = { 1, 1, 1 };
-		imageInfo.mipLevels = 1;
-		imageInfo.arrayLayers = 1;
-		imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-		imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-		imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-		imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-
-		vkCreateImage(vulkanRenderer->storage.logicalDevice, &imageInfo, nullptr, &image);
-
+		const VkImage image = VkImageBuilder("Image " + imageName)
+			.setWidth(1)
+			.setHeight(1)
+			.setFormat(VK_FORMAT_R8G8B8A8_UNORM)
+			.setSamples(VK_SAMPLE_COUNT_1_BIT)
+			.build(vulkanRenderer->storage);
+		
 		// 2. Allocate Memory
 		VkDeviceMemory imageMemory;
 		

@@ -169,6 +169,7 @@ namespace parus::vulkan
 		    int32_t texWidth,
 		    int32_t texHeight);
 		void createImage(
+			const std::string& imageName,
 			uint32_t width,
 			uint32_t height,
 			uint32_t numberOfMipLevels,

@@ -11,6 +11,7 @@
 #include "builder/VkDescriptorPoolBuilder.h"
 #include "builder/VkDescriptorSetLayoutBuilder.h"
 #include "builder/VkDeviceBuilder.h"
+#include "builder/VkImageBuilder.h"
 #include "builder/VkImageViewBuilder.h"
 #include "builder/VkInstanceBuilder.h"
 #include "builder/VkPipelineBuilder.h"
@@ -699,27 +700,15 @@ namespace parus::vulkan
 
 	void VulkanRenderer::createCubemapTexture()
 	{
-		VkImageCreateInfo imageInfo{};
-		imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-		imageInfo.imageType = VK_IMAGE_TYPE_2D;
-		imageInfo.extent.width = 512;
-		imageInfo.extent.height = 512;
-		imageInfo.extent.depth = 1;
-		imageInfo.mipLevels = 1;
-		imageInfo.arrayLayers = 6;
-		imageInfo.format = VK_FORMAT_R32G32B32A32_SFLOAT;
-		imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-		imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-		imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-		imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-		imageInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
-
-		VkImage cubemapImage;
-		if (vkCreateImage(storage.logicalDevice, &imageInfo, nullptr, &cubemapImage) != VK_SUCCESS) {
-			throw std::runtime_error("failed to create cubemap image!");
-		}
-
+		const VkImage cubemapImage = VkImageBuilder("Cubemap Image")
+			.setWidth(512)
+			.setHeight(512)
+			.setArrayLayers(6)
+			.setFormat(VK_FORMAT_R32G32B32A32_SFLOAT)
+			.setUsage(VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT)
+			.setFlags(VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT)
+			.build(storage);
+		
 		cubemap.cubemapImage = cubemapImage;
 
 		VkMemoryRequirements memRequirements;
@@ -1169,7 +1158,9 @@ namespace parus::vulkan
 	{
 		const VkFormat depthFormat = utils::findDepthFormat(storage);
 
-		createImage(storage.swapChainDetails.swapChainExtent.width,
+		createImage(
+			"Depth Map Image",
+			storage.swapChainDetails.swapChainExtent.width,
 			storage.swapChainDetails.swapChainExtent.height,
 			1,
 			storage.msaaSamples,
@@ -1277,7 +1268,9 @@ namespace parus::vulkan
 		endSingleTimeCommands(commandBuffer);
 	}
 
-	void VulkanRenderer::createImage(const uint32_t width,
+	void VulkanRenderer::createImage(
+		const std::string& imageName,
+		const uint32_t width,
 		const uint32_t height,
 		const uint32_t numberOfMipLevels,
 		const VkSampleCountFlagBits numberOfSamples,
@@ -1289,24 +1282,17 @@ namespace parus::vulkan
 		VkDeviceMemory& imageMemory) const
 	{
 		ASSERT(width != 0 && height != 0, "Attempted to create image with invalid dimensions");
+
+		image = VkImageBuilder(imageName)
+			.setWidth(width)
+			.setHeight(height)
+			.setMipLevels(numberOfMipLevels)
+			.setFormat(format)
+			.setTiling(tiling)
+			.setUsage(usage)
+			.setSamples(numberOfSamples)
+			.build(storage);
 		
-		VkImageCreateInfo imageInfo{};
-		imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-		imageInfo.imageType = VK_IMAGE_TYPE_2D;
-		imageInfo.extent.width = width;
-		imageInfo.extent.height = height;
-		imageInfo.extent.depth = 1;
-		imageInfo.mipLevels = numberOfMipLevels;
-		imageInfo.arrayLayers = 1;
-		imageInfo.format = format;
-		imageInfo.tiling = tiling;
-		imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		imageInfo.usage = usage;
-		imageInfo.samples = numberOfSamples;
-		imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-		ASSERT(vkCreateImage(storage.logicalDevice, &imageInfo, nullptr, &image) == VK_SUCCESS, "failed to create image.");
-
 		VkMemoryRequirements memRequirements;
 		vkGetImageMemoryRequirements(storage.logicalDevice, image, &memRequirements);
 
@@ -1433,7 +1419,19 @@ namespace parus::vulkan
 	void VulkanRenderer::createColorResources()
 	{
 		const VkFormat colorFormat = storage.swapChainDetails.swapChainImageFormat;
-		createImage(storage.swapChainDetails.swapChainExtent.width, storage.swapChainDetails.swapChainExtent.height, 1, storage.msaaSamples, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, colorImage, colorImageMemory);
+		createImage(
+			"Color Map Image",
+			storage.swapChainDetails.swapChainExtent.width,
+			storage.swapChainDetails.swapChainExtent.height,
+			1,
+			storage.msaaSamples,
+			colorFormat,
+			VK_IMAGE_TILING_OPTIMAL,
+			VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+			colorImage,
+			colorImageMemory);
+		
 		colorImageView = VkImageViewBuilder()
 			.setImage(colorImage)
 			.setFormat(colorFormat)

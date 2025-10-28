@@ -170,6 +170,8 @@
     <ClCompile Include="source\services\renderer\vulkan\builder\VkDescriptorPoolBuilder.cpp" />
     <ClCompile Include="source\services\renderer\vulkan\builder\VkDescriptorSetLayoutBuilder.cpp" />
     <ClCompile Include="source\services\renderer\vulkan\builder\VkDeviceBuilder.cpp" />
+    <ClCompile Include="source\services\renderer\vulkan\builder\VkFramebufferBuilder.cpp" />
+    <ClCompile Include="source\services\renderer\vulkan\builder\VkImageBuilder.cpp" />
     <ClCompile Include="source\services\renderer\vulkan\builder\VkImageViewBuilder.cpp" />
     <ClCompile Include="source\services\renderer\vulkan\builder\VkInstanceBuilder.cpp" />
     <ClCompile Include="source\services\renderer\vulkan\builder\VkPipelineBuilder.cpp" />
@@ -210,6 +212,8 @@
     <ClInclude Include="source\services\renderer\vulkan\builder\VkDescriptorPoolBuilder.h" />
     <ClInclude Include="source\services\renderer\vulkan\builder\VkDescriptorSetLayoutBuilder.h" />
     <ClInclude Include="source\services\renderer\vulkan\builder\VkDeviceBuilder.h" />
+    <ClInclude Include="source\services\renderer\vulkan\builder\VkFramebufferBuilder.h" />
+    <ClInclude Include="source\services\renderer\vulkan\builder\VkImageBuilder.h" />
     <ClInclude Include="source\services\renderer\vulkan\builder\VkImageViewBuilder.h" />
     <ClInclude Include="source\services\renderer\vulkan\builder\VkInstanceBuilder.h" />
     <ClInclude Include="source\services\renderer\vulkan\builder\VkPipelineBuilder.h" />
