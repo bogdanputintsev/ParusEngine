@@ -139,10 +139,10 @@ namespace parus::vulkan
 		vkDestroyImage(storage.logicalDevice, cubemap.cubemapImage, nullptr);
 		vkFreeMemory(storage.logicalDevice, cubemap.cubemapImageMemory, nullptr);
 		
-		vkDestroyDescriptorSetLayout(storage.logicalDevice, globalDescriptorSetLayout, nullptr);
-		vkDestroyDescriptorSetLayout(storage.logicalDevice, instanceDescriptorSetLayout, nullptr);
-		vkDestroyDescriptorSetLayout(storage.logicalDevice, materialDescriptorSetLayout, nullptr);
-		vkDestroyDescriptorSetLayout(storage.logicalDevice, lightsDescriptorSetLayout, nullptr);
+		vkDestroyDescriptorSetLayout(storage.logicalDevice, storage.globalDescriptorSetLayout, nullptr);
+		vkDestroyDescriptorSetLayout(storage.logicalDevice, storage.instanceDescriptorSetLayout, nullptr);
+		vkDestroyDescriptorSetLayout(storage.logicalDevice, storage.materialDescriptorSetLayout, nullptr);
+		vkDestroyDescriptorSetLayout(storage.logicalDevice, storage.lightsDescriptorSetLayout, nullptr);
 
 		vkDestroyBuffer(storage.logicalDevice, globalBuffers.indexBuffer, nullptr);
 		vkFreeMemory(storage.logicalDevice, globalBuffers.indexBufferMemory, nullptr);
@@ -606,7 +606,7 @@ namespace parus::vulkan
 
 	void VulkanRenderer::createDescriptorSetLayout()
 	{
-		globalDescriptorSetLayout = VkDescriptorSetLayoutBuilder("Descriptor Set 0 - Global UBO")
+		storage.globalDescriptorSetLayout = VkDescriptorSetLayoutBuilder("Descriptor Set 0 - Global UBO")
 			.withBindings({
 				{
 					.bindingName = "Binding 0: Global UBO",
@@ -615,7 +615,7 @@ namespace parus::vulkan
 				}})
 			.build(storage);
 
-		instanceDescriptorSetLayout = VkDescriptorSetLayoutBuilder("Descriptor Set 1 - Instance UBO")
+		storage.instanceDescriptorSetLayout = VkDescriptorSetLayoutBuilder("Descriptor Set 1 - Instance UBO")
 			.withBindings({
 				{
 					.bindingName = "Binding 0: Instance UBO",
@@ -624,7 +624,7 @@ namespace parus::vulkan
 				}})
 			.build(storage);
 
-		materialDescriptorSetLayout = VkDescriptorSetLayoutBuilder("Descriptor Set 2 - Material")
+		storage.materialDescriptorSetLayout = VkDescriptorSetLayoutBuilder("Descriptor Set 2 - Material")
 			.withBindings({
 				{
 					.bindingName = "Binding 0: Albedo",
@@ -653,7 +653,7 @@ namespace parus::vulkan
 				}})
 			.build(storage);
 		
-		lightsDescriptorSetLayout = VkDescriptorSetLayoutBuilder("Descriptor Set 3 - Lights")
+		storage.lightsDescriptorSetLayout = VkDescriptorSetLayoutBuilder("Descriptor Set 3 - Lights")
 			.withBindings({
 				{
 					.bindingName = "Binding 0: Light UBO",
@@ -887,7 +887,7 @@ namespace parus::vulkan
 		dynamicState.pDynamicStates = dynamicStates.data();
 
 		std::array descriptorSetsLayouts = {
-			globalDescriptorSetLayout
+			storage.globalDescriptorSetLayout
 		};
 		
 		// Pipeline layout.
@@ -1041,10 +1041,10 @@ namespace parus::vulkan
 		dynamicState.pDynamicStates = dynamicStates.data();
 
 		std::array descriptorSetsLayouts = {
-			globalDescriptorSetLayout,
-			instanceDescriptorSetLayout,
-			materialDescriptorSetLayout,
-			lightsDescriptorSetLayout
+			storage.globalDescriptorSetLayout,
+			storage.instanceDescriptorSetLayout,
+			storage.materialDescriptorSetLayout,
+			storage.lightsDescriptorSetLayout
 		};
 		
 		// Pipeline layout.
@@ -1991,7 +1991,7 @@ namespace parus::vulkan
 
 	void VulkanRenderer::createGlobalDescriptorSets()
 	{
-		const std::vector globalLayouts(MAX_FRAMES_IN_FLIGHT, globalDescriptorSetLayout);
+		const std::vector globalLayouts(MAX_FRAMES_IN_FLIGHT, storage.globalDescriptorSetLayout);
 		VkDescriptorSetAllocateInfo globalAllocateInfo{};
 		globalAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 		globalAllocateInfo.descriptorPool = storage.descriptorPool;
@@ -2033,7 +2033,7 @@ namespace parus::vulkan
 	{
 		for (auto& meshInstance : meshInstances)
 		{
-			const std::vector instanceLayouts(MAX_FRAMES_IN_FLIGHT, instanceDescriptorSetLayout);
+			const std::vector instanceLayouts(MAX_FRAMES_IN_FLIGHT, storage.instanceDescriptorSetLayout);
 			VkDescriptorSetAllocateInfo instanceSetAllocateInfo{};
 			instanceSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 			instanceSetAllocateInfo.descriptorPool = storage.descriptorPool;
@@ -2085,7 +2085,7 @@ namespace parus::vulkan
 			allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 			allocInfo.descriptorPool = storage.descriptorPool;
 			allocInfo.descriptorSetCount = 1;
-			allocInfo.pSetLayouts = &materialDescriptorSetLayout;
+			allocInfo.pSetLayouts = &storage.materialDescriptorSetLayout;
 
 			ASSERT(vkAllocateDescriptorSets(storage.logicalDevice, &allocInfo, &material->materialDescriptorSet) == VK_SUCCESS,
 				"Failed to allocate material descriptor sets.");
@@ -2135,7 +2135,7 @@ namespace parus::vulkan
 			return;
 		}
 		
-		const std::vector lightLayouts(MAX_FRAMES_IN_FLIGHT, lightsDescriptorSetLayout);
+		const std::vector lightLayouts(MAX_FRAMES_IN_FLIGHT, storage.lightsDescriptorSetLayout);
 		VkDescriptorSetAllocateInfo lightSetAllocateInfo{};
 		lightSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 		lightSetAllocateInfo.descriptorPool = storage.descriptorPool;
