@@ -132,17 +132,12 @@ namespace parus::vulkan
 		void createRenderPass();
 
 		// Descriptor Set Layout
-		VkDescriptorPool descriptorPool;
 		VkDescriptorSetLayout globalDescriptorSetLayout = VK_NULL_HANDLE;
 		VkDescriptorSetLayout instanceDescriptorSetLayout = VK_NULL_HANDLE;
 		VkDescriptorSetLayout materialDescriptorSetLayout = VK_NULL_HANDLE;
 		VkDescriptorSetLayout lightsDescriptorSetLayout = VK_NULL_HANDLE;
 		
 		void createDescriptorSetLayout();
-		void createGlobalDescriptorSetLayout();
-		void createInstanceDescriptorSetLayout();
-		void createMaterialDescriptorSetLayout();
-		void createLightsDescriptorSetLayout();
 		void createCubemapTexture();
 
 		// Graphics Pipeline

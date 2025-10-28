@@ -3,8 +3,8 @@
 
 namespace parus::vulkan
 {
-    VkDescriptorSetLayoutBuilder::VkDescriptorSetLayoutBuilder(const std::string& name)
-        : debugName(name)
+    VkDescriptorSetLayoutBuilder::VkDescriptorSetLayoutBuilder(std::string name)
+        : debugName(std::move(name))
     {
     }
 

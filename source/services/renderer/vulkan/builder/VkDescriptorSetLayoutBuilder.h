@@ -15,13 +15,13 @@ namespace parus::vulkan
     class VkDescriptorSetLayoutBuilder final
     {
     public:
-        explicit VkDescriptorSetLayoutBuilder(const std::string& name);
+        explicit VkDescriptorSetLayoutBuilder(std::string name);
         VkDescriptorSetLayout build(const VulkanStorage& vulkanStorage);
         VkDescriptorSetLayoutBuilder& withBindings(const std::vector<VulkanDescriptorSetLayoutBinding>& newBindings);
     private:
         VkDescriptorSetLayoutBuilder& addBinding(const VulkanDescriptorSetLayoutBinding& newBinding);
 
-        const std::string& debugName;
+        std::string debugName;
         std::vector<VkDescriptorSetLayoutBinding> bindings;
     };
 }

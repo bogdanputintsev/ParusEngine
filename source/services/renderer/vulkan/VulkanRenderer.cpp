@@ -8,6 +8,7 @@
 #include <unordered_set>
 
 #include "builder/VkDebugUtilsBuilder.h"
+#include "builder/VkDescriptorPoolBuilder.h"
 #include "builder/VkDescriptorSetLayoutBuilder.h"
 #include "builder/VkDeviceBuilder.h"
 #include "builder/VkImageViewBuilder.h"
@@ -123,7 +124,7 @@ namespace parus::vulkan
 			vkFreeMemory(storage.logicalDevice, directionalLightUboBuffer.memory[i], nullptr);
 		}
 
-		vkDestroyDescriptorPool(storage.logicalDevice, descriptorPool, nullptr);
+		vkDestroyDescriptorPool(storage.logicalDevice, storage.descriptorPool, nullptr);
 		
 		for (const auto& texture : Services::get<World>()->getStorage()->getAllTextures())
 		{
@@ -664,6 +665,35 @@ namespace parus::vulkan
 					.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 					.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT
 				}})
+			.build(storage);
+	}
+
+	void VulkanRenderer::createDescriptorPool()
+	{
+		VkDescriptorPoolBuilder()
+			.setMaxSets(MAX_FRAMES_IN_FLIGHT * MAX_NUMBER_OF_MESHES * NUMBER_OF_TEXTURE_TYPES + IMAGE_SAMPLER_POOL_SIZE + 1)
+			.setPoolSizes({{
+				// Descriptor pool for global descriptor set (set = 0)
+				{
+					.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+					.descriptorCount = MAX_FRAMES_IN_FLIGHT
+				},
+				// Descriptor pool for instance descriptor set (set = 1)
+				{
+					.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+					.descriptorCount = MAX_FRAMES_IN_FLIGHT * MAX_NUMBER_OF_MESHES * 2
+				},
+				// Descriptor pool for material descriptor set (set = 2)
+				{
+					.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+					.descriptorCount = MAX_NUMBER_OF_MESHES * NUMBER_OF_TEXTURE_TYPES + IMAGE_SAMPLER_POOL_SIZE
+				},
+				// Descriptor pool for light descriptor set (set = 3)
+				{
+					.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+					.descriptorCount = MAX_FRAMES_IN_FLIGHT
+				},
+			}})
 			.build(storage);
 	}
 
@@ -1952,43 +1982,6 @@ namespace parus::vulkan
 		memcpy(directionalLightUboBuffer.mapped[currentFrame], &directionalLightUbo, sizeof(directionalLightUbo));
 	}
 
-	void VulkanRenderer::createDescriptorPool()
-	{
-		constexpr std::array<VkDescriptorPoolSize, 4> poolSizes =
-			{{
-				// Descriptor pool for global descriptor set (set = 0)
-				{
-					.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-					.descriptorCount = MAX_FRAMES_IN_FLIGHT
-				},
-				// Descriptor pool for instance descriptor set (set = 1)
-				{
-					.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-					.descriptorCount = MAX_FRAMES_IN_FLIGHT * MAX_NUMBER_OF_MESHES * 2
-				},
-				// Descriptor pool for material descriptor set (set = 2)
-				{
-					.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-					.descriptorCount = MAX_NUMBER_OF_MESHES * NUMBER_OF_TEXTURE_TYPES + IMAGE_SAMPLER_POOL_SIZE
-				},
-				// Descriptor pool for light descriptor set (set = 3)
-				{
-					.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-					.descriptorCount = MAX_FRAMES_IN_FLIGHT
-				},
-			}};
-		
-		VkDescriptorPoolCreateInfo poolInfo{};
-		poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-		poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-		poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
-		poolInfo.pPoolSizes = poolSizes.data();
-		poolInfo.maxSets
-			= static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT * MAX_NUMBER_OF_MESHES * NUMBER_OF_TEXTURE_TYPES + IMAGE_SAMPLER_POOL_SIZE + 1);
-
-		ASSERT(vkCreateDescriptorPool(storage.logicalDevice, &poolInfo, nullptr, &descriptorPool) == VK_SUCCESS, "failed to create descriptor pool.");
-	}
-
 	void VulkanRenderer::createMeshDescriptorSets(const std::shared_ptr<Mesh>& mesh)
 	{
 		createGlobalDescriptorSets();
@@ -2001,7 +1994,7 @@ namespace parus::vulkan
 		const std::vector globalLayouts(MAX_FRAMES_IN_FLIGHT, globalDescriptorSetLayout);
 		VkDescriptorSetAllocateInfo globalAllocateInfo{};
 		globalAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-		globalAllocateInfo.descriptorPool = descriptorPool;
+		globalAllocateInfo.descriptorPool = storage.descriptorPool;
 		globalAllocateInfo.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
 		globalAllocateInfo.pSetLayouts = globalLayouts.data();
 
@@ -2043,7 +2036,7 @@ namespace parus::vulkan
 			const std::vector instanceLayouts(MAX_FRAMES_IN_FLIGHT, instanceDescriptorSetLayout);
 			VkDescriptorSetAllocateInfo instanceSetAllocateInfo{};
 			instanceSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-			instanceSetAllocateInfo.descriptorPool = descriptorPool;
+			instanceSetAllocateInfo.descriptorPool = storage.descriptorPool;
 			instanceSetAllocateInfo.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
 			instanceSetAllocateInfo.pSetLayouts = instanceLayouts.data();
 
@@ -2090,7 +2083,7 @@ namespace parus::vulkan
 			
 			VkDescriptorSetAllocateInfo allocInfo{};
 			allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-			allocInfo.descriptorPool = descriptorPool;
+			allocInfo.descriptorPool = storage.descriptorPool;
 			allocInfo.descriptorSetCount = 1;
 			allocInfo.pSetLayouts = &materialDescriptorSetLayout;
 
@@ -2145,7 +2138,7 @@ namespace parus::vulkan
 		const std::vector lightLayouts(MAX_FRAMES_IN_FLIGHT, lightsDescriptorSetLayout);
 		VkDescriptorSetAllocateInfo lightSetAllocateInfo{};
 		lightSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-		lightSetAllocateInfo.descriptorPool = descriptorPool;
+		lightSetAllocateInfo.descriptorPool = storage.descriptorPool;
 		lightSetAllocateInfo.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
 		lightSetAllocateInfo.pSetLayouts = lightLayouts.data();
 
