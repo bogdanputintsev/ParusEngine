@@ -1,6 +1,7 @@
 ﻿#include "Storage.h"
 
 #include "engine/EngineCore.h"
+#include "services/renderer/vulkan/builder/VulkanTexture2dBuilder.h"
 
 namespace parus
 {
@@ -10,7 +11,7 @@ namespace parus
     
     void Storage::addMaterial(const std::string& materialName, const std::shared_ptr<vulkan::Material>& newMaterial)
     {
-        std::lock_guard lock(materialMutex);
+        std::scoped_lock lock(materialMutex);
         materials.insert_or_assign(materialName, newMaterial);
     }
 
@@ -49,19 +50,19 @@ namespace parus
 
     bool Storage::hasMaterial(const std::string& materialName) const
     {
-        std::lock_guard lock(materialMutex);
+        std::scoped_lock lock(materialMutex);
         return materials.contains(materialName);
     }
 
     std::shared_ptr<vulkan::Material> Storage::getMaterial(const std::string& materialName)
     {
-        std::lock_guard lock(materialMutex);
+        std::scoped_lock lock(materialMutex);
         return materials[materialName];
     }
 
     std::shared_ptr<vulkan::Material> Storage::getDefaultMaterial()
     {
-        std::lock_guard lock(materialMutex);
+        std::scoped_lock lock(materialMutex);
         if (!defaultMaterial)
         {
             LOG_DEBUG("Creating default material");
@@ -76,7 +77,7 @@ namespace parus
         std::vector<std::shared_ptr<vulkan::Material>> allMaterials;
 
         {
-            std::lock_guard lock(materialMutex);
+            std::scoped_lock lock(materialMutex);
             allMaterials.reserve(materials.size());
             for (const auto& [key, material] : materials)
             {
@@ -91,19 +92,26 @@ namespace parus
     // Texture-related methods
     // =============================================
     
-    void Storage::addNewTexture(const std::string& path, const std::shared_ptr<vulkan::VulkanTexture>& newTexture)
+    void Storage::addNewTexture(const std::string& path, const std::shared_ptr<vulkan::VulkanTexture2d>& newTexture)
     {
-        std::lock_guard lock(texturesMutex);
+        std::scoped_lock lock(texturesMutex);
         textures.insert_or_assign(path, newTexture);        
     }
 
-    std::shared_ptr<vulkan::VulkanTexture> Storage::getTexture(const std::string& path)
+    void Storage::setCubemapTexture(const std::shared_ptr<vulkan::VulkanTexture2d>& newCubemapTexture)
     {
-        std::lock_guard lock(texturesMutex);
+        std::scoped_lock lock(texturesMutex);
+        ASSERT(!cubemapTexture, "Cubemap texture must be set only once.");
+        cubemapTexture = newCubemapTexture;
+    }
+
+    std::shared_ptr<vulkan::VulkanTexture2d> Storage::getTexture(const std::string& path)
+    {
+        std::scoped_lock lock(texturesMutex);
         return textures[path];
     }
 
-    std::shared_ptr<vulkan::VulkanTexture> Storage::getDefaultTextureOfType(const vulkan::TextureType textureType)
+    std::shared_ptr<vulkan::VulkanTexture2d> Storage::getDefaultTextureOfType(const vulkan::TextureType textureType)
     {
         if (defaultTextures.size() != vulkan::NUMBER_OF_TEXTURE_TYPES)
         {
@@ -112,11 +120,11 @@ namespace parus
         }
 
         DEBUG_ASSERT(defaultTextures.contains(textureType), "Missing default textures for some types");
-        std::lock_guard lock(texturesMutex);
+        std::scoped_lock lock(texturesMutex);
         return defaultTextures[textureType];
     }
 
-    std::shared_ptr<vulkan::VulkanTexture> Storage::getOrLoadTexture(const std::string& texturePath)
+    std::shared_ptr<vulkan::VulkanTexture2d> Storage::getOrLoadTexture(const std::string& texturePath)
     {
         if (texturePath.empty()
             || !std::filesystem::exists(texturePath)
@@ -127,8 +135,10 @@ namespace parus
         
         if (!hasTexture(texturePath))
         {
-            vulkan::VulkanTexture newTexture = vulkan::importTextureFromFile(texturePath);
-            addNewTexture(texturePath, std::make_shared<vulkan::VulkanTexture>(newTexture));
+            vulkan::VulkanTexture2d newTexture 
+                = vulkan::VulkanTexture2dBuilder("Texture " + texturePath)
+                    .buildFromFile(texturePath);
+            addNewTexture(texturePath, std::make_shared<vulkan::VulkanTexture2d>(newTexture));
         }
 			
         DEBUG_ASSERT(hasTexture(texturePath), "Texture must exist after importing.");
@@ -137,16 +147,16 @@ namespace parus
 
     bool Storage::hasTexture(const std::string& path) const
     {
-        std::lock_guard lock(texturesMutex);
+        std::scoped_lock lock(texturesMutex);
         return textures.contains(path);
     }
 
-    std::vector<std::shared_ptr<vulkan::VulkanTexture>> Storage::getAllTextures() const
+    std::vector<std::shared_ptr<vulkan::VulkanTexture2d>> Storage::getAllTextures() const
     {
-        std::vector<std::shared_ptr<vulkan::VulkanTexture>> allTextures;
+        std::vector<std::shared_ptr<vulkan::VulkanTexture2d>> allTextures;
 
         {
-            std::lock_guard lock(texturesMutex);
+            std::scoped_lock lock(texturesMutex);
             allTextures.reserve(textures.size() + defaultTextures.size());
             for (const auto& [key, texture] : textures)
             {
@@ -156,6 +166,11 @@ namespace parus
             for (const auto& [textureType, texture] : defaultTextures)
             {
                 allTextures.push_back(texture);
+            }
+            
+            if (cubemapTexture)
+            {
+                allTextures.push_back(cubemapTexture);
             }
         }
         
@@ -168,13 +183,13 @@ namespace parus
 
     void Storage::addNewMesh(const std::string& path, const std::shared_ptr<Mesh>& newMesh)
     {
-        std::lock_guard lock(meshesMutex);
+        std::scoped_lock lock(meshesMutex);
         meshes.insert_or_assign(path, newMesh);   
     }
 
     std::shared_ptr<Mesh> Storage::getMeshByPath(const std::string& path)
     {
-        std::lock_guard lock(meshesMutex);
+        std::scoped_lock lock(meshesMutex);
         return meshes[path];
     }
 
@@ -183,7 +198,7 @@ namespace parus
         std::vector<std::shared_ptr<Mesh>> allMeshes;
 
         {
-            std::lock_guard lock(meshesMutex);
+            std::scoped_lock lock(meshesMutex);
             allMeshes.reserve(meshes.size());
             for (const auto& [key, mesh] : meshes)
             {
@@ -199,7 +214,7 @@ namespace parus
         std::vector<std::shared_ptr<Mesh>> allMeshes;
 
         {
-            std::lock_guard lock(meshesMutex);
+            std::scoped_lock lock(meshesMutex);
             allMeshes.reserve(meshes.size());
             for (const auto& [key, mesh] : meshes)
             {
@@ -219,24 +234,33 @@ namespace parus
 
         vulkan::Material::iterateAllTextureTypes([&](const vulkan::TextureType textureType)
         {
-            vulkan::VulkanTexture defaultTexture;
+            vulkan::VulkanTexture2d defaultTexture;
                 
             switch (textureType)
             {
             case vulkan::TextureType::ALBEDO:
+                defaultTexture = vulkan::VulkanTexture2dBuilder("Default Albedo Map")
+                    .buildFromSolidColor(math::Vector3(1.0f, 1.0f, 1.0f));
+                break;
             case vulkan::TextureType::AMBIENT_OCCLUSION:
-                defaultTexture = vulkan::createSolidColorTexture(math::Vector3(1.0f, 1.0f, 1.0f));
+                defaultTexture = vulkan::VulkanTexture2dBuilder("Default AO Map")
+                    .buildFromSolidColor(math::Vector3(1.0f, 1.0f, 1.0f));
                 break;
             case vulkan::TextureType::NORMAL:
-                defaultTexture = vulkan::createSolidColorTexture(math::Vector3(0.5f, 0.5f, 1.0f));
+                defaultTexture = vulkan::VulkanTexture2dBuilder("Default Normal Map")
+                    .buildFromSolidColor(math::Vector3(0.5f, 0.5f, 1.0f));
                 break;
             case vulkan::TextureType::METALLIC:
+                defaultTexture = vulkan::VulkanTexture2dBuilder("Default Metallic Map")
+                    .buildFromSolidColor(math::Vector3(0.0f, 0.0f, 0.0f));
+                break;
             case vulkan::TextureType::ROUGHNESS:
-                defaultTexture = vulkan::createSolidColorTexture(math::Vector3(0.0f, 0.0f, 0.0f));
+                defaultTexture = vulkan::VulkanTexture2dBuilder("Default Roughness Map")
+                    .buildFromSolidColor(math::Vector3(0.0f, 0.0f, 0.0f));
                 break;
             }
                 
-            defaultTextures[textureType] = std::make_shared<vulkan::VulkanTexture>(defaultTexture);
+            defaultTextures[textureType] = std::make_shared<vulkan::VulkanTexture2d>(defaultTexture);
         });
 
         ASSERT(defaultTextures.size() == vulkan::NUMBER_OF_TEXTURE_TYPES,

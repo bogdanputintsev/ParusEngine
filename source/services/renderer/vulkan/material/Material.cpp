@@ -2,6 +2,7 @@
 
 #include "engine/EngineCore.h"
 #include "services/Services.h"
+#include "services/renderer/vulkan/texture/VulkanTexture2d.h"
 #include "services/world/World.h"
 
 namespace parus::vulkan
@@ -14,7 +15,7 @@ namespace parus::vulkan
         });
     }
 
-    void Material::addOrUpdateTexture(const TextureType textureType, const std::shared_ptr<VulkanTexture>& newTexture)
+    void Material::addOrUpdateTexture(const TextureType textureType, const std::shared_ptr<VulkanTexture2d>& newTexture)
     {
         if (!newTexture)
         {
@@ -26,15 +27,15 @@ namespace parus::vulkan
         textures.insert_or_assign(textureType, newTexture);
     }
 
-    std::shared_ptr<VulkanTexture> Material::getTexture(const TextureType textureType)
+    std::shared_ptr<VulkanTexture2d> Material::getTexture(const TextureType textureType)
     {
         DEBUG_ASSERT(textures.contains(textureType), "Texture of each type must always exist.");
         return textures.at(textureType);
     }
 
-    std::vector<std::shared_ptr<const VulkanTexture>> Material::getAllTextures() const
+    std::vector<std::shared_ptr<const VulkanTexture2d>> Material::getAllTextures() const
     {
-        std::vector<std::shared_ptr<const VulkanTexture>> allTextures;
+        std::vector<std::shared_ptr<const VulkanTexture2d>> allTextures;
         allTextures.reserve(NUMBER_OF_TEXTURE_TYPES);
 
         for (TextureType textureType : ALL_TEXTURE_TYPES)
@@ -46,7 +47,7 @@ namespace parus::vulkan
         return allTextures;
     }
 
-    void Material::iterateAllTextures(const std::function<void(const TextureType, const std::shared_ptr<const VulkanTexture>&)>& callback) const
+    void Material::iterateAllTextures(const std::function<void(const TextureType, const std::shared_ptr<const VulkanTexture2d>&)>& callback) const
     {
         const auto allTextures = getAllTextures();
 

@@ -8,14 +8,15 @@
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
+#include "builder/VulkanTexture2dBuilder.h"
 #include "engine/EngineCore.h"
 #include "light/Light.h"
 #include "engine/utils/math/Math.h"
+#include "texture/VulkanTexture2d.h"
 #include "mesh/Mesh.h"
 #include "mesh/MeshInstance.h"
 #include "services/renderer/Renderer.h"
 #include "storage/VulkanStorage.h"
-#include "texture/VulkanTexture.h"
 
 
 namespace parus::imgui
@@ -25,7 +26,6 @@ namespace parus::imgui
 
 namespace parus::vulkan
 {
-
 	
 	struct GlobalGeometryBuffers
 	{
@@ -43,19 +43,12 @@ namespace parus::vulkan
 		size_t totalIndices = 0;
 		size_t totalSkyIndices = 0;
 	};
-
-	struct VulkanCubemap
-	{
-		VkImage cubemapImage;
-		VkDeviceMemory cubemapImageMemory;
-		VkImageView cubemapImageView;
-		VkSampler cubemapSampler;
-	};
-
 	
 	class VulkanRenderer final : public Renderer
 	{
 	public:
+		~VulkanRenderer() override = default;
+
 		void init() override;
 		void registerEvents() override;
 		void clean() override;
@@ -63,8 +56,8 @@ namespace parus::vulkan
 		void deviceWaitIdle() override;
 
 		friend class parus::imgui::ImGuiLibrary;
-		friend VulkanTexture importTextureFromFile(const std::string& filePath);
-		friend VulkanTexture createSolidColorTexture(const math::Vector3& color);
+		friend VulkanTexture2d VulkanTexture2dBuilder::buildFromFile(const std::string& filePath);
+		friend VulkanTexture2d VulkanTexture2dBuilder::buildFromSolidColor(const math::Vector3& color);
 		
 	private:
 		VulkanStorage storage;
@@ -87,7 +80,7 @@ namespace parus::vulkan
 		std::queue<std::pair<std::string, std::shared_ptr<Mesh>>> modelQueue;
 		std::mutex importModelMutex;
 
-		VulkanCubemap cubemap;
+		VulkanTexture2d cubemap;
 		
 		// Load model
 		void importMesh(const std::string& meshPath, const MeshType meshType = MeshType::STATIC_MESH);
@@ -164,22 +157,11 @@ namespace parus::vulkan
 
 		// Texture image
 		void generateMipmaps(
-			const VulkanTexture& texture,
+			const VulkanTexture2d& texture,
 			VkFormat imageFormat,
 		    int32_t texWidth,
 		    int32_t texHeight);
-		void createImage(
-			const std::string& imageName,
-			uint32_t width,
-			uint32_t height,
-			uint32_t numberOfMipLevels,
-			VkSampleCountFlagBits numberOfSamples,
-			VkFormat format,
-			VkImageTiling tiling,
-			VkImageUsageFlags usage,
-			VkMemoryPropertyFlags properties,
-			VkImage& image,
-			VkDeviceMemory& imageMemory) const;
+	
 		void transitionImageLayout(
 			const VkImage image,
 			VkFormat format,
@@ -187,14 +169,12 @@ namespace parus::vulkan
 			const VkImageLayout newLayout,
 			uint32_t mipLevels);
 		void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
-		VkSampler createTextureSampler(uint32_t maxMipLevels) const;
 		void createColorResources();
 		
 		// Buffer manager
 		void createSkyVertexBuffer(const std::vector<math::Vertex>& vertices);
 		void createVertexBuffer(const std::vector<math::Vertex>& vertices);
 		void createBuffer(const VkDeviceSize size, const VkBufferUsageFlags usage, const VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) const;
-		[[nodiscard]] uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const;
 		void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 		void createSkyIndexBuffer(const std::vector<uint32_t>& indices);
 
@@ -220,24 +200,16 @@ namespace parus::vulkan
 
 		VkSampleCountFlagBits getMaxUsableSampleCount() const;
 
-		
 
-
-	
-		
+	private:
 		std::vector<VkFramebuffer> swapChainFramebuffers{};
 		std::vector<VkCommandBuffer> commandBuffers{};
 
 		
 		std::unordered_map<std::thread::id, VkCommandPool> threadCommandPools;
 		
-		
-		VkImage depthImage;
-		VkDeviceMemory depthImageMemory;
-		VkImageView depthImageView;
-		VkImage colorImage;
-		VkDeviceMemory colorImageMemory;
-		VkImageView colorImageView;
+		VulkanTexture2d colorTexture;
+		VulkanTexture2d depthTexture;
 
 		struct UboBuffer
 		{

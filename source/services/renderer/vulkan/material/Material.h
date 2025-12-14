@@ -1,9 +1,10 @@
 #pragma once
 #include <array>
 #include <functional>
+#include <memory>
 #include <unordered_map>
 
-#include "services/renderer/vulkan/texture/VulkanTexture.h"
+#include "services/renderer/vulkan/texture/VulkanTexture2d.h"
 
 namespace parus::vulkan
 {
@@ -32,17 +33,17 @@ namespace parus::vulkan
     public:
         Material();
         
-        void addOrUpdateTexture(TextureType textureType, const std::shared_ptr<VulkanTexture>& newTexture);
-        std::shared_ptr<VulkanTexture> getTexture(const TextureType textureType);
+        void addOrUpdateTexture(TextureType textureType, const std::shared_ptr<VulkanTexture2d>& newTexture);
+        std::shared_ptr<VulkanTexture2d> getTexture(const TextureType textureType);
 
-        [[nodiscard]] std::vector<std::shared_ptr<const VulkanTexture>> getAllTextures() const;
-        void iterateAllTextures(const std::function<void(const TextureType, const std::shared_ptr<const VulkanTexture>&)>& callback) const;
+        [[nodiscard]] std::vector<std::shared_ptr<const VulkanTexture2d>> getAllTextures() const;
+        void iterateAllTextures(const std::function<void(const TextureType, const std::shared_ptr<const VulkanTexture2d>&)>& callback) const;
         static void iterateAllTextureTypes(const std::function<void(TextureType)>& callback);
         static void iterateAllTextureTypes(const std::function<void(int, TextureType)>& callback);
 
         VkDescriptorSet materialDescriptorSet = VK_NULL_HANDLE;
     private:
-        std::unordered_map<TextureType, std::shared_ptr<VulkanTexture>> textures;
+        std::unordered_map<TextureType, std::shared_ptr<VulkanTexture2d>> textures;
     };
     
 }

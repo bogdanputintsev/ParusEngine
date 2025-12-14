@@ -170,6 +170,7 @@
     <ClCompile Include="source\services\renderer\vulkan\builder\VkDescriptorPoolBuilder.cpp" />
     <ClCompile Include="source\services\renderer\vulkan\builder\VkDescriptorSetLayoutBuilder.cpp" />
     <ClCompile Include="source\services\renderer\vulkan\builder\VkDeviceBuilder.cpp" />
+    <ClCompile Include="source\services\renderer\vulkan\builder\VkDeviceMemoryBuilder.cpp" />
     <ClCompile Include="source\services\renderer\vulkan\builder\VkFramebufferBuilder.cpp" />
     <ClCompile Include="source\services\renderer\vulkan\builder\VkImageBuilder.cpp" />
     <ClCompile Include="source\services\renderer\vulkan\builder\VkImageViewBuilder.cpp" />
@@ -177,14 +178,15 @@
     <ClCompile Include="source\services\renderer\vulkan\builder\VkPipelineBuilder.cpp" />
     <ClCompile Include="source\services\renderer\vulkan\builder\VkQueuesBuilder.cpp" />
     <ClCompile Include="source\services\renderer\vulkan\builder\VkRenderPassBuilder.cpp" />
+    <ClCompile Include="source\services\renderer\vulkan\builder\VkSamplerBuilder.cpp" />
     <ClCompile Include="source\services\renderer\vulkan\builder\VkSurfaceBuilder.cpp" />
     <ClCompile Include="source\services\renderer\vulkan\builder\VkSwapChainBuilder.cpp" />
+    <ClCompile Include="source\services\renderer\vulkan\builder\VulkanTexture2dBuilder.cpp" />
     <ClCompile Include="source\services\renderer\vulkan\light\Light.cpp" />
     <ClCompile Include="source\services\renderer\vulkan\material\Material.cpp" />
     <ClCompile Include="source\services\renderer\vulkan\mesh\Mesh.cpp" />
     <ClCompile Include="source\services\renderer\vulkan\mesh\MeshInstance.cpp" />
     <ClCompile Include="source\services\renderer\vulkan\storage\VulkanStorage.cpp" />
-    <ClCompile Include="source\services\renderer\vulkan\texture\VulkanTexture.cpp" />
     <ClCompile Include="source\services\renderer\vulkan\utils\VulkanUtils.cpp" />
     <ClCompile Include="source\services\renderer\vulkan\VulkanRenderer.cpp" />
     <ClCompile Include="source\services\Services.cpp" />
@@ -212,6 +214,7 @@
     <ClInclude Include="source\services\renderer\vulkan\builder\VkDescriptorPoolBuilder.h" />
     <ClInclude Include="source\services\renderer\vulkan\builder\VkDescriptorSetLayoutBuilder.h" />
     <ClInclude Include="source\services\renderer\vulkan\builder\VkDeviceBuilder.h" />
+    <ClInclude Include="source\services\renderer\vulkan\builder\VkDeviceMemoryBuilder.h" />
     <ClInclude Include="source\services\renderer\vulkan\builder\VkFramebufferBuilder.h" />
     <ClInclude Include="source\services\renderer\vulkan\builder\VkImageBuilder.h" />
     <ClInclude Include="source\services\renderer\vulkan\builder\VkImageViewBuilder.h" />
@@ -219,14 +222,16 @@
     <ClInclude Include="source\services\renderer\vulkan\builder\VkPipelineBuilder.h" />
     <ClInclude Include="source\services\renderer\vulkan\builder\VkQueuesBuilder.h" />
     <ClInclude Include="source\services\renderer\vulkan\builder\VkRenderPassBuilder.h" />
+    <ClInclude Include="source\services\renderer\vulkan\builder\VkSamplerBuilder.h" />
     <ClInclude Include="source\services\renderer\vulkan\builder\VkSurfaceBuilder.h" />
     <ClInclude Include="source\services\renderer\vulkan\builder\VkSwapChainBuilder.h" />
+    <ClInclude Include="source\services\renderer\vulkan\builder\VulkanTexture2dBuilder.h" />
     <ClInclude Include="source\services\renderer\vulkan\light\Light.h" />
     <ClInclude Include="source\services\renderer\vulkan\material\Material.h" />
     <ClInclude Include="source\services\renderer\vulkan\mesh\Mesh.h" />
     <ClInclude Include="source\services\renderer\vulkan\mesh\MeshInstance.h" />
     <ClInclude Include="source\services\renderer\vulkan\storage\VulkanStorage.h" />
-    <ClInclude Include="source\services\renderer\vulkan\texture\VulkanTexture.h" />
+    <ClInclude Include="source\services\renderer\vulkan\texture\VulkanTexture2d.h" />
     <ClInclude Include="source\services\renderer\vulkan\utils\VulkanUtils.h" />
     <ClInclude Include="source\services\renderer\vulkan\VulkanRenderer.h" />
     <ClInclude Include="source\services\Service.h" />
@@ -263,6 +268,9 @@
     <ClInclude Include="source\third-party\imgui\imstb_truetype.h" />
     <ClInclude Include="source\third-party\stb_image.h" />
     <ClInclude Include="source\third-party\tiny_obj_loader.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="source\services\renderer\vulkan\image\" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

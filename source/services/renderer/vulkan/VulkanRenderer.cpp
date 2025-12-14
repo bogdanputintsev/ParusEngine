@@ -11,14 +11,17 @@
 #include "builder/VkDescriptorPoolBuilder.h"
 #include "builder/VkDescriptorSetLayoutBuilder.h"
 #include "builder/VkDeviceBuilder.h"
+#include "builder/VkDeviceMemoryBuilder.h"
 #include "builder/VkImageBuilder.h"
 #include "builder/VkImageViewBuilder.h"
 #include "builder/VkInstanceBuilder.h"
 #include "builder/VkPipelineBuilder.h"
 #include "builder/VkQueuesBuilder.h"
 #include "builder/VkRenderPassBuilder.h"
+#include "builder/VkSamplerBuilder.h"
 #include "builder/VkSurfaceBuilder.h"
 #include "builder/VkSwapChainBuilder.h"
+#include "builder/VulkanTexture2dBuilder.h"
 #include "engine/input/Input.h"
 #include "services/platform/Platform.h"
 #include "engine/Event.h"
@@ -127,19 +130,32 @@ namespace parus::vulkan
 
 		vkDestroyDescriptorPool(storage.logicalDevice, storage.descriptorPool, nullptr);
 		
-		for (const auto& texture : Services::get<World>()->getStorage()->getAllTextures())
+		// Clean textures
+		const std::vector<std::shared_ptr<VulkanTexture2d>> allTextures = Services::get<World>()->getStorage()->getAllTextures();
+		for (const auto& texture : allTextures)
 		{
-			vkDestroySampler(storage.logicalDevice, texture->sampler, nullptr);
-			vkDestroyImageView(storage.logicalDevice, texture->imageView, nullptr);
-			vkDestroyImage(storage.logicalDevice, texture->image, nullptr);
-			vkFreeMemory(storage.logicalDevice, texture->imageMemory, nullptr);
+			if (texture->sampler)
+			{
+				vkDestroySampler(storage.logicalDevice, texture->sampler, nullptr);
+				texture->sampler = nullptr;
+			}
+			if (texture->imageView)
+			{
+				vkDestroyImageView(storage.logicalDevice, texture->imageView, nullptr);
+				texture->imageView = nullptr;
+			}
+			if (texture->image)
+			{
+				vkDestroyImage(storage.logicalDevice, texture->image, nullptr);
+				texture->image = nullptr;
+			}
+			if (texture->imageMemory)
+			{
+				vkFreeMemory(storage.logicalDevice, texture->imageMemory, nullptr);
+				texture->imageMemory = nullptr;
+			}
 		}
 
-		vkDestroySampler(storage.logicalDevice, cubemap.cubemapSampler, nullptr);
-		vkDestroyImageView(storage.logicalDevice, cubemap.cubemapImageView, nullptr);
-		vkDestroyImage(storage.logicalDevice, cubemap.cubemapImage, nullptr);
-		vkFreeMemory(storage.logicalDevice, cubemap.cubemapImageMemory, nullptr);
-		
 		vkDestroyDescriptorSetLayout(storage.logicalDevice, storage.globalDescriptorSetLayout, nullptr);
 		vkDestroyDescriptorSetLayout(storage.logicalDevice, storage.instanceDescriptorSetLayout, nullptr);
 		vkDestroyDescriptorSetLayout(storage.logicalDevice, storage.materialDescriptorSetLayout, nullptr);
@@ -261,8 +277,8 @@ namespace parus::vulkan
 	{
 		Mesh newMesh = importMeshFromFile(meshPath);
 		newMesh.meshType = meshType;
-		
-		std::lock_guard lock(importModelMutex);
+
+		std::scoped_lock lock(importModelMutex);
 		modelQueue.emplace(meshPath, std::make_shared<Mesh>(newMesh));
 	}
 
@@ -581,13 +597,13 @@ namespace parus::vulkan
 
 	void VulkanRenderer::cleanupSwapChain() const
 	{
-		vkDestroyImageView(storage.logicalDevice, depthImageView, nullptr);
-		vkDestroyImage(storage.logicalDevice, depthImage, nullptr);
-		vkFreeMemory(storage.logicalDevice, depthImageMemory, nullptr);
+		vkDestroyImageView(storage.logicalDevice, depthTexture.imageView, nullptr);
+		vkDestroyImage(storage.logicalDevice, depthTexture.image, nullptr);
+		vkFreeMemory(storage.logicalDevice, depthTexture.imageMemory, nullptr);
 
-		vkDestroyImageView(storage.logicalDevice, colorImageView, nullptr);
-		vkDestroyImage(storage.logicalDevice, colorImage, nullptr);
-		vkFreeMemory(storage.logicalDevice, colorImageMemory, nullptr);
+		vkDestroyImageView(storage.logicalDevice, colorTexture.imageView, nullptr);
+		vkDestroyImage(storage.logicalDevice, colorTexture.image, nullptr);
+		vkFreeMemory(storage.logicalDevice, colorTexture.imageMemory, nullptr);
 
 		for (const auto framebuffer : swapChainFramebuffers) {
 			vkDestroyFramebuffer(storage.logicalDevice, framebuffer, nullptr);
@@ -709,23 +725,12 @@ namespace parus::vulkan
 			.setFlags(VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT)
 			.build(storage);
 		
-		cubemap.cubemapImage = cubemapImage;
+		cubemap.image = cubemapImage;
 
-		VkMemoryRequirements memRequirements;
-		vkGetImageMemoryRequirements(storage.logicalDevice, cubemapImage, &memRequirements);
-
-		VkMemoryAllocateInfo allocInfo{};
-		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-		allocInfo.allocationSize = memRequirements.size;
-		allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-		VkDeviceMemory cubemapImageMemory;
-		if (vkAllocateMemory(storage.logicalDevice, &allocInfo, nullptr, &cubemapImageMemory) != VK_SUCCESS) {
-			throw std::runtime_error("failed to allocate cubemap image memory!");
-		}
-		cubemap.cubemapImageMemory = cubemapImageMemory;
-		
-		vkBindImageMemory(storage.logicalDevice, cubemapImage, cubemapImageMemory, 0);
+		cubemap.imageMemory = VkDeviceMemoryBuilder("Cubemap Image Memory")
+			.setImage(cubemap.image)
+			.setPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
+			.build(storage);
 
 		const VkImageView cubemapImageView = VkImageViewBuilder()
 			.setImage(cubemapImage)
@@ -736,30 +741,14 @@ namespace parus::vulkan
 			.setLayerCount(6)
 			.build("Cubemap Image View", storage);
 		
-		cubemap.cubemapImageView = cubemapImageView;
-
-		VkSamplerCreateInfo samplerInfo{};
-		samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-		samplerInfo.magFilter = VK_FILTER_LINEAR;
-		samplerInfo.minFilter = VK_FILTER_LINEAR;
-		samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-		samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-		samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-		samplerInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
-		samplerInfo.unnormalizedCoordinates = VK_FALSE;
-		samplerInfo.compareEnable = VK_FALSE;
-		samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
-		samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-		samplerInfo.mipLodBias = 0.0f;
-		samplerInfo.minLod = 0.0f;
-		samplerInfo.maxLod = 1.0f;
-
-		VkSampler cubemapSampler;
-		if (vkCreateSampler(storage.logicalDevice, &samplerInfo, nullptr, &cubemapSampler) != VK_SUCCESS) {
-			throw std::runtime_error("failed to create cubemap sampler!");
-		}
-
-		cubemap.cubemapSampler = cubemapSampler;
+		cubemap.imageView = cubemapImageView;
+		
+		cubemap.sampler = VkSamplerBuilder("Cubemap Sampler")
+			.setSamplerMode(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE)
+			.setBorderColor(VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE)
+			.build(storage);
+		
+		Services::get<World>()->getStorage()->setCubemapTexture(std::make_shared<VulkanTexture2d>(cubemap));
 	}
 	
 	void VulkanRenderer::createSkyPipeline()
@@ -870,8 +859,8 @@ namespace parus::vulkan
 		for (size_t i = 0; i < storage.swapChainDetails.swapChainImageViews.size(); ++i)
 		{
 			std::array attachments = {
-				colorImageView,
-				depthImageView,
+				colorTexture.imageView,
+				depthTexture.imageView,
 				storage.swapChainDetails.swapChainImageViews[i]
 			};
 
@@ -1147,7 +1136,7 @@ namespace parus::vulkan
 		utils::threadSafeQueueSubmit(storage, &submitInfo, nullptr);
 		
 		{
-			std::lock_guard lock(storage.graphicsQueueMutex);
+			std::scoped_lock lock(storage.graphicsQueueMutex);
 			vkQueueWaitIdle(storage.graphicsQueue);
 		}
 		
@@ -1156,25 +1145,16 @@ namespace parus::vulkan
 
 	void VulkanRenderer::createDepthResources()
 	{
-		const VkFormat depthFormat = utils::findDepthFormat(storage);
-
-		createImage(
-			"Depth Map Image",
-			storage.swapChainDetails.swapChainExtent.width,
-			storage.swapChainDetails.swapChainExtent.height,
-			1,
-			storage.msaaSamples,
-			depthFormat,
-			VK_IMAGE_TILING_OPTIMAL,
-			VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, depthImage, depthImageMemory);
-
-		depthImageView = VkImageViewBuilder()
-				.setImage(depthImage)
-				.setFormat(depthFormat)
-				.setAspectMask(VK_IMAGE_ASPECT_DEPTH_BIT)
-				.setLevelCount(1)
-				.build("Depth Image View", storage);
+		depthTexture = VulkanTexture2dBuilder("Depth Texture")
+			.setWidth(storage.swapChainDetails.swapChainExtent.width)
+			.setHeight(storage.swapChainDetails.swapChainExtent.height)
+			.setNumberOfSamples(storage.msaaSamples)
+			.setFormat(utils::findDepthFormat(storage))
+			.setAspectMask(VK_IMAGE_ASPECT_DEPTH_BIT)
+			.setTiling(VK_IMAGE_TILING_OPTIMAL)
+			.setUsage(VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
+			.setPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
+			.build(storage);
 	}
 	
 	bool VulkanRenderer::hasStencilComponent(const VkFormat format)
@@ -1182,13 +1162,14 @@ namespace parus::vulkan
 		return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
 	}
 
-	void VulkanRenderer::generateMipmaps(const VulkanTexture& texture, const VkFormat imageFormat, const int32_t texWidth, const int32_t texHeight)
+	void VulkanRenderer::generateMipmaps(const VulkanTexture2d& texture, const VkFormat imageFormat, const int32_t texWidth, const int32_t texHeight)
 	{
 		// Check if image format supports linear blitting
 		VkFormatProperties formatProperties;
 		vkGetPhysicalDeviceFormatProperties(storage.physicalDevice, imageFormat, &formatProperties);
 
-		ASSERT(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT, "texture image format does not support linear blitting.");
+		ASSERT(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT, 
+			"Texture image format does not support linear blitting.");
 
 		const VkCommandBuffer commandBuffer = beginSingleTimeCommands();
 
@@ -1266,44 +1247,6 @@ namespace parus::vulkan
 			1, &barrier);
 
 		endSingleTimeCommands(commandBuffer);
-	}
-
-	void VulkanRenderer::createImage(
-		const std::string& imageName,
-		const uint32_t width,
-		const uint32_t height,
-		const uint32_t numberOfMipLevels,
-		const VkSampleCountFlagBits numberOfSamples,
-		const VkFormat format,
-		const VkImageTiling tiling,
-		const VkImageUsageFlags usage,
-		const VkMemoryPropertyFlags properties,
-		VkImage& image,
-		VkDeviceMemory& imageMemory) const
-	{
-		ASSERT(width != 0 && height != 0, "Attempted to create image with invalid dimensions");
-
-		image = VkImageBuilder(imageName)
-			.setWidth(width)
-			.setHeight(height)
-			.setMipLevels(numberOfMipLevels)
-			.setFormat(format)
-			.setTiling(tiling)
-			.setUsage(usage)
-			.setSamples(numberOfSamples)
-			.build(storage);
-		
-		VkMemoryRequirements memRequirements;
-		vkGetImageMemoryRequirements(storage.logicalDevice, image, &memRequirements);
-
-		VkMemoryAllocateInfo allocInfo{};
-		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-		allocInfo.allocationSize = memRequirements.size;
-		allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
-
-		ASSERT(vkAllocateMemory(storage.logicalDevice, &allocInfo, nullptr, &imageMemory) == VK_SUCCESS, "failed to allocate image memory.");
-
-		vkBindImageMemory(storage.logicalDevice, image, imageMemory, 0);
 	}
 
 	void VulkanRenderer::transitionImageLayout(
@@ -1386,58 +1329,17 @@ namespace parus::vulkan
 		endSingleTimeCommands(commandBuffer);
 	}
 
-	VkSampler VulkanRenderer::createTextureSampler(const uint32_t maxMipLevels) const
-	{
-		VkSampler textureSampler;
-		
-		VkPhysicalDeviceProperties properties{};
-		vkGetPhysicalDeviceProperties(storage.physicalDevice, &properties);
-
-		VkSamplerCreateInfo samplerInfo{};
-		samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-		samplerInfo.magFilter = VK_FILTER_LINEAR;
-		samplerInfo.minFilter = VK_FILTER_LINEAR;
-		samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		samplerInfo.anisotropyEnable = VK_TRUE;
-		samplerInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
-		samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-		samplerInfo.unnormalizedCoordinates = VK_FALSE;
-		samplerInfo.compareEnable = VK_FALSE;
-		samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
-		samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-		samplerInfo.minLod = 0;
-		samplerInfo.maxLod = static_cast<float>(maxMipLevels);
-		samplerInfo.mipLodBias = 0.0f; // Optional
-
-		ASSERT(vkCreateSampler(storage.logicalDevice, &samplerInfo, nullptr, &textureSampler) == VK_SUCCESS, "failed to create texture sampler.");
-
-		return textureSampler;
-	}
-
 	void VulkanRenderer::createColorResources()
 	{
-		const VkFormat colorFormat = storage.swapChainDetails.swapChainImageFormat;
-		createImage(
-			"Color Map Image",
-			storage.swapChainDetails.swapChainExtent.width,
-			storage.swapChainDetails.swapChainExtent.height,
-			1,
-			storage.msaaSamples,
-			colorFormat,
-			VK_IMAGE_TILING_OPTIMAL,
-			VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-			colorImage,
-			colorImageMemory);
-		
-		colorImageView = VkImageViewBuilder()
-			.setImage(colorImage)
-			.setFormat(colorFormat)
+		colorTexture = VulkanTexture2dBuilder("Color Texture")
+			.setWidth(storage.swapChainDetails.swapChainExtent.width)
+			.setHeight(storage.swapChainDetails.swapChainExtent.height)
+			.setNumberOfSamples(storage.msaaSamples)
+			.setFormat(storage.swapChainDetails.swapChainImageFormat)
 			.setAspectMask(VK_IMAGE_ASPECT_COLOR_BIT)
-			.setLevelCount(1)
-			.build("Color Image View", storage);
+			.setUsage(VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
+			.setPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
+			.build(storage);
 	}
 
 	void VulkanRenderer::createVertexBuffer(const std::vector<math::Vertex>& vertices)
@@ -1543,33 +1445,13 @@ namespace parus::vulkan
 		VkMemoryAllocateInfo allocInfo{};
 		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 		allocInfo.allocationSize = memRequirements.size;
-		allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
+		allocInfo.memoryTypeIndex = utils::findMemoryType(storage, memRequirements.memoryTypeBits, properties);
 
 		ASSERT(vkAllocateMemory(storage.logicalDevice, &allocInfo, nullptr, &bufferMemory) == VK_SUCCESS,
 			"Failed to allocate buffer memory");
 
 		ASSERT(vkBindBufferMemory(storage.logicalDevice, buffer, bufferMemory, 0) == VK_SUCCESS,
 			"Failed to bind buffer memory");
-	}
-
-	uint32_t VulkanRenderer::findMemoryType(const uint32_t typeFilter, const VkMemoryPropertyFlags properties) const
-	{
-		VkPhysicalDeviceMemoryProperties memProperties;
-		vkGetPhysicalDeviceMemoryProperties(storage.physicalDevice, &memProperties);
-
-		std::optional<uint32_t> memoryIndex;
-
-		for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++)
-		{
-			if (typeFilter & 1 << i && (memProperties.memoryTypes[i].propertyFlags & properties) == properties)
-			{
-				memoryIndex = i;
-				break;
-			}
-		}
-
-		ASSERT(memoryIndex.has_value(), "failed to find suitable memory type.");
-		return memoryIndex.value();
 	}
 
 	void VulkanRenderer::copyBuffer(const VkBuffer srcBuffer, const VkBuffer dstBuffer, const VkDeviceSize size)
@@ -1867,7 +1749,7 @@ namespace parus::vulkan
 			std::vector<VkDescriptorImageInfo> imageInfos;
 			imageInfos.reserve(NUMBER_OF_TEXTURE_TYPES);
 
-			material->iterateAllTextures([&]([[maybe_unused]] const TextureType textureType, const std::shared_ptr<const VulkanTexture>& texture)
+			material->iterateAllTextures([&]([[maybe_unused]] const TextureType textureType, const std::shared_ptr<const VulkanTexture2d>& texture)
 			{
 				imageInfos.push_back(
 					{
@@ -1947,8 +1829,8 @@ namespace parus::vulkan
 				};
 
 			VkDescriptorImageInfo descriptorImageInfo = {};
-			descriptorImageInfo.imageView = cubemap.cubemapImageView;
-			descriptorImageInfo.sampler = cubemap.cubemapSampler;
+			descriptorImageInfo.imageView = cubemap.imageView;
+			descriptorImageInfo.sampler = cubemap.sampler;
 			descriptorImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
 			descriptorWrites[1] =

@@ -63,4 +63,6 @@ namespace parus::vulkan::utils
 	
 	VkFormat findDepthFormat(const VulkanStorage& vulkanStorage);
 
+	uint32_t findMemoryType(const VulkanStorage& vulkanStorage, uint32_t typeFilter, const VkMemoryPropertyFlags properties);
+
 }

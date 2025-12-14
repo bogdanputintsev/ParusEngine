@@ -131,4 +131,24 @@ namespace parus::vulkan::utils
             VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
         );
     }
+
+    uint32_t findMemoryType(const VulkanStorage& vulkanStorage, const uint32_t typeFilter, const VkMemoryPropertyFlags properties)
+    {
+        VkPhysicalDeviceMemoryProperties memProperties;
+        vkGetPhysicalDeviceMemoryProperties(vulkanStorage.physicalDevice, &memProperties);
+
+        std::optional<uint32_t> memoryIndex;
+
+        for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++)
+        {
+            if (typeFilter & 1 << i && (memProperties.memoryTypes[i].propertyFlags & properties) == properties)
+            {
+                memoryIndex = i;
+                break;
+            }
+        }
+
+        ASSERT(memoryIndex.has_value(), "failed to find suitable memory type.");
+        return memoryIndex.value();
+    }
 }

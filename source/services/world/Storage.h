@@ -27,12 +27,13 @@ namespace parus
         std::vector<std::shared_ptr<vulkan::Material>> getAllMaterials() const;
         
         // --- Textures ---
-        void addNewTexture(const std::string& path, const std::shared_ptr<vulkan::VulkanTexture>& newTexture);
-        std::shared_ptr<vulkan::VulkanTexture> getTexture(const std::string& path);
-        std::shared_ptr<vulkan::VulkanTexture> getDefaultTextureOfType(const vulkan::TextureType textureType);
-        std::shared_ptr<vulkan::VulkanTexture> getOrLoadTexture(const std::string& texturePath);
+        void addNewTexture(const std::string& path, const std::shared_ptr<vulkan::VulkanTexture2d>& newTexture);
+        void setCubemapTexture(const std::shared_ptr<vulkan::VulkanTexture2d>& newCubemapTexture);
+        std::shared_ptr<vulkan::VulkanTexture2d> getTexture(const std::string& path);
+        std::shared_ptr<vulkan::VulkanTexture2d> getDefaultTextureOfType(const vulkan::TextureType textureType);
+        std::shared_ptr<vulkan::VulkanTexture2d> getOrLoadTexture(const std::string& texturePath);
         bool hasTexture(const std::string& path) const;
-        std::vector<std::shared_ptr<vulkan::VulkanTexture>> getAllTextures() const;
+        std::vector<std::shared_ptr<vulkan::VulkanTexture2d>> getAllTextures() const;
 
         // --- Meshes ---
         void addNewMesh(const std::string& path, const std::shared_ptr<Mesh>& newMesh);
@@ -47,8 +48,10 @@ namespace parus
         mutable std::mutex materialMutex;
 
         
-        std::unordered_map<std::string, std::shared_ptr<vulkan::VulkanTexture>> textures;
-        std::unordered_map<vulkan::TextureType, std::shared_ptr<vulkan::VulkanTexture>> defaultTextures;
+        std::unordered_map<std::string, std::shared_ptr<vulkan::VulkanTexture2d>> textures;
+        std::unordered_map<vulkan::TextureType, std::shared_ptr<vulkan::VulkanTexture2d>> defaultTextures;
+        std::shared_ptr<vulkan::VulkanTexture2d> cubemapTexture;
+        
         void fillDefaultTextures();
         mutable std::mutex texturesMutex;
         

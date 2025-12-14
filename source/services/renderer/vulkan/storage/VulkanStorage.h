@@ -6,10 +6,12 @@
 
 #include "services/renderer/vulkan/utils/VulkanUtils.h"
 
+
 namespace parus::vulkan
 {
-    
-    struct VulkanStorage final
+	class VulkanTexture2d;
+
+	struct VulkanStorage final
     {
         VkInstance instance = VK_NULL_HANDLE;
         VkDebugUtilsMessengerEXT debugMessenger = VK_NULL_HANDLE;
@@ -37,7 +39,6 @@ namespace parus::vulkan
     	VkPipeline skyPipeline = VK_NULL_HANDLE;
     	VkPipelineLayout mainPipelineLayout = VK_NULL_HANDLE;
     	VkPipeline mainPipeline = VK_NULL_HANDLE;
-    	
     };
 
 }
