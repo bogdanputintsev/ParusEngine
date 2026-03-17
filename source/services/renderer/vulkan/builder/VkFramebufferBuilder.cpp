@@ -1,29 +1,45 @@
-﻿#include "VkFramebufferBuilder.h"
+#include "VkFramebufferBuilder.h"
 
-#include "VkImageViewBuilder.h"
+#include <array>
 
 namespace parus::vulkan
 {
-    VkFramebufferBuilder& VkFramebufferBuilder::addColorImageView(VulkanStorage& storage)
+    VkFramebuffer VkFramebufferBuilder::build(const std::string& name, const VulkanStorage& storage) const
     {
-        // utils::createImage(
-        //     storage.swapChainDetails.swapChainExtent.width,
-        //     storage.swapChainDetails.swapChainExtent.height,
-        //     1,
-        //     storage.msaaSamples,
-        //     storage.swapChainDetails.swapChainImageFormat,
-        //     VK_IMAGE_TILING_OPTIMAL,
-        //     VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-        //     VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-        //     colorImage,
-        //     colorImageMemory);
-        //
-        // colorImageView = VkImageViewBuilder()
-        //     .setImage(colorImage)
-        //     .setFormat(colorFormat)
-        //     .setAspectMask(VK_IMAGE_ASPECT_COLOR_BIT)
-        //     .setLevelCount(1)
-        //     .build("Color Image View", storage);
+        const std::array attachments = { colorImageView, depthImageView, swapChainImageView };
+
+        VkFramebufferCreateInfo framebufferInfo{};
+        framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+        framebufferInfo.renderPass = storage.renderPass;
+        framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+        framebufferInfo.pAttachments = attachments.data();
+        framebufferInfo.width = storage.swapChainDetails.swapChainExtent.width;
+        framebufferInfo.height = storage.swapChainDetails.swapChainExtent.height;
+        framebufferInfo.layers = 1;
+
+        VkFramebuffer framebuffer;
+        ASSERT(vkCreateFramebuffer(storage.logicalDevice, &framebufferInfo, nullptr, &framebuffer) == VK_SUCCESS,
+            "failed to create framebuffer.");
+        utils::setDebugName(storage, framebuffer, VK_OBJECT_TYPE_FRAMEBUFFER, name.c_str());
+
+        return framebuffer;
+    }
+
+    VkFramebufferBuilder& VkFramebufferBuilder::setColorImageView(const VkImageView newColorImageView)
+    {
+        colorImageView = newColorImageView;
+        return *this;
+    }
+
+    VkFramebufferBuilder& VkFramebufferBuilder::setDepthImageView(const VkImageView newDepthImageView)
+    {
+        depthImageView = newDepthImageView;
+        return *this;
+    }
+
+    VkFramebufferBuilder& VkFramebufferBuilder::setSwapChainImageView(const VkImageView newSwapChainImageView)
+    {
+        swapChainImageView = newSwapChainImageView;
         return *this;
     }
 }

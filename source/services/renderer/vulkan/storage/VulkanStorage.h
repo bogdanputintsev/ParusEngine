@@ -1,6 +1,7 @@
-﻿#pragma once
+#pragma once
 
 
+#include <vector>
 #include <vulkan/vulkan_core.h>
 #include <mutex>
 
@@ -39,6 +40,9 @@ namespace parus::vulkan
     	VkPipeline skyPipeline = VK_NULL_HANDLE;
     	VkPipelineLayout mainPipelineLayout = VK_NULL_HANDLE;
     	VkPipeline mainPipeline = VK_NULL_HANDLE;
+
+    	// Framebuffers
+    	std::vector<VkFramebuffer> swapChainFramebuffers{};
     };
 
 }

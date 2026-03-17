@@ -202,7 +202,6 @@ namespace parus::vulkan
 
 
 	private:
-		std::vector<VkFramebuffer> swapChainFramebuffers{};
 		std::vector<VkCommandBuffer> commandBuffers{};
 
 		

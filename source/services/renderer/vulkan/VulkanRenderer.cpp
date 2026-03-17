@@ -8,6 +8,7 @@
 #include <unordered_set>
 
 #include "builder/VkDebugUtilsBuilder.h"
+#include "builder/VkFramebufferBuilder.h"
 #include "builder/VkDescriptorPoolBuilder.h"
 #include "builder/VkDescriptorSetLayoutBuilder.h"
 #include "builder/VkDeviceBuilder.h"
@@ -605,7 +606,7 @@ namespace parus::vulkan
 		vkDestroyImage(storage.logicalDevice, colorTexture.image, nullptr);
 		vkFreeMemory(storage.logicalDevice, colorTexture.imageMemory, nullptr);
 
-		for (const auto framebuffer : swapChainFramebuffers) {
+		for (const auto framebuffer : storage.swapChainFramebuffers) {
 			vkDestroyFramebuffer(storage.logicalDevice, framebuffer, nullptr);
 		}
 
@@ -854,28 +855,15 @@ namespace parus::vulkan
 
 	void VulkanRenderer::createFramebuffers()
 	{
-		swapChainFramebuffers.resize(storage.swapChainDetails.swapChainImageViews.size());
+		storage.swapChainFramebuffers.resize(storage.swapChainDetails.swapChainImageViews.size());
 
 		for (size_t i = 0; i < storage.swapChainDetails.swapChainImageViews.size(); ++i)
 		{
-			std::array attachments = {
-				colorTexture.imageView,
-				depthTexture.imageView,
-				storage.swapChainDetails.swapChainImageViews[i]
-			};
-
-			const auto& [width, height] = storage.swapChainDetails.swapChainExtent;
-
-			VkFramebufferCreateInfo framebufferInfo{};
-			framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-			framebufferInfo.renderPass = storage.renderPass;
-			framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
-			framebufferInfo.pAttachments = attachments.data();
-			framebufferInfo.width = width;
-			framebufferInfo.height = height;
-			framebufferInfo.layers = 1;
-
-			ASSERT(vkCreateFramebuffer(storage.logicalDevice, &framebufferInfo, nullptr, &swapChainFramebuffers[i]) == VK_SUCCESS, "failed to create framebuffer.");
+			storage.swapChainFramebuffers[i] = VkFramebufferBuilder()
+				.setColorImageView(colorTexture.imageView)
+				.setDepthImageView(depthTexture.imageView)
+				.setSwapChainImageView(storage.swapChainDetails.swapChainImageViews[i])
+				.build("Framebuffer " + std::to_string(i), storage);
 		}
 	}
 
@@ -993,7 +981,7 @@ namespace parus::vulkan
 		VkRenderPassBeginInfo renderPassInfo{};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 		renderPassInfo.renderPass = storage.renderPass;
-		renderPassInfo.framebuffer = swapChainFramebuffers[imageIndex];
+		renderPassInfo.framebuffer = storage.swapChainFramebuffers[imageIndex];
 		renderPassInfo.renderArea.offset = { .x = 0, .y = 0};
 		renderPassInfo.renderArea.extent = storage.swapChainDetails.swapChainExtent;
 
