@@ -1,4 +1,4 @@
-﻿#include "VulkanUtils.h"
+#include "VulkanUtils.h"
 
 #include <mutex>
 
@@ -130,6 +130,44 @@ namespace parus::vulkan::utils
             VK_IMAGE_TILING_OPTIMAL,
             VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
         );
+    }
+
+    VkCommandBuffer beginSingleTimeCommands(VulkanStorage& storage, const VkCommandPool commandPool)
+    {
+        VkCommandBufferAllocateInfo allocInfo{};
+        allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+        allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        allocInfo.commandPool = commandPool;
+        allocInfo.commandBufferCount = 1;
+
+        VkCommandBuffer commandBuffer;
+        vkAllocateCommandBuffers(storage.logicalDevice, &allocInfo, &commandBuffer);
+
+        VkCommandBufferBeginInfo beginInfo{};
+        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+        vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+        return commandBuffer;
+    }
+
+    void endSingleTimeCommands(VulkanStorage& storage, const VkCommandPool commandPool, const VkCommandBuffer commandBuffer)
+    {
+        vkEndCommandBuffer(commandBuffer);
+
+        VkSubmitInfo submitInfo{};
+        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        submitInfo.commandBufferCount = 1;
+        submitInfo.pCommandBuffers = &commandBuffer;
+
+        threadSafeQueueSubmit(storage, &submitInfo, nullptr);
+
+        {
+            std::scoped_lock lock(storage.graphicsQueueMutex);
+            vkQueueWaitIdle(storage.graphicsQueue);
+        }
+
+        vkFreeCommandBuffers(storage.logicalDevice, commandPool, 1, &commandBuffer);
     }
 
     uint32_t findMemoryType(const VulkanStorage& vulkanStorage, const uint32_t typeFilter, const VkMemoryPropertyFlags properties)

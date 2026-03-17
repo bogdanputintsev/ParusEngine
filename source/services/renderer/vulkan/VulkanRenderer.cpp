@@ -75,25 +75,7 @@ namespace parus::vulkan
 		createDepthResources();
 		createFramebuffers();
 		createUniformBuffer();
-
-		directionalLight =
-			{
-				.light = {
-					.color = math::Vector3(1.0f, 0.65f, 0.8f).trivial(),
-					.direction = math::Vector3(66.0f, 70.0f, 429.0f).trivial()
-				},
-				.descriptorSets = {}
-			};
-
-		createCubemapTexture();
-
-		// Load sky mesh
-		importMesh("bin/assets/skybox/dynamic_skybox.obj", MeshType::SKY);
-
-		RUN_ASYNC(importMesh("bin/assets/terrain/floor.obj"););
-		RUN_ASYNC(importMesh("bin/assets/indoor/indoor.obj"););
-		RUN_ASYNC(importMesh("bin/assets/indoor/threshold.obj"););
-		RUN_ASYNC(importMesh("bin/assets/indoor/torch.obj"););
+		loadSceneAssets();
 
 		storage.commandBuffers = VkCommandBufferBuilder()
 			.setCommandPool(getCommandPool())
@@ -149,32 +131,7 @@ namespace parus::vulkan
 		}
 
 		vkDestroyDescriptorPool(storage.logicalDevice, storage.descriptorPool, nullptr);
-		
-		// Clean textures
-		const std::vector<std::shared_ptr<VulkanTexture2d>> allTextures = Services::get<World>()->getStorage()->getAllTextures();
-		for (const auto& texture : allTextures)
-		{
-			if (texture->sampler)
-			{
-				vkDestroySampler(storage.logicalDevice, texture->sampler, nullptr);
-				texture->sampler = nullptr;
-			}
-			if (texture->imageView)
-			{
-				vkDestroyImageView(storage.logicalDevice, texture->imageView, nullptr);
-				texture->imageView = nullptr;
-			}
-			if (texture->image)
-			{
-				vkDestroyImage(storage.logicalDevice, texture->image, nullptr);
-				texture->image = nullptr;
-			}
-			if (texture->imageMemory)
-			{
-				vkFreeMemory(storage.logicalDevice, texture->imageMemory, nullptr);
-				texture->imageMemory = nullptr;
-			}
-		}
+		cleanupTextures();
 
 		vkDestroyDescriptorSetLayout(storage.logicalDevice, storage.globalDescriptorSetLayout, nullptr);
 		vkDestroyDescriptorSetLayout(storage.logicalDevice, storage.instanceDescriptorSetLayout, nullptr);
@@ -301,20 +258,29 @@ namespace parus::vulkan
 
 	void VulkanRenderer::processLoadedMeshes()
 	{
+		if (!flushMeshQueue())
+		{
+			return;
+		}
+		rebuildSceneBuffers();
+		rebuildDescriptorSets();
+	}
+
+	bool VulkanRenderer::flushMeshQueue()
+	{
 		std::unique_lock lock(importModelMutex);
 		if (modelQueue.empty())
 		{
-			return;	
+			return false;
 		}
-		
+
 		while (!modelQueue.empty())
 		{
 			auto [meshPath, newMesh] = modelQueue.front();
 			modelQueue.pop();
 			lock.unlock();
-			
-			Services::get<World>()->getStorage()->addNewMesh(meshPath, newMesh);
 
+			Services::get<World>()->getStorage()->addNewMesh(meshPath, newMesh);
 			meshInstances.push_back({
 				.mesh = newMesh,
 				.transform = math::Matrix4x4::identity(),
@@ -322,6 +288,11 @@ namespace parus::vulkan
 			});
 		}
 
+		return true;
+	}
+
+	void VulkanRenderer::rebuildSceneBuffers()
+	{
 		// ==== [ MAIN SCENE BUFFERS ] ====
 		std::vector<math::Vertex> allVertices;
 		std::vector<uint32_t> allIndices;
@@ -332,23 +303,16 @@ namespace parus::vulkan
 			{
 				meshPart.vertexOffset = allVertices.size();
 				meshPart.indexOffset = allIndices.size();
-
 				allVertices.insert(allVertices.end(), meshPart.vertices.begin(), meshPart.vertices.end());
 				allIndices.insert(allIndices.end(), meshPart.indices.begin(), meshPart.indices.end());
 			}
 		}
 
-		if (!allVertices.empty())
-		{
-			createVertexBuffer(allVertices);
-		}
-		if (!allIndices.empty())
-		{
-			createIndexBuffer(allIndices);
-		}
-		
+		if (!allVertices.empty()) { createVertexBuffer(allVertices); }
+		if (!allIndices.empty())  { createIndexBuffer(allIndices); }
+
 		storage.globalBuffers.totalVertices = allVertices.size();
-		storage.globalBuffers.totalIndices = allIndices.size();
+		storage.globalBuffers.totalIndices  = allIndices.size();
 
 		// ==== [ SKY BUFFERS ] ====
 		std::vector<math::Vertex> allSkyVertices;
@@ -356,38 +320,65 @@ namespace parus::vulkan
 
 		DEBUG_ASSERT(Services::get<World>()->getStorage()->getAllMeshesByType(MeshType::SKY).size() == 1,
 			"There must be always one and only one sky mesh.");
-		
+
 		for (const auto& mesh : Services::get<World>()->getStorage()->getAllMeshesByType(MeshType::SKY))
 		{
 			for (auto& meshPart : mesh->meshParts)
 			{
 				meshPart.vertexOffset = allSkyVertices.size();
 				meshPart.indexOffset = allSkyIndices.size();
-
 				allSkyVertices.insert(allSkyVertices.end(), meshPart.vertices.begin(), meshPart.vertices.end());
 				allSkyIndices.insert(allSkyIndices.end(), meshPart.indices.begin(), meshPart.indices.end());
 			}
 		}
 
-		if (!allSkyVertices.empty())
-		{
-			createSkyVertexBuffer(allSkyVertices);
-		}
-		if (!allSkyVertices.empty())
-		{
-			createSkyIndexBuffer(allSkyIndices);
-		}
-		
+		if (!allSkyVertices.empty()) { createSkyVertexBuffer(allSkyVertices); }
+		if (!allSkyIndices.empty())  { createSkyIndexBuffer(allSkyIndices); }
+
 		storage.globalBuffers.totalSkyVertices = allSkyVertices.size();
-		storage.globalBuffers.totalSkyIndices = allSkyIndices.size();
-		
+		storage.globalBuffers.totalSkyIndices  = allSkyIndices.size();
+	}
+
+	void VulkanRenderer::rebuildDescriptorSets()
+	{
 		for (auto& mesh : Services::get<World>()->getStorage()->getAllMeshes())
 		{
 			createMeshDescriptorSets(mesh);
 		}
-
 		createLightsDescriptorSets();
+	}
 
+	void VulkanRenderer::loadSceneAssets()
+	{
+		directionalLight =
+			{
+				.light = {
+					.color = math::Vector3(1.0f, 0.65f, 0.8f).trivial(),
+					.direction = math::Vector3(66.0f, 70.0f, 429.0f).trivial()
+				},
+				.descriptorSets = {}
+			};
+
+		createCubemapTexture();
+
+		// Load sky mesh
+		importMesh("bin/assets/skybox/dynamic_skybox.obj", MeshType::SKY);
+
+		RUN_ASYNC(importMesh("bin/assets/terrain/floor.obj"););
+		RUN_ASYNC(importMesh("bin/assets/indoor/indoor.obj"););
+		RUN_ASYNC(importMesh("bin/assets/indoor/threshold.obj"););
+		RUN_ASYNC(importMesh("bin/assets/indoor/torch.obj"););
+	}
+
+	void VulkanRenderer::cleanupTextures()
+	{
+		for (const auto& texture : Services::get<World>()->getStorage()->getAllTextures())
+		{
+			if (texture->sampler)     { vkDestroySampler(storage.logicalDevice, texture->sampler, nullptr);         texture->sampler = nullptr; }
+			if (texture->imageView)   { vkDestroyImageView(storage.logicalDevice, texture->imageView, nullptr);     texture->imageView = nullptr; }
+			if (texture->image)       { vkDestroyImage(storage.logicalDevice, texture->image, nullptr);             texture->image = nullptr; }
+			if (texture->imageMemory) { vkFreeMemory(storage.logicalDevice, texture->imageMemory, nullptr);         texture->imageMemory = nullptr; }
+		}
 	}
 
 	std::vector<const char*> VulkanRenderer::getRequiredExtensions()
@@ -692,6 +683,21 @@ namespace parus::vulkan
 		}
 	}
 
+	void VulkanRenderer::setFullscreenViewportScissor(const VkCommandBuffer cmd) const
+	{
+		VkViewport viewport{};
+		viewport.x = 0.0f;
+		viewport.y = 0.0f;
+		viewport.width = static_cast<float>(storage.swapChainDetails.swapChainExtent.width);
+		viewport.height = static_cast<float>(storage.swapChainDetails.swapChainExtent.height);
+		viewport.minDepth = 0.0f;
+		viewport.maxDepth = 1.0f;
+		vkCmdSetViewport(cmd, 0, 1, &viewport);
+
+		const VkRect2D scissor = { {0, 0}, storage.swapChainDetails.swapChainExtent };
+		vkCmdSetScissor(cmd, 0, 1, &scissor);
+	}
+
 	void VulkanRenderer::resetCommandBuffer(const int bufferId) const
 	{
 		ASSERT(static_cast<size_t>(bufferId) < storage.commandBuffers.size() && bufferId >= 0, "current frame number is larger than number of fences.");
@@ -705,22 +711,9 @@ namespace parus::vulkan
 		{
 			return;
 		}
-		
-		// ==== [ MAIN SCENE PASS ] ====
-		vkCmdBindPipeline(commandBufferToRecord, VK_PIPELINE_BIND_POINT_GRAPHICS, storage.mainPipeline);
-		VkViewport viewport{};
-		viewport.x = 0.0f;
-		viewport.y = 0.0f;
-		viewport.width = static_cast<float>(storage.swapChainDetails.swapChainExtent.width);
-		viewport.height = static_cast<float>(storage.swapChainDetails.swapChainExtent.height);
-		viewport.minDepth = 0.0f;
-		viewport.maxDepth = 1.0f;
-		vkCmdSetViewport(commandBufferToRecord, 0, 1, &viewport);
 
-		VkRect2D scissor{};
-		scissor.offset = { .x = 0, .y = 0 };
-		scissor.extent = storage.swapChainDetails.swapChainExtent;
-		vkCmdSetScissor(commandBufferToRecord, 0, 1, &scissor);
+		vkCmdBindPipeline(commandBufferToRecord, VK_PIPELINE_BIND_POINT_GRAPHICS, storage.mainPipeline);
+		setFullscreenViewportScissor(commandBufferToRecord);
 
 		const VkBuffer vertexBuffers[] = { storage.globalBuffers.vertexBuffer };
 		constexpr VkDeviceSize offsets[] = { 0 };
@@ -816,36 +809,21 @@ namespace parus::vulkan
 
 	void VulkanRenderer::drawSkyboxPass(const VkCommandBuffer commandBufferToRecord) const
 	{
-		// ==== [ SKYBOX PASS ] ====
 		ASSERT(!Services::get<World>()->getStorage()->getAllMeshesByType(MeshType::SKY).empty(),
 			   "Sky mesh must always exist");
 
 		const std::shared_ptr<Mesh> skyMesh = Services::get<World>()->getStorage()->getAllMeshesByType(MeshType::SKY)[0];
-		
+
 		ASSERT(!skyMesh->meshParts.empty(),
 			   "Sky mesh exists, but it has zero mesh parts.");
 
 		const MeshPart& skyMeshPart = skyMesh->meshParts[0];
-		
+
 		ASSERT(skyMeshPart.vertexCount > 0 && skyMeshPart.indexCount > 0,
 			   "Sky mesh has no vertices or indices");
-		
-		vkCmdBindPipeline(commandBufferToRecord, VK_PIPELINE_BIND_POINT_GRAPHICS, storage.skyPipeline);
-		
-		// Viewport and scissor
-		VkViewport viewport{};
-		viewport.x = 0.0f;
-		viewport.y = 0.0f;
-		viewport.width = static_cast<float>(storage.swapChainDetails.swapChainExtent.width);
-		viewport.height = static_cast<float>(storage.swapChainDetails.swapChainExtent.height);
-		viewport.minDepth = 0.0f;
-		viewport.maxDepth = 1.0f;
-		vkCmdSetViewport(commandBufferToRecord, 0, 1, &viewport);
 
-		VkRect2D scissor{};
-		scissor.offset = { .x = 0, .y = 0 };
-		scissor.extent = storage.swapChainDetails.swapChainExtent;
-		vkCmdSetScissor(commandBufferToRecord, 0, 1, &scissor);
+		vkCmdBindPipeline(commandBufferToRecord, VK_PIPELINE_BIND_POINT_GRAPHICS, storage.skyPipeline);
+		setFullscreenViewportScissor(commandBufferToRecord);
 
 		// Sky vertices
 		const VkBuffer skyVertexBuffers[] = { storage.globalBuffers.skyVertexBuffer };
@@ -895,45 +873,6 @@ namespace parus::vulkan
 		return VkCommandPoolBuilder().build("Command Pool [thread " + std::to_string(std::hash<std::thread::id>{}(threadId)) + "]", storage);
 	}
 
-	VkCommandBuffer VulkanRenderer::beginSingleTimeCommands()
-	{
-		VkCommandBufferAllocateInfo allocInfo{};
-		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-		allocInfo.commandPool = getCommandPool();
-		allocInfo.commandBufferCount = 1;
-
-		VkCommandBuffer commandBuffer;
-		vkAllocateCommandBuffers(storage.logicalDevice, &allocInfo, &commandBuffer);
-
-		VkCommandBufferBeginInfo beginInfo{};
-		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-		vkBeginCommandBuffer(commandBuffer, &beginInfo);
-
-		return commandBuffer;
-	}
-
-	void VulkanRenderer::endSingleTimeCommands(const VkCommandBuffer commandBuffer)
-	{
-		vkEndCommandBuffer(commandBuffer);
-
-		VkSubmitInfo submitInfo{};
-		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-		submitInfo.commandBufferCount = 1;
-		submitInfo.pCommandBuffers = &commandBuffer;
-
-		utils::threadSafeQueueSubmit(storage, &submitInfo, nullptr);
-		
-		{
-			std::scoped_lock lock(storage.graphicsQueueMutex);
-			vkQueueWaitIdle(storage.graphicsQueue);
-		}
-		
-		vkFreeCommandBuffers(storage.logicalDevice, getCommandPool(), 1, &commandBuffer);
-	}
-
 	void VulkanRenderer::createDepthResources()
 	{
 		depthTexture = VulkanTexture2dBuilder("Depth Texture")
@@ -957,7 +896,7 @@ namespace parus::vulkan
 		ASSERT(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT, 
 			"Texture image format does not support linear blitting.");
 
-		const VkCommandBuffer commandBuffer = beginSingleTimeCommands();
+		const VkCommandBuffer commandBuffer = utils::beginSingleTimeCommands(storage, getCommandPool());
 
 		VkImageMemoryBarrier barrier{};
 		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -1032,7 +971,7 @@ namespace parus::vulkan
 			0, nullptr,
 			1, &barrier);
 
-		endSingleTimeCommands(commandBuffer);
+		utils::endSingleTimeCommands(storage, getCommandPool(), commandBuffer);
 	}
 
 	void VulkanRenderer::transitionImageLayout(
@@ -1042,7 +981,7 @@ namespace parus::vulkan
 		const VkImageLayout newLayout,
 		const uint32_t mipLevels)
 	{
-		const VkCommandBuffer commandBuffer = beginSingleTimeCommands();
+		const VkCommandBuffer commandBuffer = utils::beginSingleTimeCommands(storage, getCommandPool());
 
 		VkImageMemoryBarrier barrier{};
 		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -1088,12 +1027,12 @@ namespace parus::vulkan
 			1, &barrier
 		);
 
-		endSingleTimeCommands(commandBuffer);
+		utils::endSingleTimeCommands(storage, getCommandPool(), commandBuffer);
 	}
 
 	void VulkanRenderer::copyBufferToImage(const VkBuffer buffer, const VkImage image, const uint32_t width, const uint32_t height)
 	{
-		const VkCommandBuffer commandBuffer = beginSingleTimeCommands();
+		const VkCommandBuffer commandBuffer = utils::beginSingleTimeCommands(storage, getCommandPool());
 
 		VkBufferImageCopy region{};
 		region.bufferOffset = 0;
@@ -1112,7 +1051,7 @@ namespace parus::vulkan
 
 		vkCmdCopyBufferToImage(commandBuffer, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
-		endSingleTimeCommands(commandBuffer);
+		utils::endSingleTimeCommands(storage, getCommandPool(), commandBuffer);
 	}
 
 	void VulkanRenderer::createColorResources()
@@ -1201,13 +1140,13 @@ namespace parus::vulkan
 
 	void VulkanRenderer::copyBuffer(const VkBuffer srcBuffer, const VkBuffer dstBuffer, const VkDeviceSize size)
 	{
-		const VkCommandBuffer commandBuffer = beginSingleTimeCommands();
+		const VkCommandBuffer commandBuffer = utils::beginSingleTimeCommands(storage, getCommandPool());
 
 		VkBufferCopy copyRegion{};
 		copyRegion.size = size;
 		vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
 
-		endSingleTimeCommands(commandBuffer);
+		utils::endSingleTimeCommands(storage, getCommandPool(), commandBuffer);
 	}
 
 	void VulkanRenderer::createSkyIndexBuffer(const std::vector<uint32_t>& indices)

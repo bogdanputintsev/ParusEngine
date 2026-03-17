@@ -65,6 +65,11 @@ namespace parus::vulkan
 		// Load model
 		void importMesh(const std::string& meshPath, const MeshType meshType = MeshType::STATIC_MESH);
 		void processLoadedMeshes();
+		[[nodiscard]] bool flushMeshQueue();
+		void rebuildSceneBuffers();
+		void rebuildDescriptorSets();
+
+		void loadSceneAssets();
 
 		static std::vector<const char*> getRequiredExtensions();
 
@@ -87,6 +92,7 @@ namespace parus::vulkan
 
 		// Command buffer
 		void resetCommandBuffer(const int bufferId) const;
+		void setFullscreenViewportScissor(VkCommandBuffer cmd) const;
 		void drawMainScenePass(VkCommandBuffer commandBufferToRecord) const;
 		void drawSkyboxPass(VkCommandBuffer commandBufferToRecord) const;
 		void recordCommandBuffer(VkCommandBuffer commandBufferToRecord, uint32_t imageIndex) const;
@@ -96,8 +102,6 @@ namespace parus::vulkan
 
 		// Command pool
 		VkCommandPool createCommandPool() const;
-		VkCommandBuffer beginSingleTimeCommands();
-		void endSingleTimeCommands(VkCommandBuffer commandBuffer);
 
 		// Depth resources
 		void createDepthResources();
@@ -135,6 +139,7 @@ namespace parus::vulkan
 		void createMaterialDescriptorSets(const std::shared_ptr<Mesh>& mesh) const;
 		void createLightsDescriptorSets();
 
+		void cleanupTextures();
 		void onResize();
 
 		VkSampleCountFlagBits getMaxUsableSampleCount() const;
