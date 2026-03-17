@@ -8,8 +8,11 @@
 #include <unordered_set>
 
 #include "builder/VkBufferBuilder.h"
+#include "builder/VkCommandBufferBuilder.h"
+#include "builder/VkCommandPoolBuilder.h"
 #include "builder/VkDebugUtilsBuilder.h"
 #include "builder/VkFramebufferBuilder.h"
+#include "builder/VkSyncObjectsBuilder.h"
 #include "builder/VkUboBuilder.h"
 #include "builder/VkDescriptorPoolBuilder.h"
 #include "builder/VkDescriptorSetLayoutBuilder.h"
@@ -162,23 +165,23 @@ namespace parus::vulkan
 		vkDestroyDescriptorSetLayout(storage.logicalDevice, storage.materialDescriptorSetLayout, nullptr);
 		vkDestroyDescriptorSetLayout(storage.logicalDevice, storage.lightsDescriptorSetLayout, nullptr);
 
-		vkDestroyBuffer(storage.logicalDevice, globalBuffers.indexBuffer, nullptr);
-		vkFreeMemory(storage.logicalDevice, globalBuffers.indexBufferMemory, nullptr);
+		vkDestroyBuffer(storage.logicalDevice, storage.globalBuffers.indexBuffer, nullptr);
+		vkFreeMemory(storage.logicalDevice, storage.globalBuffers.indexBufferMemory, nullptr);
 		
-		vkDestroyBuffer(storage.logicalDevice, globalBuffers.vertexBuffer, nullptr);
-		vkFreeMemory(storage.logicalDevice, globalBuffers.vertexBufferMemory, nullptr);
+		vkDestroyBuffer(storage.logicalDevice, storage.globalBuffers.vertexBuffer, nullptr);
+		vkFreeMemory(storage.logicalDevice, storage.globalBuffers.vertexBufferMemory, nullptr);
 
-		vkDestroyBuffer(storage.logicalDevice, globalBuffers.skyIndexBuffer, nullptr);
-		vkFreeMemory(storage.logicalDevice, globalBuffers.skyIndexBufferMemory, nullptr);
+		vkDestroyBuffer(storage.logicalDevice, storage.globalBuffers.skyIndexBuffer, nullptr);
+		vkFreeMemory(storage.logicalDevice, storage.globalBuffers.skyIndexBufferMemory, nullptr);
 
-		vkDestroyBuffer(storage.logicalDevice, globalBuffers.skyVertexBuffer, nullptr);
-		vkFreeMemory(storage.logicalDevice, globalBuffers.skyVertexBufferMemory, nullptr);
+		vkDestroyBuffer(storage.logicalDevice, storage.globalBuffers.skyVertexBuffer, nullptr);
+		vkFreeMemory(storage.logicalDevice, storage.globalBuffers.skyVertexBufferMemory, nullptr);
 		
 		for (size_t i = 0; i < VulkanStorage::MAX_FRAMES_IN_FLIGHT; i++)
 		{
-			vkDestroySemaphore(storage.logicalDevice, renderFinishedSemaphores[i], nullptr);
-			vkDestroySemaphore(storage.logicalDevice, imageAvailableSemaphores[i], nullptr);
-			vkDestroyFence(storage.logicalDevice, inFlightFences[i], nullptr);
+			vkDestroySemaphore(storage.logicalDevice, storage.renderFinishedSemaphores[i], nullptr);
+			vkDestroySemaphore(storage.logicalDevice, storage.imageAvailableSemaphores[i], nullptr);
+			vkDestroyFence(storage.logicalDevice, storage.inFlightFences[i], nullptr);
 		}
 
 		for (const auto& [_, commandPool]: threadCommandPools)
@@ -208,7 +211,7 @@ namespace parus::vulkan
 
 		cleanupFrameResources();
 		
-		vkWaitForFences(storage.logicalDevice, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
+		vkWaitForFences(storage.logicalDevice, 1, &storage.inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
 
 		const std::optional<uint32_t> imageIndex = acquireNextImage();
 		if (!imageIndex.has_value())
@@ -218,7 +221,7 @@ namespace parus::vulkan
 
 		updateUniformBuffer(currentFrame);
 		processLoadedMeshes();
-		vkResetFences(storage.logicalDevice, 1, &inFlightFences[currentFrame]);
+		vkResetFences(storage.logicalDevice, 1, &storage.inFlightFences[currentFrame]);
 
 		const auto commandBuffer = getCommandBuffer(currentFrame);
 
@@ -228,19 +231,19 @@ namespace parus::vulkan
 		VkSubmitInfo submitInfo{};
 		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-		const VkSemaphore waitSemaphores[] = { imageAvailableSemaphores[currentFrame] };
+		const VkSemaphore waitSemaphores[] = { storage.imageAvailableSemaphores[currentFrame] };
 		constexpr VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
 		submitInfo.waitSemaphoreCount = 1;
 		submitInfo.pWaitSemaphores = waitSemaphores;
 		submitInfo.pWaitDstStageMask = waitStages;
 		submitInfo.commandBufferCount = 1;
-		submitInfo.pCommandBuffers = &commandBuffers[currentFrame];
+		submitInfo.pCommandBuffers = &storage.commandBuffers[currentFrame];
 
-		const VkSemaphore signalSemaphores[] = { renderFinishedSemaphores[currentFrame] };
+		const VkSemaphore signalSemaphores[] = { storage.renderFinishedSemaphores[currentFrame] };
 		submitInfo.signalSemaphoreCount = 1;
 		submitInfo.pSignalSemaphores = signalSemaphores;
 
-		ASSERT(utils::threadSafeQueueSubmit(storage, &submitInfo, inFlightFences[currentFrame]) == VK_SUCCESS, "failed to submit draw command buffer.");
+		ASSERT(utils::threadSafeQueueSubmit(storage, &submitInfo, storage.inFlightFences[currentFrame]) == VK_SUCCESS, "failed to submit draw command buffer.");
 
 		// Submit result back to swap chain to have it eventually show up on the screen. 
 		VkPresentInfoKHR presentInfo{};
@@ -331,8 +334,8 @@ namespace parus::vulkan
 			createIndexBuffer(allIndices);
 		}
 		
-		globalBuffers.totalVertices = allVertices.size();
-		globalBuffers.totalIndices = allIndices.size();
+		storage.globalBuffers.totalVertices = allVertices.size();
+		storage.globalBuffers.totalIndices = allIndices.size();
 
 		// ==== [ SKY BUFFERS ] ====
 		std::vector<math::Vertex> allSkyVertices;
@@ -362,8 +365,8 @@ namespace parus::vulkan
 			createSkyIndexBuffer(allSkyIndices);
 		}
 		
-		globalBuffers.totalSkyVertices = allSkyVertices.size();
-		globalBuffers.totalSkyIndices = allSkyIndices.size();
+		storage.globalBuffers.totalSkyVertices = allSkyVertices.size();
+		storage.globalBuffers.totalSkyIndices = allSkyIndices.size();
 		
 		for (auto& mesh : Services::get<World>()->getStorage()->getAllMeshes())
 		{
@@ -566,11 +569,11 @@ namespace parus::vulkan
 
 	std::optional<uint32_t> VulkanRenderer::acquireNextImage()
 	{
-		ASSERT(static_cast<size_t>(currentFrame) < imageAvailableSemaphores.size() && currentFrame >= 0,
+		ASSERT(static_cast<size_t>(currentFrame) < storage.imageAvailableSemaphores.size() && currentFrame >= 0,
 			"Current frame number is larger than the number of fences.");
 
 		uint32_t imageIndex;
-		const VkResult result = vkAcquireNextImageKHR(storage.logicalDevice, storage.swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
+		const VkResult result = vkAcquireNextImageKHR(storage.logicalDevice, storage.swapChain, UINT64_MAX, storage.imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
 
 		if (result == VK_ERROR_OUT_OF_DATE_KHR)
 		{
@@ -869,27 +872,22 @@ namespace parus::vulkan
 
 	void VulkanRenderer::createCommandBuffer()
 	{
-		commandBuffers.resize(VulkanStorage::MAX_FRAMES_IN_FLIGHT);
-
-		VkCommandBufferAllocateInfo allocInfo{};
-		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-		allocInfo.commandPool = getCommandPool();
-		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-		allocInfo.commandBufferCount = static_cast<uint32_t>(commandBuffers.size());
-
-		ASSERT(vkAllocateCommandBuffers(storage.logicalDevice, &allocInfo, commandBuffers.data()) == VK_SUCCESS, "failed to allocate command buffers.");
+		storage.commandBuffers = VkCommandBufferBuilder()
+			.setCommandPool(getCommandPool())
+			.setCount(VulkanStorage::MAX_FRAMES_IN_FLIGHT)
+			.build("Main Command Buffer", storage);
 	}
 
 	void VulkanRenderer::resetCommandBuffer(const int bufferId) const
 	{
-		ASSERT(static_cast<size_t>(bufferId) < commandBuffers.size() && bufferId >= 0, "current frame number is larger than number of fences.");
+		ASSERT(static_cast<size_t>(bufferId) < storage.commandBuffers.size() && bufferId >= 0, "current frame number is larger than number of fences.");
 
-		ASSERT(vkResetCommandBuffer(commandBuffers[bufferId], 0) == VK_SUCCESS, "Failed to reset command buffer.");
+		ASSERT(vkResetCommandBuffer(storage.commandBuffers[bufferId], 0) == VK_SUCCESS, "Failed to reset command buffer.");
 	}
 
 	void VulkanRenderer::drawMainScenePass(const VkCommandBuffer commandBufferToRecord) const
 	{
-		if (!globalBuffers.vertexBuffer)
+		if (!storage.globalBuffers.vertexBuffer)
 		{
 			return;
 		}
@@ -910,10 +908,10 @@ namespace parus::vulkan
 		scissor.extent = storage.swapChainDetails.swapChainExtent;
 		vkCmdSetScissor(commandBufferToRecord, 0, 1, &scissor);
 
-		const VkBuffer vertexBuffers[] = { globalBuffers.vertexBuffer };
+		const VkBuffer vertexBuffers[] = { storage.globalBuffers.vertexBuffer };
 		constexpr VkDeviceSize offsets[] = { 0 };
 		vkCmdBindVertexBuffers(commandBufferToRecord, 0, 1, vertexBuffers, offsets);
-		vkCmdBindIndexBuffer(commandBufferToRecord, globalBuffers.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+		vkCmdBindIndexBuffer(commandBufferToRecord, storage.globalBuffers.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
 		// Bind the global descriptor set.
 		vkCmdBindDescriptorSets(
@@ -922,7 +920,7 @@ namespace parus::vulkan
 			storage.mainPipelineLayout,
 			0,
 			1,
-			&globalDescriptorSets[currentFrame], 0, nullptr);
+			&storage.globalDescriptorSets[currentFrame], 0, nullptr);
 
 		// Bind the directional light descriptor set.
 		vkCmdBindDescriptorSets(
@@ -1036,10 +1034,10 @@ namespace parus::vulkan
 		vkCmdSetScissor(commandBufferToRecord, 0, 1, &scissor);
 
 		// Sky vertices
-		const VkBuffer skyVertexBuffers[] = { globalBuffers.skyVertexBuffer };
+		const VkBuffer skyVertexBuffers[] = { storage.globalBuffers.skyVertexBuffer };
 		constexpr VkDeviceSize skyOffsets[] = { 0 };
 		vkCmdBindVertexBuffers(commandBufferToRecord, 0, 1, skyVertexBuffers, skyOffsets);
-		vkCmdBindIndexBuffer(commandBufferToRecord, globalBuffers.skyIndexBuffer, 0, VK_INDEX_TYPE_UINT32);
+		vkCmdBindIndexBuffer(commandBufferToRecord, storage.globalBuffers.skyIndexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
 		// Bind
 		vkCmdBindDescriptorSets(
@@ -1047,7 +1045,7 @@ namespace parus::vulkan
 			VK_PIPELINE_BIND_POINT_GRAPHICS,
 			storage.skyPipelineLayout,
 			0, 1,
-			&globalDescriptorSets[currentFrame],
+			&storage.globalDescriptorSets[currentFrame],
 			0, nullptr);
 		
 		// Draw mesh part.
@@ -1061,9 +1059,9 @@ namespace parus::vulkan
 
 	VkCommandBuffer VulkanRenderer::getCommandBuffer(const int bufferId) const
 	{
-		ASSERT(static_cast<size_t>(bufferId) < commandBuffers.size() && bufferId >= 0, "current frame number is larger than number of fences.");
+		ASSERT(static_cast<size_t>(bufferId) < storage.commandBuffers.size() && bufferId >= 0, "current frame number is larger than number of fences.");
 
-		return commandBuffers[bufferId];
+		return storage.commandBuffers[bufferId];
 	}
 
 	VkCommandPool VulkanRenderer::getCommandPool()
@@ -1079,17 +1077,8 @@ namespace parus::vulkan
 	
 	VkCommandPool VulkanRenderer::createCommandPool() const
 	{
-		VkCommandPool newCommandPool;
-		
-		const auto [graphicsFamily, presentFamily] = utils::findQueueFamilies(storage.physicalDevice, storage.surface);
-		ASSERT(graphicsFamily.has_value(), "Graphics family is incomplete.");
-		VkCommandPoolCreateInfo poolInfo{};
-		poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-		poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-		poolInfo.queueFamilyIndex = graphicsFamily.value();
-
-		ASSERT(vkCreateCommandPool(storage.logicalDevice, &poolInfo, nullptr, &newCommandPool) == VK_SUCCESS, "failed to create command pool.");
-		return newCommandPool;
+		const std::thread::id threadId = std::this_thread::get_id();
+		return VkCommandPoolBuilder().build("Command Pool [thread " + std::to_string(std::hash<std::thread::id>{}(threadId)) + "]", storage);
 	}
 
 	VkCommandBuffer VulkanRenderer::beginSingleTimeCommands()
@@ -1332,11 +1321,11 @@ namespace parus::vulkan
 
 	void VulkanRenderer::createVertexBuffer(const std::vector<math::Vertex>& vertices)
 	{
-		if (globalBuffers.vertexBuffer != VK_NULL_HANDLE)
+		if (storage.globalBuffers.vertexBuffer != VK_NULL_HANDLE)
 		{
 			frames[currentFrame].buffersToDelete.emplace_back(
-			   globalBuffers.vertexBuffer,
-			   globalBuffers.vertexBufferMemory
+			   storage.globalBuffers.vertexBuffer,
+			   storage.globalBuffers.vertexBufferMemory
 			);
 		}
 
@@ -1354,24 +1343,24 @@ namespace parus::vulkan
 		memcpy(data, vertices.data(), bufferSize);
 		vkUnmapMemory(storage.logicalDevice, stagingBufferMemory);
 
-		std::tie(globalBuffers.vertexBuffer, globalBuffers.vertexBufferMemory) = VkBufferBuilder("Vertex Buffer")
+		std::tie(storage.globalBuffers.vertexBuffer, storage.globalBuffers.vertexBufferMemory) = VkBufferBuilder("Vertex Buffer")
 			.setSize(bufferSize)
 			.setUsage(VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT)
 			.setMemoryProperties(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
 			.build(storage);
 
-		copyBuffer(stagingBuffer, globalBuffers.vertexBuffer, bufferSize);
+		copyBuffer(stagingBuffer, storage.globalBuffers.vertexBuffer, bufferSize);
 		vkDestroyBuffer(storage.logicalDevice, stagingBuffer, nullptr);
 		vkFreeMemory(storage.logicalDevice, stagingBufferMemory, nullptr);
 	}
 
 	void VulkanRenderer::createSkyVertexBuffer(const std::vector<math::Vertex>& vertices)
 	{
-		if (globalBuffers.skyVertexBuffer != VK_NULL_HANDLE)
+		if (storage.globalBuffers.skyVertexBuffer != VK_NULL_HANDLE)
 		{
 			frames[currentFrame].buffersToDelete.emplace_back(
-			   globalBuffers.skyVertexBuffer,
-			   globalBuffers.skyVertexBufferMemory
+			   storage.globalBuffers.skyVertexBuffer,
+			   storage.globalBuffers.skyVertexBufferMemory
 			);
 		}
 
@@ -1389,13 +1378,13 @@ namespace parus::vulkan
 		memcpy(data, vertices.data(), bufferSize);
 		vkUnmapMemory(storage.logicalDevice, stagingBufferMemory);
 
-		std::tie(globalBuffers.skyVertexBuffer, globalBuffers.skyVertexBufferMemory) = VkBufferBuilder("Sky Vertex Buffer")
+		std::tie(storage.globalBuffers.skyVertexBuffer, storage.globalBuffers.skyVertexBufferMemory) = VkBufferBuilder("Sky Vertex Buffer")
 			.setSize(bufferSize)
 			.setUsage(VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT)
 			.setMemoryProperties(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
 			.build(storage);
 
-		copyBuffer(stagingBuffer, globalBuffers.skyVertexBuffer, bufferSize);
+		copyBuffer(stagingBuffer, storage.globalBuffers.skyVertexBuffer, bufferSize);
 		vkDestroyBuffer(storage.logicalDevice, stagingBuffer, nullptr);
 		vkFreeMemory(storage.logicalDevice, stagingBufferMemory, nullptr);
 	}
@@ -1414,11 +1403,11 @@ namespace parus::vulkan
 
 	void VulkanRenderer::createSkyIndexBuffer(const std::vector<uint32_t>& indices)
 	{
-		if (globalBuffers.skyIndexBuffer != VK_NULL_HANDLE)
+		if (storage.globalBuffers.skyIndexBuffer != VK_NULL_HANDLE)
 		{
 			frames[currentFrame].buffersToDelete.emplace_back(
-			   globalBuffers.skyIndexBuffer,
-			   globalBuffers.skyIndexBufferMemory
+			   storage.globalBuffers.skyIndexBuffer,
+			   storage.globalBuffers.skyIndexBufferMemory
 			);
 		}
 
@@ -1435,13 +1424,13 @@ namespace parus::vulkan
 		memcpy(data, indices.data(), bufferSize);
 		vkUnmapMemory(storage.logicalDevice, stagingBufferMemory);
 
-		std::tie(globalBuffers.skyIndexBuffer, globalBuffers.skyIndexBufferMemory) = VkBufferBuilder("Sky Index Buffer")
+		std::tie(storage.globalBuffers.skyIndexBuffer, storage.globalBuffers.skyIndexBufferMemory) = VkBufferBuilder("Sky Index Buffer")
 			.setSize(bufferSize)
 			.setUsage(VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT)
 			.setMemoryProperties(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
 			.build(storage);
 
-		copyBuffer(stagingBuffer, globalBuffers.skyIndexBuffer, bufferSize);
+		copyBuffer(stagingBuffer, storage.globalBuffers.skyIndexBuffer, bufferSize);
 
 		vkDestroyBuffer(storage.logicalDevice, stagingBuffer, nullptr);
 		vkFreeMemory(storage.logicalDevice, stagingBufferMemory, nullptr);
@@ -1449,11 +1438,11 @@ namespace parus::vulkan
 
 	void VulkanRenderer::createIndexBuffer(const std::vector<uint32_t>& indices)
 	{
-		if (globalBuffers.indexBuffer != VK_NULL_HANDLE)
+		if (storage.globalBuffers.indexBuffer != VK_NULL_HANDLE)
 		{
 			frames[currentFrame].buffersToDelete.emplace_back(
-			   globalBuffers.indexBuffer,
-			   globalBuffers.indexBufferMemory
+			   storage.globalBuffers.indexBuffer,
+			   storage.globalBuffers.indexBufferMemory
 			);
 		}
 
@@ -1470,13 +1459,13 @@ namespace parus::vulkan
 		memcpy(data, indices.data(), (size_t)bufferSize);
 		vkUnmapMemory(storage.logicalDevice, stagingBufferMemory);
 
-		std::tie(globalBuffers.indexBuffer, globalBuffers.indexBufferMemory) = VkBufferBuilder("Index Buffer")
+		std::tie(storage.globalBuffers.indexBuffer, storage.globalBuffers.indexBufferMemory) = VkBufferBuilder("Index Buffer")
 			.setSize(bufferSize)
 			.setUsage(VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT)
 			.setMemoryProperties(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
 			.build(storage);
 
-		copyBuffer(stagingBuffer, globalBuffers.indexBuffer, bufferSize);
+		copyBuffer(stagingBuffer, storage.globalBuffers.indexBuffer, bufferSize);
 
 		vkDestroyBuffer(storage.logicalDevice, stagingBuffer, nullptr);
 		vkFreeMemory(storage.logicalDevice, stagingBufferMemory, nullptr);
@@ -1550,7 +1539,7 @@ namespace parus::vulkan
 		globalAllocateInfo.descriptorSetCount = static_cast<uint32_t>(VulkanStorage::MAX_FRAMES_IN_FLIGHT);
 		globalAllocateInfo.pSetLayouts = globalLayouts.data();
 
-		ASSERT(vkAllocateDescriptorSets(storage.logicalDevice, &globalAllocateInfo, globalDescriptorSets.data()) == VK_SUCCESS,
+		ASSERT(vkAllocateDescriptorSets(storage.logicalDevice, &globalAllocateInfo, storage.globalDescriptorSets.data()) == VK_SUCCESS,
 			"Failed to allocate global descriptor sets.");
 
 		for (size_t frameIndex = 0; frameIndex < VulkanStorage::MAX_FRAMES_IN_FLIGHT; frameIndex++)
@@ -1567,7 +1556,7 @@ namespace parus::vulkan
 				{
 				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
 				.pNext = nullptr,
-				.dstSet = globalDescriptorSets[frameIndex],
+				.dstSet = storage.globalDescriptorSets[frameIndex],
 				.dstBinding = 0,
 				.dstArrayElement = 0,
 				.descriptorCount = 1,
@@ -1749,39 +1738,22 @@ namespace parus::vulkan
 
 	void VulkanRenderer::createSyncObjects()
 	{
-		imageAvailableSemaphores.resize(VulkanStorage::MAX_FRAMES_IN_FLIGHT);
-		renderFinishedSemaphores.resize(VulkanStorage::MAX_FRAMES_IN_FLIGHT);
-		inFlightFences.resize(VulkanStorage::MAX_FRAMES_IN_FLIGHT);
-
-		VkSemaphoreCreateInfo semaphoreInfo{};
-		semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-
-		VkFenceCreateInfo fenceInfo{};
-		fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-		fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-
-		for (int i = 0; i < VulkanStorage::MAX_FRAMES_IN_FLIGHT; ++i)
-		{
-			ASSERT(vkCreateSemaphore(storage.logicalDevice, &semaphoreInfo, nullptr, &imageAvailableSemaphores[i]) == VK_SUCCESS &&
-				vkCreateSemaphore(storage.logicalDevice, &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]) == VK_SUCCESS &&
-				vkCreateFence(storage.logicalDevice, &fenceInfo, nullptr, &inFlightFences[i]) == VK_SUCCESS,
-				"failed to create semaphores.");
-		}
+		VkSyncObjectsBuilder().build(storage);
 	}
 
 	void VulkanRenderer::waitForFences() const
 	{
-		ASSERT(static_cast<size_t>(currentFrame) < inFlightFences.size() && currentFrame >= 0, "current frame number is larger than number of fences.");
+		ASSERT(static_cast<size_t>(currentFrame) < storage.inFlightFences.size() && currentFrame >= 0, "current frame number is larger than number of fences.");
 
-		vkWaitForFences(storage.logicalDevice, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
-		vkResetFences(storage.logicalDevice, 1, &inFlightFences[currentFrame]);
+		vkWaitForFences(storage.logicalDevice, 1, &storage.inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
+		vkResetFences(storage.logicalDevice, 1, &storage.inFlightFences[currentFrame]);
 	}
 
 	void VulkanRenderer::resetFences() const
 	{
-		ASSERT(static_cast<size_t>(currentFrame) < inFlightFences.size() && currentFrame >= 0, "current frame number is larger than number of fences.");
+		ASSERT(static_cast<size_t>(currentFrame) < storage.inFlightFences.size() && currentFrame >= 0, "current frame number is larger than number of fences.");
 
-		vkResetFences(storage.logicalDevice, 1, &inFlightFences[currentFrame]);
+		vkResetFences(storage.logicalDevice, 1, &storage.inFlightFences[currentFrame]);
 	}
 
 	void VulkanRenderer::onResize()

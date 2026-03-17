@@ -27,23 +27,6 @@ namespace parus::imgui
 namespace parus::vulkan
 {
 	
-	struct GlobalGeometryBuffers
-	{
-		VkBuffer vertexBuffer = VK_NULL_HANDLE;
-		VkDeviceMemory vertexBufferMemory = VK_NULL_HANDLE;
-		VkBuffer skyVertexBuffer = VK_NULL_HANDLE;
-		VkDeviceMemory skyVertexBufferMemory = VK_NULL_HANDLE;
-		VkBuffer indexBuffer = VK_NULL_HANDLE;
-		VkDeviceMemory indexBufferMemory = VK_NULL_HANDLE;
-		VkBuffer skyIndexBuffer = VK_NULL_HANDLE;
-		VkDeviceMemory skyIndexBufferMemory = VK_NULL_HANDLE;
-		// Total counts
-		size_t totalVertices = 0;
-		size_t totalSkyVertices = 0;
-		size_t totalIndices = 0;
-		size_t totalSkyIndices = 0;
-	};
-	
 	class VulkanRenderer final : public Renderer
 	{
 	public:
@@ -68,9 +51,7 @@ namespace parus::vulkan
 		static constexpr size_t MAX_NUMBER_OF_MESHES = 100;
 
 		bool isDrawDebugEnabled = false;
-		
-		GlobalGeometryBuffers globalBuffers;
-		
+
 		std::vector<MeshInstance> meshInstances;
 		VulkanDirectionalLight directionalLight;
 
@@ -180,7 +161,6 @@ namespace parus::vulkan
 		void updateUniformBuffer(uint32_t currentImage);
 
 		// Descriptor Sets
-		std::array<VkDescriptorSet, VulkanStorage::MAX_FRAMES_IN_FLIGHT> globalDescriptorSets;
 		void createDescriptorPool();
 		void createMeshDescriptorSets(const std::shared_ptr<Mesh>& mesh);
 		void createGlobalDescriptorSets();
@@ -197,17 +177,11 @@ namespace parus::vulkan
 
 		VkSampleCountFlagBits getMaxUsableSampleCount() const;
 		
-		std::vector<VkCommandBuffer> commandBuffers{};
-		
 		std::unordered_map<std::thread::id, VkCommandPool> threadCommandPools;
 		
 		VulkanTexture2d colorTexture;
 		VulkanTexture2d depthTexture;
 		
-		std::vector<VkSemaphore> imageAvailableSemaphores{};
-		std::vector<VkSemaphore> renderFinishedSemaphores{};
-		std::vector<VkFence> inFlightFences{};
-
 		int currentFrame = 0;
 		bool framebufferResized = false;
 		
