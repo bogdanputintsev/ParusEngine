@@ -1,6 +1,7 @@
 #pragma once
 
 
+#include <array>
 #include <vector>
 #include <vulkan/vulkan_core.h>
 #include <mutex>
@@ -12,8 +13,18 @@ namespace parus::vulkan
 {
 	class VulkanTexture2d;
 
+	struct UboBuffer
+    {
+        static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
+        std::array<VkBuffer, MAX_FRAMES_IN_FLIGHT> frameBuffers{};
+        std::array<VkDeviceMemory, MAX_FRAMES_IN_FLIGHT> memory{};
+        std::array<void*, MAX_FRAMES_IN_FLIGHT> mapped{};
+    };
+
 	struct VulkanStorage final
     {
+        static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
+
         VkInstance instance = VK_NULL_HANDLE;
         VkDebugUtilsMessengerEXT debugMessenger = VK_NULL_HANDLE;
 		PFN_vkSetDebugUtilsObjectNameEXT vkSetDebugUtilsObjectNameEXT;
@@ -43,6 +54,11 @@ namespace parus::vulkan
 
     	// Framebuffers
     	std::vector<VkFramebuffer> swapChainFramebuffers{};
+
+    	// UBO Buffers
+    	UboBuffer globalUboBuffer{};
+    	UboBuffer instanceUboBuffer{};
+    	UboBuffer directionalLightUboBuffer{};
     };
 
 }

@@ -166,6 +166,7 @@
     <ClCompile Include="source\services\graphics\imgui\ImGuiLibrary.cpp" />
     <ClCompile Include="source\services\platform\PlatformWindows.cpp" />
     <ClCompile Include="source\services\renderer\Renderer.cpp" />
+    <ClCompile Include="source\services\renderer\vulkan\builder\VkBufferBuilder.cpp" />
     <ClCompile Include="source\services\renderer\vulkan\builder\VkDebugUtilsBuilder.cpp" />
     <ClCompile Include="source\services\renderer\vulkan\builder\VkDescriptorPoolBuilder.cpp" />
     <ClCompile Include="source\services\renderer\vulkan\builder\VkDescriptorSetLayoutBuilder.cpp" />
@@ -181,6 +182,7 @@
     <ClCompile Include="source\services\renderer\vulkan\builder\VkSamplerBuilder.cpp" />
     <ClCompile Include="source\services\renderer\vulkan\builder\VkSurfaceBuilder.cpp" />
     <ClCompile Include="source\services\renderer\vulkan\builder\VkSwapChainBuilder.cpp" />
+    <ClCompile Include="source\services\renderer\vulkan\builder\VkUboBuilder.cpp" />
     <ClCompile Include="source\services\renderer\vulkan\builder\VulkanTexture2dBuilder.cpp" />
     <ClCompile Include="source\services\renderer\vulkan\light\Light.cpp" />
     <ClCompile Include="source\services\renderer\vulkan\material\Material.cpp" />
@@ -210,6 +212,7 @@
     <ClInclude Include="source\services\graphics\imgui\ImGuiLibrary.h" />
     <ClInclude Include="source\services\platform\Platform.h" />
     <ClInclude Include="source\services\renderer\Renderer.h" />
+    <ClInclude Include="source\services\renderer\vulkan\builder\VkBufferBuilder.h" />
     <ClInclude Include="source\services\renderer\vulkan\builder\VkDebugUtilsBuilder.h" />
     <ClInclude Include="source\services\renderer\vulkan\builder\VkDescriptorPoolBuilder.h" />
     <ClInclude Include="source\services\renderer\vulkan\builder\VkDescriptorSetLayoutBuilder.h" />
@@ -225,6 +228,7 @@
     <ClInclude Include="source\services\renderer\vulkan\builder\VkSamplerBuilder.h" />
     <ClInclude Include="source\services\renderer\vulkan\builder\VkSurfaceBuilder.h" />
     <ClInclude Include="source\services\renderer\vulkan\builder\VkSwapChainBuilder.h" />
+    <ClInclude Include="source\services\renderer\vulkan\builder\VkUboBuilder.h" />
     <ClInclude Include="source\services\renderer\vulkan\builder\VulkanTexture2dBuilder.h" />
     <ClInclude Include="source\services\renderer\vulkan\light\Light.h" />
     <ClInclude Include="source\services\renderer\vulkan\material\Material.h" />

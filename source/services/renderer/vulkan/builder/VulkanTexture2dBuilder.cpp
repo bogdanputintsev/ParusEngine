@@ -1,7 +1,8 @@
-﻿#include "VulkanTexture2dBuilder.h"
+#include "VulkanTexture2dBuilder.h"
 
 #include <filesystem>
 
+#include "VkBufferBuilder.h"
 #include "VkDeviceMemoryBuilder.h"
 #include "VkImageBuilder.h"
 #include "VkImageViewBuilder.h"
@@ -74,11 +75,13 @@ namespace parus::vulkan
 
 		ASSERT(pixels, "Failed to load texture image.");
 
-		VkBuffer stagingBuffer;
-		VkDeviceMemory stagingBufferMemory;
-
     	const auto& vulkanRenderer = Services::get<VulkanRenderer>();
-		vulkanRenderer->createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+
+		auto [stagingBuffer, stagingBufferMemory] = VkBufferBuilder(debugName + " Staging Buffer")
+			.setSize(imageSize)
+			.setUsage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT)
+			.setMemoryProperties(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)
+			.build(vulkanRenderer->storage);
 
 		void* data;
 		vkMapMemory(vulkanRenderer->storage.logicalDevice, stagingBufferMemory, 0, imageSize, 0, &data);
@@ -163,15 +166,12 @@ namespace parus::vulkan
 			255
 		};
     	
-		VkBuffer stagingBuffer;
-		VkDeviceMemory stagingBufferMemory;
-		vulkanRenderer->createBuffer(sizeof(colorData), VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
-			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
-			stagingBuffer, stagingBufferMemory);
+		auto [stagingBuffer, stagingBufferMemory] = VkBufferBuilder(debugName + " Staging Buffer")
+			.setSize(sizeof(colorData))
+			.setUsage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT)
+			.setMemoryProperties(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)
+			.build(vulkanRenderer->storage);
 
-		utils::setDebugName(vulkanRenderer->storage, stagingBuffer, VK_OBJECT_TYPE_BUFFER, debugName.c_str());
-		utils::setDebugName(vulkanRenderer->storage, stagingBufferMemory, VK_OBJECT_TYPE_DEVICE_MEMORY, debugName.c_str());
-		
 		void* data;
 		vkMapMemory(vulkanRenderer->storage.logicalDevice, stagingBufferMemory, 0, sizeof(colorData), 0, &data);
 		memcpy(data, colorData, sizeof(colorData));

@@ -7,8 +7,10 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#include "builder/VkBufferBuilder.h"
 #include "builder/VkDebugUtilsBuilder.h"
 #include "builder/VkFramebufferBuilder.h"
+#include "builder/VkUboBuilder.h"
 #include "builder/VkDescriptorPoolBuilder.h"
 #include "builder/VkDescriptorSetLayoutBuilder.h"
 #include "builder/VkDeviceBuilder.h"
@@ -54,11 +56,9 @@ namespace parus::vulkan
 		createDescriptorPool();
 		createSkyPipeline();
 		createGraphicsPipeline();
-		
 		createColorResources();
 		createDepthResources();
 		createFramebuffers();
-
 		createUniformBuffer();
 
 		directionalLight = 
@@ -119,14 +119,14 @@ namespace parus::vulkan
 		vkDestroyPipelineLayout(storage.logicalDevice, storage.skyPipelineLayout, nullptr);
 		vkDestroyRenderPass(storage.logicalDevice, storage.renderPass, nullptr);
 
-		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+		for (size_t i = 0; i < VulkanStorage::MAX_FRAMES_IN_FLIGHT; i++)
 		{
-			vkDestroyBuffer(storage.logicalDevice, globalUboBuffer.frameBuffers[i], nullptr);
-			vkDestroyBuffer(storage.logicalDevice, instanceUboBuffer.frameBuffers[i], nullptr);
-			vkDestroyBuffer(storage.logicalDevice, directionalLightUboBuffer.frameBuffers[i], nullptr);
-			vkFreeMemory(storage.logicalDevice, globalUboBuffer.memory[i], nullptr);
-			vkFreeMemory(storage.logicalDevice, instanceUboBuffer.memory[i], nullptr);
-			vkFreeMemory(storage.logicalDevice, directionalLightUboBuffer.memory[i], nullptr);
+			vkDestroyBuffer(storage.logicalDevice, storage.globalUboBuffer.frameBuffers[i], nullptr);
+			vkDestroyBuffer(storage.logicalDevice, storage.instanceUboBuffer.frameBuffers[i], nullptr);
+			vkDestroyBuffer(storage.logicalDevice, storage.directionalLightUboBuffer.frameBuffers[i], nullptr);
+			vkFreeMemory(storage.logicalDevice, storage.globalUboBuffer.memory[i], nullptr);
+			vkFreeMemory(storage.logicalDevice, storage.instanceUboBuffer.memory[i], nullptr);
+			vkFreeMemory(storage.logicalDevice, storage.directionalLightUboBuffer.memory[i], nullptr);
 		}
 
 		vkDestroyDescriptorPool(storage.logicalDevice, storage.descriptorPool, nullptr);
@@ -174,7 +174,7 @@ namespace parus::vulkan
 		vkDestroyBuffer(storage.logicalDevice, globalBuffers.skyVertexBuffer, nullptr);
 		vkFreeMemory(storage.logicalDevice, globalBuffers.skyVertexBufferMemory, nullptr);
 		
-		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+		for (size_t i = 0; i < VulkanStorage::MAX_FRAMES_IN_FLIGHT; i++)
 		{
 			vkDestroySemaphore(storage.logicalDevice, renderFinishedSemaphores[i], nullptr);
 			vkDestroySemaphore(storage.logicalDevice, imageAvailableSemaphores[i], nullptr);
@@ -204,7 +204,7 @@ namespace parus::vulkan
 			return;
 		}
 		
-		currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+		currentFrame = (currentFrame + 1) % VulkanStorage::MAX_FRAMES_IN_FLIGHT;
 
 		cleanupFrameResources();
 		
@@ -689,17 +689,17 @@ namespace parus::vulkan
 	void VulkanRenderer::createDescriptorPool()
 	{
 		VkDescriptorPoolBuilder()
-			.setMaxSets(MAX_FRAMES_IN_FLIGHT * MAX_NUMBER_OF_MESHES * NUMBER_OF_TEXTURE_TYPES + IMAGE_SAMPLER_POOL_SIZE + 1)
+			.setMaxSets(VulkanStorage::MAX_FRAMES_IN_FLIGHT * MAX_NUMBER_OF_MESHES * NUMBER_OF_TEXTURE_TYPES + IMAGE_SAMPLER_POOL_SIZE + 1)
 			.setPoolSizes({{
 				// Descriptor pool for global descriptor set (set = 0)
 				{
 					.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-					.descriptorCount = MAX_FRAMES_IN_FLIGHT
+					.descriptorCount = VulkanStorage::MAX_FRAMES_IN_FLIGHT
 				},
 				// Descriptor pool for instance descriptor set (set = 1)
 				{
 					.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-					.descriptorCount = MAX_FRAMES_IN_FLIGHT * MAX_NUMBER_OF_MESHES * 2
+					.descriptorCount = VulkanStorage::MAX_FRAMES_IN_FLIGHT * MAX_NUMBER_OF_MESHES * 2
 				},
 				// Descriptor pool for material descriptor set (set = 2)
 				{
@@ -709,7 +709,7 @@ namespace parus::vulkan
 				// Descriptor pool for light descriptor set (set = 3)
 				{
 					.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-					.descriptorCount = MAX_FRAMES_IN_FLIGHT
+					.descriptorCount = VulkanStorage::MAX_FRAMES_IN_FLIGHT
 				},
 			}})
 			.build(storage);
@@ -869,7 +869,7 @@ namespace parus::vulkan
 
 	void VulkanRenderer::createCommandBuffer()
 	{
-		commandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+		commandBuffers.resize(VulkanStorage::MAX_FRAMES_IN_FLIGHT);
 
 		VkCommandBufferAllocateInfo allocInfo{};
 		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -1335,21 +1335,18 @@ namespace parus::vulkan
 		if (globalBuffers.vertexBuffer != VK_NULL_HANDLE)
 		{
 			frames[currentFrame].buffersToDelete.emplace_back(
-			   globalBuffers.vertexBuffer, 
+			   globalBuffers.vertexBuffer,
 			   globalBuffers.vertexBufferMemory
 			);
 		}
-		
+
 		const VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
-		
-		VkBuffer stagingBuffer;
-		VkDeviceMemory stagingBufferMemory;
-		createBuffer(
-			bufferSize,
-			VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-			stagingBuffer,
-			stagingBufferMemory);
+
+		auto [stagingBuffer, stagingBufferMemory] = VkBufferBuilder("Vertex Staging Buffer")
+			.setSize(bufferSize)
+			.setUsage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT)
+			.setMemoryProperties(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)
+			.build(storage);
 
 		// Fill vertex buffer data.
 		void* data;
@@ -1357,13 +1354,12 @@ namespace parus::vulkan
 		memcpy(data, vertices.data(), bufferSize);
 		vkUnmapMemory(storage.logicalDevice, stagingBufferMemory);
 
-		createBuffer(
-			bufferSize,
-			VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-			globalBuffers.vertexBuffer,
-			globalBuffers.vertexBufferMemory);
-		
+		std::tie(globalBuffers.vertexBuffer, globalBuffers.vertexBufferMemory) = VkBufferBuilder("Vertex Buffer")
+			.setSize(bufferSize)
+			.setUsage(VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT)
+			.setMemoryProperties(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
+			.build(storage);
+
 		copyBuffer(stagingBuffer, globalBuffers.vertexBuffer, bufferSize);
 		vkDestroyBuffer(storage.logicalDevice, stagingBuffer, nullptr);
 		vkFreeMemory(storage.logicalDevice, stagingBufferMemory, nullptr);
@@ -1374,21 +1370,18 @@ namespace parus::vulkan
 		if (globalBuffers.skyVertexBuffer != VK_NULL_HANDLE)
 		{
 			frames[currentFrame].buffersToDelete.emplace_back(
-			   globalBuffers.skyVertexBuffer, 
+			   globalBuffers.skyVertexBuffer,
 			   globalBuffers.skyVertexBufferMemory
 			);
 		}
-		
+
 		const VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
-		
-		VkBuffer stagingBuffer;
-		VkDeviceMemory stagingBufferMemory;
-		createBuffer(
-			bufferSize,
-			VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-			stagingBuffer,
-			stagingBufferMemory);
+
+		auto [stagingBuffer, stagingBufferMemory] = VkBufferBuilder("Sky Vertex Staging Buffer")
+			.setSize(bufferSize)
+			.setUsage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT)
+			.setMemoryProperties(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)
+			.build(storage);
 
 		// Fill vertex buffer data.
 		void* data;
@@ -1396,51 +1389,17 @@ namespace parus::vulkan
 		memcpy(data, vertices.data(), bufferSize);
 		vkUnmapMemory(storage.logicalDevice, stagingBufferMemory);
 
-		createBuffer(
-			bufferSize,
-			VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-			globalBuffers.skyVertexBuffer,
-			globalBuffers.skyVertexBufferMemory);
-		
+		std::tie(globalBuffers.skyVertexBuffer, globalBuffers.skyVertexBufferMemory) = VkBufferBuilder("Sky Vertex Buffer")
+			.setSize(bufferSize)
+			.setUsage(VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT)
+			.setMemoryProperties(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
+			.build(storage);
+
 		copyBuffer(stagingBuffer, globalBuffers.skyVertexBuffer, bufferSize);
 		vkDestroyBuffer(storage.logicalDevice, stagingBuffer, nullptr);
 		vkFreeMemory(storage.logicalDevice, stagingBufferMemory, nullptr);
 	}
 
-	void VulkanRenderer::createBuffer(const VkDeviceSize size, const VkBufferUsageFlags usage, const VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) const
-	{
-		ASSERT(size > 0, "Buffer size must not be empty");
-		
-		// Create buffer structure.
-		VkBufferCreateInfo bufferInfo{};
-		bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-		bufferInfo.size = size;
-		bufferInfo.usage = usage;
-		bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-		ASSERT(vkCreateBuffer(storage.logicalDevice, &bufferInfo, nullptr, &buffer) == VK_SUCCESS,
-			"Failed to create buffer.");
-		
-		ASSERT(buffer != VK_NULL_HANDLE,
-			"Buffer must be valid.");
-
-		// Calculate memory requirements.
-		VkMemoryRequirements memRequirements;
-		vkGetBufferMemoryRequirements(storage.logicalDevice, buffer, &memRequirements);
-
-		// Allocate vertex buffer memory.
-		VkMemoryAllocateInfo allocInfo{};
-		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-		allocInfo.allocationSize = memRequirements.size;
-		allocInfo.memoryTypeIndex = utils::findMemoryType(storage, memRequirements.memoryTypeBits, properties);
-
-		ASSERT(vkAllocateMemory(storage.logicalDevice, &allocInfo, nullptr, &bufferMemory) == VK_SUCCESS,
-			"Failed to allocate buffer memory");
-
-		ASSERT(vkBindBufferMemory(storage.logicalDevice, buffer, bufferMemory, 0) == VK_SUCCESS,
-			"Failed to bind buffer memory");
-	}
 
 	void VulkanRenderer::copyBuffer(const VkBuffer srcBuffer, const VkBuffer dstBuffer, const VkDeviceSize size)
 	{
@@ -1458,31 +1417,29 @@ namespace parus::vulkan
 		if (globalBuffers.skyIndexBuffer != VK_NULL_HANDLE)
 		{
 			frames[currentFrame].buffersToDelete.emplace_back(
-			   globalBuffers.skyIndexBuffer, 
+			   globalBuffers.skyIndexBuffer,
 			   globalBuffers.skyIndexBufferMemory
 			);
 		}
-		
+
 		const VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
 
-		VkBuffer stagingBuffer;
-		VkDeviceMemory stagingBufferMemory;
-		createBuffer(bufferSize,
-			VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-			stagingBuffer,
-			stagingBufferMemory);
+		auto [stagingBuffer, stagingBufferMemory] = VkBufferBuilder("Sky Index Staging Buffer")
+			.setSize(bufferSize)
+			.setUsage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT)
+			.setMemoryProperties(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)
+			.build(storage);
 
 		void* data;
 		vkMapMemory(storage.logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);
 		memcpy(data, indices.data(), bufferSize);
 		vkUnmapMemory(storage.logicalDevice, stagingBufferMemory);
 
-		createBuffer(bufferSize,
-			VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-			globalBuffers.skyIndexBuffer,
-			globalBuffers.skyIndexBufferMemory);
+		std::tie(globalBuffers.skyIndexBuffer, globalBuffers.skyIndexBufferMemory) = VkBufferBuilder("Sky Index Buffer")
+			.setSize(bufferSize)
+			.setUsage(VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT)
+			.setMemoryProperties(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
+			.build(storage);
 
 		copyBuffer(stagingBuffer, globalBuffers.skyIndexBuffer, bufferSize);
 
@@ -1495,31 +1452,29 @@ namespace parus::vulkan
 		if (globalBuffers.indexBuffer != VK_NULL_HANDLE)
 		{
 			frames[currentFrame].buffersToDelete.emplace_back(
-			   globalBuffers.indexBuffer, 
+			   globalBuffers.indexBuffer,
 			   globalBuffers.indexBufferMemory
 			);
 		}
-		
+
 		const VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
 
-		VkBuffer stagingBuffer;
-		VkDeviceMemory stagingBufferMemory;
-		createBuffer(bufferSize,
-			VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-			stagingBuffer,
-			stagingBufferMemory);
+		auto [stagingBuffer, stagingBufferMemory] = VkBufferBuilder("Index Staging Buffer")
+			.setSize(bufferSize)
+			.setUsage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT)
+			.setMemoryProperties(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)
+			.build(storage);
 
 		void* data;
 		vkMapMemory(storage.logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);
 		memcpy(data, indices.data(), (size_t)bufferSize);
 		vkUnmapMemory(storage.logicalDevice, stagingBufferMemory);
 
-		createBuffer(bufferSize,
-			VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-			globalBuffers.indexBuffer,
-			globalBuffers.indexBufferMemory);
+		std::tie(globalBuffers.indexBuffer, globalBuffers.indexBufferMemory) = VkBufferBuilder("Index Buffer")
+			.setSize(bufferSize)
+			.setUsage(VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT)
+			.setMemoryProperties(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
+			.build(storage);
 
 		copyBuffer(stagingBuffer, globalBuffers.indexBuffer, bufferSize);
 
@@ -1529,64 +1484,17 @@ namespace parus::vulkan
 
 	void VulkanRenderer::createUniformBuffer()
 	{
-		// Global UBO
-		constexpr VkDeviceSize globalUboSize = sizeof(math::GlobalUbo);
+		storage.globalUboBuffer = VkUboBuilder()
+			.setSize(sizeof(math::GlobalUbo))
+			.build("Global UBO", storage);
 
-		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-		{
-			createBuffer(
-				globalUboSize,
-				VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-				globalUboBuffer.frameBuffers[i],
-				globalUboBuffer.memory[i]);
+		storage.instanceUboBuffer = VkUboBuilder()
+			.setSize(sizeof(math::InstanceUbo))
+			.build("Instance UBO", storage);
 
-			ASSERT(globalUboBuffer.frameBuffers[i] != VK_NULL_HANDLE, "Global Buffer must be valid");
-			vkMapMemory(
-				storage.logicalDevice,
-				globalUboBuffer.memory[i],
-				0,
-				globalUboSize,
-				0,
-				&globalUboBuffer.mapped[i]);
-		}
-
-		ASSERT(globalUboBuffer.frameBuffers[0] != VK_NULL_HANDLE, "Global Buffer must be invalid");
-		
-		// Instance UBO
-		constexpr VkDeviceSize instanceUboSize = sizeof(math::InstanceUbo);
-
-		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-		{
-			createBuffer(instanceUboSize,
-				VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-				instanceUboBuffer.frameBuffers[i],
-				instanceUboBuffer.memory[i]);
-
-			ASSERT(instanceUboBuffer.frameBuffers[i] != VK_NULL_HANDLE, "Instance Buffer must be valid");
-
-			vkMapMemory(storage.logicalDevice, instanceUboBuffer.memory[i], 0, instanceUboSize, 0, &instanceUboBuffer.mapped[i]);
-		}
-
-		ASSERT(instanceUboBuffer.frameBuffers[0] != VK_NULL_HANDLE, "Instance Buffer must be valid");
-
-		// Directional Light UBO
-		constexpr VkDeviceSize lightUboSize = sizeof(math::DirectionalLightUbo);
-		
-		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-		{
-			createBuffer(lightUboSize,
-				VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-				directionalLightUboBuffer.frameBuffers[i],
-				directionalLightUboBuffer.memory[i]);
-
-			ASSERT(directionalLightUboBuffer.frameBuffers[i] != VK_NULL_HANDLE, "Directional Light Buffer must be valid");
-
-			vkMapMemory(storage.logicalDevice, directionalLightUboBuffer.memory[i], 0, lightUboSize, 0, &directionalLightUboBuffer.mapped[i]);
-		}
-	
+		storage.directionalLightUboBuffer = VkUboBuilder()
+			.setSize(sizeof(math::DirectionalLightUbo))
+			.build("Directional Light UBO", storage);
 	}
 
 	void VulkanRenderer::updateUniformBuffer(const uint32_t currentImage)
@@ -1610,20 +1518,20 @@ namespace parus::vulkan
 
 		globalUbo.debug = isDrawDebugEnabled ? 1 : 0;
 		
-		memcpy(globalUboBuffer.mapped[currentImage], &globalUbo, sizeof(globalUbo));
+		memcpy(storage.globalUboBuffer.mapped[currentImage], &globalUbo, sizeof(globalUbo));
 
 		// Instance UBO
 		math::InstanceUbo instanceUbo{};
 		instanceUbo.model = math::Matrix4x4().trivial();
 
-		memcpy(instanceUboBuffer.mapped[currentImage], &instanceUbo, sizeof(instanceUbo));
+		memcpy(storage.instanceUboBuffer.mapped[currentImage], &instanceUbo, sizeof(instanceUbo));
 
 		// Directional Light UBO
 		math::DirectionalLightUbo directionalLightUbo{};
 		directionalLightUbo.color = directionalLight.light.color;
 		directionalLightUbo.direction = directionalLight.light.direction;
 		
-		memcpy(directionalLightUboBuffer.mapped[currentFrame], &directionalLightUbo, sizeof(directionalLightUbo));
+		memcpy(storage.directionalLightUboBuffer.mapped[currentFrame], &directionalLightUbo, sizeof(directionalLightUbo));
 	}
 
 	void VulkanRenderer::createMeshDescriptorSets(const std::shared_ptr<Mesh>& mesh)
@@ -1635,22 +1543,22 @@ namespace parus::vulkan
 
 	void VulkanRenderer::createGlobalDescriptorSets()
 	{
-		const std::vector globalLayouts(MAX_FRAMES_IN_FLIGHT, storage.globalDescriptorSetLayout);
+		const std::vector globalLayouts(VulkanStorage::MAX_FRAMES_IN_FLIGHT, storage.globalDescriptorSetLayout);
 		VkDescriptorSetAllocateInfo globalAllocateInfo{};
 		globalAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 		globalAllocateInfo.descriptorPool = storage.descriptorPool;
-		globalAllocateInfo.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+		globalAllocateInfo.descriptorSetCount = static_cast<uint32_t>(VulkanStorage::MAX_FRAMES_IN_FLIGHT);
 		globalAllocateInfo.pSetLayouts = globalLayouts.data();
 
 		ASSERT(vkAllocateDescriptorSets(storage.logicalDevice, &globalAllocateInfo, globalDescriptorSets.data()) == VK_SUCCESS,
 			"Failed to allocate global descriptor sets.");
 
-		for (size_t frameIndex = 0; frameIndex < MAX_FRAMES_IN_FLIGHT; frameIndex++)
+		for (size_t frameIndex = 0; frameIndex < VulkanStorage::MAX_FRAMES_IN_FLIGHT; frameIndex++)
 		{
 			// Global UBO descriptor set
 			const VkDescriptorBufferInfo globalBufferInfo =
 				{
-					.buffer = globalUboBuffer.frameBuffers[frameIndex],
+					.buffer = storage.globalUboBuffer.frameBuffers[frameIndex],
 					.offset = 0,
 					.range = sizeof(math::GlobalUbo)
 				};
@@ -1677,23 +1585,23 @@ namespace parus::vulkan
 	{
 		for (auto& meshInstance : meshInstances)
 		{
-			const std::vector instanceLayouts(MAX_FRAMES_IN_FLIGHT, storage.instanceDescriptorSetLayout);
+			const std::vector instanceLayouts(VulkanStorage::MAX_FRAMES_IN_FLIGHT, storage.instanceDescriptorSetLayout);
 			VkDescriptorSetAllocateInfo instanceSetAllocateInfo{};
 			instanceSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 			instanceSetAllocateInfo.descriptorPool = storage.descriptorPool;
-			instanceSetAllocateInfo.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+			instanceSetAllocateInfo.descriptorSetCount = static_cast<uint32_t>(VulkanStorage::MAX_FRAMES_IN_FLIGHT);
 			instanceSetAllocateInfo.pSetLayouts = instanceLayouts.data();
 
-			meshInstance.instanceDescriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
+			meshInstance.instanceDescriptorSets.resize(VulkanStorage::MAX_FRAMES_IN_FLIGHT);
 			ASSERT(vkAllocateDescriptorSets(storage.logicalDevice, &instanceSetAllocateInfo, meshInstance.instanceDescriptorSets.data()) == VK_SUCCESS,
 				"Failed to allocate instance descriptor sets.");
 
-			for (size_t frameIndex = 0; frameIndex < MAX_FRAMES_IN_FLIGHT; frameIndex++)
+			for (size_t frameIndex = 0; frameIndex < VulkanStorage::MAX_FRAMES_IN_FLIGHT; frameIndex++)
 			{
 				// Instance UBO descriptor set
 				const VkDescriptorBufferInfo instanceBufferInfo =
 					{
-						.buffer = instanceUboBuffer.frameBuffers[frameIndex],
+						.buffer = storage.instanceUboBuffer.frameBuffers[frameIndex],
 						.offset = 0,
 						.range = sizeof(math::InstanceUbo)
 					};
@@ -1779,25 +1687,25 @@ namespace parus::vulkan
 			return;
 		}
 		
-		const std::vector lightLayouts(MAX_FRAMES_IN_FLIGHT, storage.lightsDescriptorSetLayout);
+		const std::vector lightLayouts(VulkanStorage::MAX_FRAMES_IN_FLIGHT, storage.lightsDescriptorSetLayout);
 		VkDescriptorSetAllocateInfo lightSetAllocateInfo{};
 		lightSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 		lightSetAllocateInfo.descriptorPool = storage.descriptorPool;
-		lightSetAllocateInfo.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+		lightSetAllocateInfo.descriptorSetCount = static_cast<uint32_t>(VulkanStorage::MAX_FRAMES_IN_FLIGHT);
 		lightSetAllocateInfo.pSetLayouts = lightLayouts.data();
 
-		directionalLight.descriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
+		directionalLight.descriptorSets.resize(VulkanStorage::MAX_FRAMES_IN_FLIGHT);
 		ASSERT(vkAllocateDescriptorSets(storage.logicalDevice, &lightSetAllocateInfo, directionalLight.descriptorSets.data()) == VK_SUCCESS,
 			"Failed to allocate instance descriptor sets.");
 
-		for (size_t frameIndex = 0; frameIndex < MAX_FRAMES_IN_FLIGHT; frameIndex++)
+		for (size_t frameIndex = 0; frameIndex < VulkanStorage::MAX_FRAMES_IN_FLIGHT; frameIndex++)
 		{
 			std::array<VkWriteDescriptorSet, 2> descriptorWrites;
 
 			// Light UBO descriptor set
 			const VkDescriptorBufferInfo directionalLightBufferInfo =
 				{
-					.buffer = directionalLightUboBuffer.frameBuffers[frameIndex],
+					.buffer = storage.directionalLightUboBuffer.frameBuffers[frameIndex],
 					.offset = 0,
 					.range = sizeof(math::DirectionalLightUbo)
 				};
@@ -1841,9 +1749,9 @@ namespace parus::vulkan
 
 	void VulkanRenderer::createSyncObjects()
 	{
-		imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-		renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-		inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
+		imageAvailableSemaphores.resize(VulkanStorage::MAX_FRAMES_IN_FLIGHT);
+		renderFinishedSemaphores.resize(VulkanStorage::MAX_FRAMES_IN_FLIGHT);
+		inFlightFences.resize(VulkanStorage::MAX_FRAMES_IN_FLIGHT);
 
 		VkSemaphoreCreateInfo semaphoreInfo{};
 		semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -1852,7 +1760,7 @@ namespace parus::vulkan
 		fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
 		fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-		for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
+		for (int i = 0; i < VulkanStorage::MAX_FRAMES_IN_FLIGHT; ++i)
 		{
 			ASSERT(vkCreateSemaphore(storage.logicalDevice, &semaphoreInfo, nullptr, &imageAvailableSemaphores[i]) == VK_SUCCESS &&
 				vkCreateSemaphore(storage.logicalDevice, &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]) == VK_SUCCESS &&
@@ -1901,7 +1809,7 @@ namespace parus::vulkan
 	void VulkanRenderer::cleanupFrameResources()
 	{
 		// Destroy buffers scheduled for deletion from N frames ago
-		const uint32_t frameToClean = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+		const uint32_t frameToClean = (currentFrame + 1) % VulkanStorage::MAX_FRAMES_IN_FLIGHT;
     
 		for (auto& [buffer, memory] : frames[frameToClean].buffersToDelete)
 		{
