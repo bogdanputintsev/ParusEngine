@@ -7,7 +7,7 @@
 
 namespace parus::vulkan
 {
-    
+
     class VkInstanceBuilder
     {
     public:
@@ -18,7 +18,13 @@ namespace parus::vulkan
         VkInstanceBuilder& setRequiredExtensions(const std::vector<const char*>& newRequiredExtensions);
         VkInstanceBuilder& setValidationLayers(const std::vector<const char*>& newValidationLayers);
         VkInstanceBuilder& setDebugCallback(const PFN_vkDebugUtilsMessengerCallbackEXT& newDebugCallback);
+
+        static bool validationLayersAreEnabled();
+
     private:
+        static void checkValidationLayerSupport(const std::vector<const char*>& layers);
+        static void checkIfAllRequiredExtensionsAreSupported(const std::vector<const char*>& extensions);
+
         std::string applicationName;
         int versionMajor = 0;
         int versionMinor = 0;
@@ -26,7 +32,6 @@ namespace parus::vulkan
         std::vector<const char*> requiredExtensions;
         std::vector<const char*> validationLayers;
         PFN_vkDebugUtilsMessengerCallbackEXT debugCallback{};
-        
     };
-    
+
 }

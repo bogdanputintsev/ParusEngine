@@ -1,12 +1,76 @@
 ﻿#include "VkInstanceBuilder.h"
 
+#include <unordered_set>
+
 #include "engine/EngineCore.h"
 
 namespace parus::vulkan
 {
-    
+
+    bool VkInstanceBuilder::validationLayersAreEnabled()
+    {
+#ifdef IN_DEBUG_MODE
+        return true;
+#else
+        return false;
+#endif
+    }
+
+    void VkInstanceBuilder::checkValidationLayerSupport(const std::vector<const char*>& layers)
+    {
+        if (!validationLayersAreEnabled())
+        {
+            return;
+        }
+
+        uint32_t layerCount;
+        vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
+        std::vector<VkLayerProperties> availableLayers(layerCount);
+        vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
+
+        for (const char* layerName : layers)
+        {
+            bool layerFound = false;
+            for (const auto& layerProperties : availableLayers)
+            {
+                if (strcmp(layerName, layerProperties.layerName) == 0)
+                {
+                    layerFound = true;
+                    break;
+                }
+            }
+            ASSERT(layerFound, "validation layers requested, but not available.");
+        }
+    }
+
+    void VkInstanceBuilder::checkIfAllRequiredExtensionsAreSupported(const std::vector<const char*>& extensions)
+    {
+        const std::unordered_set<std::string> requiredSet{ extensions.begin(), extensions.end() };
+
+        uint32_t extensionCount = 0;
+        vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
+        std::vector<VkExtensionProperties> available(extensionCount);
+        vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, available.data());
+
+        LOG_DEBUG("List of all available extensions:");
+        uint32_t matches = 0;
+        for (const auto& [extensionName, specVersion] : available)
+        {
+            LOG_DEBUG("\t" + std::string(extensionName));
+            if (requiredSet.contains(std::string(extensionName)))
+            {
+                ++matches;
+            }
+        }
+
+        ASSERT(matches == extensions.size(), "All required Vulkan extensions must be supported.");
+    }
+
     void VkInstanceBuilder::build(VulkanStorage& storage) const
     {
+        checkValidationLayerSupport(validationLayers);
+        checkIfAllRequiredExtensionsAreSupported(requiredExtensions);
+
         const VkApplicationInfo appInfo = {
             .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
             .pNext = nullptr,

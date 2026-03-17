@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include <vulkan/vulkan_core.h>
 
 #include "services/renderer/vulkan/storage/VulkanStorage.h"
@@ -13,12 +13,20 @@ namespace parus::vulkan
 
         VkDebugUtilsBuilder& setDebugCallback(const PFN_vkDebugUtilsMessengerCallbackEXT& newDebugCallback);
 
+        static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
+            VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+            VkDebugUtilsMessageTypeFlagsEXT messageType,
+            const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+            void* pUserData);
+
+        static void destroy(VulkanStorage& storage);
+
     private:
         static VkResult createDebugUtilsMessengerExt(const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
                                                      const VkAllocationCallbacks* pAllocator, VulkanStorage& storage);
 
-        PFN_vkDebugUtilsMessengerCallbackEXT debugCallback{};
+        PFN_vkDebugUtilsMessengerCallbackEXT callbackFn{};
     };
-    
+
 }
 

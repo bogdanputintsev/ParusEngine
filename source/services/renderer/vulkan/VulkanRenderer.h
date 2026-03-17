@@ -44,7 +44,7 @@ namespace parus::vulkan
 		
 	private:
 		VulkanStorage storage;
-		
+
 		static constexpr float Z_NEAR = 0.1f;
 		static constexpr float Z_FAR = 1500.0f;
 		static constexpr int IMAGE_SAMPLER_POOL_SIZE = 1000;
@@ -61,38 +61,12 @@ namespace parus::vulkan
 		std::mutex importModelMutex;
 
 		VulkanTexture2d cubemap;
-		
+
 		// Load model
 		void importMesh(const std::string& meshPath, const MeshType meshType = MeshType::STATIC_MESH);
 		void processLoadedMeshes();
-		
-		// Instance
-		void createInstance();
-		static void checkValidationLayerSupport();
-		static bool validationLayersAreEnabled();
-		static std::vector<const char*> getValidationLayers();
-		static void checkIfAllRequiredExtensionsAreSupported();
-		void destroyDebugUtilsMessengerExt(VkDebugUtilsMessengerEXT debugMessengerToDestroy,
-			const VkAllocationCallbacks* pAllocator) const;
+
 		static std::vector<const char*> getRequiredExtensions();
-		static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-			[[maybe_unused]] VkDebugUtilsMessageTypeFlagsEXT messageType,
-			const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
-			[[maybe_unused]] void* pUserData);
-		static void populate(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
-		static LogType getLogType(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity);
-
-		// DebugManager
-		void createDebugManager();
-		
-		// Surface.
-		void createSurface();
-
-		// Devices.
-		void createDevices();
-
-		// Queues
-		void createQueues();
 
 		// SwapChain
 		void createSwapChain();
@@ -101,27 +75,22 @@ namespace parus::vulkan
 		void recreateSwapChain();
 		void cleanupSwapChain() const;
 
-		// Render Pass
-		void createRenderPass();
-		
 		void createDescriptorSetLayout();
 		void createCubemapTexture();
 
 		// Graphics Pipeline
 		void createSkyPipeline();
 		void createGraphicsPipeline();
-		static VkShaderModule createShaderModule(const std::vector<char>& code, const VkDevice& device);
 
 		// Framebuffer
 		void createFramebuffers();
 
 		// Command buffer
-		void createCommandBuffer();
 		void resetCommandBuffer(const int bufferId) const;
 		void drawMainScenePass(VkCommandBuffer commandBufferToRecord) const;
 		void drawSkyboxPass(VkCommandBuffer commandBufferToRecord) const;
 		void recordCommandBuffer(VkCommandBuffer commandBufferToRecord, uint32_t imageIndex) const;
-		
+
 		[[nodiscard]] VkCommandBuffer getCommandBuffer(const int bufferId) const;
 		[[nodiscard]] VkCommandPool getCommandPool();
 
@@ -132,15 +101,14 @@ namespace parus::vulkan
 
 		// Depth resources
 		void createDepthResources();
-		static bool hasStencilComponent(VkFormat format);
 
 		// Texture image
 		void generateMipmaps(
 			const VulkanTexture2d& texture,
 			VkFormat imageFormat,
-		    int32_t texWidth,
-		    int32_t texHeight);
-	
+			int32_t texWidth,
+			int32_t texHeight);
+
 		void transitionImageLayout(
 			const VkImage image,
 			VkFormat format,
@@ -149,13 +117,12 @@ namespace parus::vulkan
 			uint32_t mipLevels);
 		void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
 		void createColorResources();
-		
+
 		// Buffer manager
 		void createSkyVertexBuffer(const std::vector<math::Vertex>& vertices);
 		void createVertexBuffer(const std::vector<math::Vertex>& vertices);
 		void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 		void createSkyIndexBuffer(const std::vector<uint32_t>& indices);
-
 		void createIndexBuffer(const std::vector<uint32_t>& indices);
 		void createUniformBuffer();
 		void updateUniformBuffer(uint32_t currentImage);
@@ -167,11 +134,6 @@ namespace parus::vulkan
 		void createInstanceDescriptorSets();
 		void createMaterialDescriptorSets(const std::shared_ptr<Mesh>& mesh) const;
 		void createLightsDescriptorSets();
-
-		// Sync objects
-		void createSyncObjects();
-		void waitForFences() const;
-		void resetFences() const;
 
 		void onResize();
 

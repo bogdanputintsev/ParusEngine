@@ -5,7 +5,6 @@
 #include <set>
 #include <stdexcept>
 #include <unordered_map>
-#include <unordered_set>
 
 #include "builder/VkBufferBuilder.h"
 #include "builder/VkCommandBufferBuilder.h"
@@ -47,14 +46,27 @@ namespace parus::vulkan
 	void VulkanRenderer::init()
 	{
 		registerEvents();
-		
-		createInstance();
-		createDebugManager();
-		createSurface();
-		createDevices();
-		createQueues();
+
+		VkInstanceBuilder()
+			.setApplicationName(Services::get<Configs>()->get("Engine", "applicationName"))
+			.setVersion(
+				Services::get<Configs>()->getAsInt("Engine", "versionMajor").value_or(0),
+				Services::get<Configs>()->getAsInt("Engine", "versionMinor").value_or(0),
+				Services::get<Configs>()->getAsInt("Engine", "versionPatch").value_or(0))
+			.setDebugCallback(VkDebugUtilsBuilder::debugCallback)
+			.setRequiredExtensions(getRequiredExtensions())
+			.setValidationLayers({"VK_LAYER_KHRONOS_validation"})
+			.build(storage);
+
+		VkDebugUtilsBuilder()
+			.setDebugCallback(VkDebugUtilsBuilder::debugCallback)
+			.build(storage);
+
+		VkSurfaceBuilder::build(storage);
+		VkDeviceBuilder::build(storage);
+		VkQueuesBuilder::build(storage);
 		createSwapChain();
-		createRenderPass();
+		VkRenderPassBuilder::build("Main Render Pass", storage);
 		createDescriptorSetLayout();
 		createDescriptorPool();
 		createSkyPipeline();
@@ -64,7 +76,7 @@ namespace parus::vulkan
 		createFramebuffers();
 		createUniformBuffer();
 
-		directionalLight = 
+		directionalLight =
 			{
 				.light = {
 					.color = math::Vector3(1.0f, 0.65f, 0.8f).trivial(),
@@ -77,14 +89,18 @@ namespace parus::vulkan
 
 		// Load sky mesh
 		importMesh("bin/assets/skybox/dynamic_skybox.obj", MeshType::SKY);
-		
+
 		RUN_ASYNC(importMesh("bin/assets/terrain/floor.obj"););
 		RUN_ASYNC(importMesh("bin/assets/indoor/indoor.obj"););
 		RUN_ASYNC(importMesh("bin/assets/indoor/threshold.obj"););
 		RUN_ASYNC(importMesh("bin/assets/indoor/torch.obj"););
 
-		createCommandBuffer();
-		createSyncObjects();
+		storage.commandBuffers = VkCommandBufferBuilder()
+			.setCommandPool(getCommandPool())
+			.setCount(VulkanStorage::MAX_FRAMES_IN_FLIGHT)
+			.build("Main Command Buffer", storage);
+
+		VkSyncObjectsBuilder().build(storage);
 
 		isRunning = true;
 	}
@@ -191,10 +207,7 @@ namespace parus::vulkan
 
 		vkDestroyDevice(storage.logicalDevice, nullptr);
 
-		if (validationLayersAreEnabled())
-		{
-			destroyDebugUtilsMessengerExt(storage.debugMessenger, nullptr);
-		}
+		VkDebugUtilsBuilder::destroy(storage);
 
 		vkDestroySurfaceKHR(storage.instance, storage.surface, nullptr);
 		vkDestroyInstance(storage.instance, nullptr);
@@ -377,189 +390,16 @@ namespace parus::vulkan
 
 	}
 
-	void VulkanRenderer::createInstance()
-	{
-		checkValidationLayerSupport();
-		checkIfAllRequiredExtensionsAreSupported();
-		
-        const std::string applicationName = Services::get<Configs>()->get("Engine", "applicationName");
-        const int versionMajor = Services::get<Configs>()->getAsInt("Engine", "versionMajor").value_or(0);
-        const int versionMinor = Services::get<Configs>()->getAsInt("Engine", "versionMinor").value_or(0);
-        const int versionPatch = Services::get<Configs>()->getAsInt("Engine", "versionPatch").value_or(0);
-		
-		VkInstanceBuilder()
-			.setApplicationName(applicationName)
-			.setVersion(versionMajor, versionMinor, versionPatch)
-			.setDebugCallback(debugCallback)
-			.setRequiredExtensions(getRequiredExtensions())
-			.setValidationLayers(getValidationLayers())
-			.build(storage);
-	}
-
-	void VulkanRenderer::checkValidationLayerSupport()
-	{
-		if (!validationLayersAreEnabled())
-		{
-			return;
-		}
-
-		uint32_t layerCount;
-		vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
-
-		std::vector<VkLayerProperties> availableLayers(layerCount);
-		vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
-
-		bool result = true;
-
-		for (const char* layerName : getValidationLayers())
-		{
-			bool layerFound = false;
-
-			for (const auto& layerProperties : availableLayers)
-			{
-				if (strcmp(layerName, layerProperties.layerName) == 0)
-				{
-					layerFound = true;
-					break;
-				}
-			}
-
-			if (!layerFound)
-			{
-				result = false;
-				break;
-			}
-		}
-
-		ASSERT(result, "validation layers requested, but not available.");
-
-	}
-
-	bool VulkanRenderer::validationLayersAreEnabled()
-	{
-#ifdef IN_DEBUG_MODE
-		return true;
-#else
-		return false;
-#endif
-	}
-
-	std::vector<const char*> VulkanRenderer::getValidationLayers()
-	{
-		return {
-			"VK_LAYER_KHRONOS_validation"
-		};
-	}
-
-	void VulkanRenderer::checkIfAllRequiredExtensionsAreSupported()
-	{
-		const std::vector<const char*> requiredExtensions = getRequiredExtensions();
-		const std::unordered_set<std::string> requiredExtensionsSet{ requiredExtensions.begin(), requiredExtensions.end() };
-
-		uint32_t matches = 0;
-
-		uint32_t extensionCount = 0;
-		vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
-		std::vector<VkExtensionProperties> extensions(extensionCount);
-		vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, extensions.data());
-
-		LOG_DEBUG("List of all available extensions:");
-
-		for (const auto& [extensionName, specVersion] : extensions)
-		{
-			LOG_DEBUG("\t" + std::string(extensionName));
-
-			if (requiredExtensionsSet.contains(std::string(extensionName)))
-			{
-				++matches;
-			}
-		}
-
-		ASSERT(matches == requiredExtensions.size(), "All required Vulkan extensions muse be supported.");
-	}
-
-	void VulkanRenderer::destroyDebugUtilsMessengerExt(VkDebugUtilsMessengerEXT debugMessengerToDestroy, const VkAllocationCallbacks* pAllocator) const
-	{
-		const auto func = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(storage.instance, "vkDestroyDebugUtilsMessengerEXT"));
-		if (func != nullptr)
-		{
-			func(storage.instance, debugMessengerToDestroy, pAllocator);
-		}
-	}
-
 	std::vector<const char*> VulkanRenderer::getRequiredExtensions()
 	{
 		std::vector extensions = Services::get<imgui::ImGuiLibrary>()->getRequiredExtensions();
 
-		if (validationLayersAreEnabled())
+		if (VkInstanceBuilder::validationLayersAreEnabled())
 		{
 			extensions.emplace_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 		}
 
 		return extensions;
-	}
-
-	VkBool32 VulkanRenderer::debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-		[[maybe_unused]] VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
-		[[maybe_unused]] void* pUserData)
-	{
-		LOG(getLogType(messageSeverity), pCallbackData->pMessage);
-		return VK_FALSE;
-	}
-
-	void VulkanRenderer::populate(VkDebugUtilsMessengerCreateInfoEXT& createInfo)
-	{
-		createInfo = {};
-		createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-		createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-		createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-		createInfo.pfnUserCallback = debugCallback;
-	}
-
-	LogType VulkanRenderer::getLogType(const VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity)
-	{
-		switch (messageSeverity)
-		{
-		case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT:
-			return LogType::LOG_TYPE_DEBUG;
-		case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT:
-			return LogType::LOG_TYPE_INFO;
-		case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
-			return LogType::LOG_TYPE_WARNING;
-		case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
-			return LogType::LOG_TYPE_ERROR;
-		case VK_DEBUG_UTILS_MESSAGE_SEVERITY_FLAG_BITS_MAX_ENUM_EXT:
-			return LogType::LOG_TYPE_INFO;
-		}
-
-		return LogType::LOG_TYPE_INFO;
-	}
-
-	void VulkanRenderer::createDebugManager()
-	{
-		if (!validationLayersAreEnabled())
-		{
-			return;
-		}
-		
-		VkDebugUtilsBuilder()
-			.setDebugCallback(debugCallback)
-			.build(storage);
-	}
-
-	void VulkanRenderer::createSurface()
-	{
-		VkSurfaceBuilder::build(storage);
-	}
-
-	void VulkanRenderer::createDevices()
-	{
-		VkDeviceBuilder::build(storage);
-	}
-
-	void VulkanRenderer::createQueues()
-	{
-		VkQueuesBuilder::build(storage);
 	}
 
 	void VulkanRenderer::createSwapChain()
@@ -618,11 +458,6 @@ namespace parus::vulkan
 		}
 
 		vkDestroySwapchainKHR(storage.logicalDevice, storage.swapChain, nullptr);
-	}
-
-	void VulkanRenderer::createRenderPass()
-	{
-		VkRenderPassBuilder::build("Main Render Pass", storage);
 	}
 
 	void VulkanRenderer::createDescriptorSetLayout()
@@ -843,19 +678,6 @@ namespace parus::vulkan
 			.build(storage, storage.mainPipelineLayout, storage.mainPipeline);
 	}
 
-	VkShaderModule VulkanRenderer::createShaderModule(const std::vector<char>& code, const VkDevice& device)
-	{
-		VkShaderModuleCreateInfo createInfo{};
-		createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-		createInfo.codeSize = code.size();
-		createInfo.pCode = reinterpret_cast<const uint32_t*>(code.data());
-
-		VkShaderModule shaderModule;
-		ASSERT(vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule) == VK_SUCCESS, "failed to create shader module.");
-
-		return shaderModule;
-	}
-
 	void VulkanRenderer::createFramebuffers()
 	{
 		storage.swapChainFramebuffers.resize(storage.swapChainDetails.swapChainImageViews.size());
@@ -868,14 +690,6 @@ namespace parus::vulkan
 				.setSwapChainImageView(storage.swapChainDetails.swapChainImageViews[i])
 				.build("Framebuffer " + std::to_string(i), storage);
 		}
-	}
-
-	void VulkanRenderer::createCommandBuffer()
-	{
-		storage.commandBuffers = VkCommandBufferBuilder()
-			.setCommandPool(getCommandPool())
-			.setCount(VulkanStorage::MAX_FRAMES_IN_FLIGHT)
-			.build("Main Command Buffer", storage);
 	}
 
 	void VulkanRenderer::resetCommandBuffer(const int bufferId) const
@@ -1134,11 +948,6 @@ namespace parus::vulkan
 			.build(storage);
 	}
 	
-	bool VulkanRenderer::hasStencilComponent(const VkFormat format)
-	{
-		return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
-	}
-
 	void VulkanRenderer::generateMipmaps(const VulkanTexture2d& texture, const VkFormat imageFormat, const int32_t texWidth, const int32_t texHeight)
 	{
 		// Check if image format supports linear blitting
@@ -1734,26 +1543,6 @@ namespace parus::vulkan
 			
 			vkUpdateDescriptorSets(storage.logicalDevice, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 		}
-	}
-
-	void VulkanRenderer::createSyncObjects()
-	{
-		VkSyncObjectsBuilder().build(storage);
-	}
-
-	void VulkanRenderer::waitForFences() const
-	{
-		ASSERT(static_cast<size_t>(currentFrame) < storage.inFlightFences.size() && currentFrame >= 0, "current frame number is larger than number of fences.");
-
-		vkWaitForFences(storage.logicalDevice, 1, &storage.inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
-		vkResetFences(storage.logicalDevice, 1, &storage.inFlightFences[currentFrame]);
-	}
-
-	void VulkanRenderer::resetFences() const
-	{
-		ASSERT(static_cast<size_t>(currentFrame) < storage.inFlightFences.size() && currentFrame >= 0, "current frame number is larger than number of fences.");
-
-		vkResetFences(storage.logicalDevice, 1, &storage.inFlightFences[currentFrame]);
 	}
 
 	void VulkanRenderer::onResize()
