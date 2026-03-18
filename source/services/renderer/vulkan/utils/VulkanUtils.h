@@ -59,7 +59,7 @@ namespace parus::vulkan::utils
 
 	VkResult threadSafePresent(VulkanStorage& vulkanStorage, const VkPresentInfoKHR* presentInfo);
 
-	VkCommandBuffer beginSingleTimeCommands(VulkanStorage& storage, VkCommandPool commandPool);
+	VkCommandBuffer beginSingleTimeCommands(const VulkanStorage& storage, VkCommandPool commandPool);
 	void endSingleTimeCommands(VulkanStorage& storage, VkCommandPool commandPool, VkCommandBuffer commandBuffer);
 
 	VkFormat findSupportedFormat(const VulkanStorage& vulkanStorage, const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);

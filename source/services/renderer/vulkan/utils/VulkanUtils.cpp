@@ -89,13 +89,13 @@ namespace parus::vulkan::utils
 
     VkResult threadSafeQueueSubmit(VulkanStorage& vulkanStorage, const VkSubmitInfo* submitInfo, VkFence fence)
     {
-        std::lock_guard lock(vulkanStorage.graphicsQueueMutex);
+        std::scoped_lock lock(vulkanStorage.graphicsQueueMutex);
         return vkQueueSubmit(vulkanStorage.graphicsQueue, 1, submitInfo, fence);
     }
 
     VkResult threadSafePresent(VulkanStorage& vulkanStorage, const VkPresentInfoKHR* presentInfo)
     {
-        std::lock_guard lock(vulkanStorage.graphicsQueueMutex);
+        std::scoped_lock lock(vulkanStorage.graphicsQueueMutex);
         return vkQueuePresentKHR(vulkanStorage.graphicsQueue, presentInfo);
     }
 
@@ -133,7 +133,7 @@ namespace parus::vulkan::utils
         );
     }
 
-    VkCommandBuffer beginSingleTimeCommands(VulkanStorage& storage, const VkCommandPool commandPool)
+    VkCommandBuffer beginSingleTimeCommands(const VulkanStorage& storage, const VkCommandPool commandPool)
     {
         VkCommandBufferAllocateInfo allocInfo{};
         allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;

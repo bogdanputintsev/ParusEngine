@@ -4,12 +4,10 @@
 #include <mutex>
 #include <optional>
 #include <queue>
-#include <unordered_map>
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
 #include "builder/VulkanTexture2dBuilder.h"
-#include "engine/EngineCore.h"
 #include "light/Light.h"
 #include "engine/utils/math/Math.h"
 #include "texture/VulkanTexture2d.h"
