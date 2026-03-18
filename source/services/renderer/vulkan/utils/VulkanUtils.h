@@ -68,4 +68,9 @@ namespace parus::vulkan::utils
 
 	uint32_t findMemoryType(const VulkanStorage& vulkanStorage, uint32_t typeFilter, const VkMemoryPropertyFlags properties);
 
+	VkCommandPool getCommandPool(VulkanStorage& storage);
+	
+	VkCommandPool createCommandPool(const VulkanStorage& storage);
+	
+	
 }

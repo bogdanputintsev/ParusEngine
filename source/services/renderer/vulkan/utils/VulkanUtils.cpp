@@ -2,6 +2,7 @@
 
 #include <mutex>
 
+#include "services/renderer/vulkan/builder/VkCommandPoolBuilder.h"
 #include "services/renderer/vulkan/storage/VulkanStorage.h"
 
 namespace parus::vulkan::utils
@@ -188,5 +189,22 @@ namespace parus::vulkan::utils
 
         ASSERT(memoryIndex.has_value(), "failed to find suitable memory type.");
         return memoryIndex.value();
+    }
+
+    VkCommandPool createCommandPool(const VulkanStorage& storage)
+    {
+        const std::thread::id threadId = std::this_thread::get_id();
+        return VkCommandPoolBuilder().build("Command Pool [thread " + std::to_string(std::hash<std::thread::id>{}(threadId)) + "]", storage);
+    }
+
+    VkCommandPool getCommandPool(VulkanStorage& storage)
+    {
+        const std::thread::id threadId = std::this_thread::get_id();
+        if (!storage.threadCommandPools.contains(threadId))
+        {
+            storage.threadCommandPools[threadId] = createCommandPool(storage);
+        }
+
+        return storage.threadCommandPools[threadId];
     }
 }

@@ -85,6 +85,9 @@ namespace parus::vulkan
     	// Command Buffers
     	std::vector<VkCommandBuffer> commandBuffers{};
 
+		// Command Pools
+		std::unordered_map<std::thread::id, VkCommandPool> threadCommandPools;
+		
     	// Sync Objects
     	std::vector<VkSemaphore> imageAvailableSemaphores{};
     	std::vector<VkSemaphore> renderFinishedSemaphores{};

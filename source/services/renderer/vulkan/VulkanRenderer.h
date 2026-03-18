@@ -17,6 +17,7 @@
 #include "mesh/MeshInstance.h"
 #include "services/renderer/Renderer.h"
 #include "storage/VulkanStorage.h"
+#include "VulkanInitializer.h"
 
 
 namespace parus::imgui
@@ -26,7 +27,7 @@ namespace parus::imgui
 
 namespace parus::vulkan
 {
-	
+
 	class VulkanRenderer final : public Renderer
 	{
 	public:
@@ -41,14 +42,13 @@ namespace parus::vulkan
 		friend class parus::imgui::ImGuiLibrary;
 		friend VulkanTexture2d VulkanTexture2dBuilder::buildFromFile(const std::string& filePath);
 		friend VulkanTexture2d VulkanTexture2dBuilder::buildFromSolidColor(const math::Vector3& color);
-		
+
 	private:
 		VulkanStorage storage;
+		VulkanInitializer initializer;
 
 		static constexpr float Z_NEAR = 0.1f;
 		static constexpr float Z_FAR = 1500.0f;
-		static constexpr int IMAGE_SAMPLER_POOL_SIZE = 1000;
-		static constexpr size_t MAX_NUMBER_OF_MESHES = 100;
 
 		bool isDrawDebugEnabled = false;
 
@@ -71,24 +71,10 @@ namespace parus::vulkan
 
 		void loadSceneAssets();
 
-		static std::vector<const char*> getRequiredExtensions();
-
 		// SwapChain
-		void createSwapChain();
-
 		[[nodiscard]] std::optional<uint32_t> acquireNextImage();
-		void recreateSwapChain();
-		void cleanupSwapChain() const;
 
-		void createDescriptorSetLayout();
 		void createCubemapTexture();
-
-		// Graphics Pipeline
-		void createSkyPipeline();
-		void createGraphicsPipeline();
-
-		// Framebuffer
-		void createFramebuffers();
 
 		// Command buffer
 		void resetCommandBuffer(const int bufferId) const;
@@ -98,13 +84,6 @@ namespace parus::vulkan
 		void recordCommandBuffer(VkCommandBuffer commandBufferToRecord, uint32_t imageIndex) const;
 
 		[[nodiscard]] VkCommandBuffer getCommandBuffer(const int bufferId) const;
-		[[nodiscard]] VkCommandPool getCommandPool();
-
-		// Command pool
-		VkCommandPool createCommandPool() const;
-
-		// Depth resources
-		void createDepthResources();
 
 		// Texture image
 		void generateMipmaps(
@@ -120,7 +99,6 @@ namespace parus::vulkan
 			const VkImageLayout newLayout,
 			uint32_t mipLevels);
 		void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
-		void createColorResources();
 
 		// Buffer manager
 		void createSkyVertexBuffer(const std::vector<math::Vertex>& vertices);
@@ -128,30 +106,20 @@ namespace parus::vulkan
 		void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 		void createSkyIndexBuffer(const std::vector<uint32_t>& indices);
 		void createIndexBuffer(const std::vector<uint32_t>& indices);
-		void createUniformBuffer();
 		void updateUniformBuffer(uint32_t currentImage);
 
 		// Descriptor Sets
-		void createDescriptorPool();
 		void createMeshDescriptorSets(const std::shared_ptr<Mesh>& mesh);
 		void createGlobalDescriptorSets();
 		void createInstanceDescriptorSets();
 		void createMaterialDescriptorSets(const std::shared_ptr<Mesh>& mesh) const;
 		void createLightsDescriptorSets();
 
-		void cleanupTextures();
 		void onResize();
-
-		VkSampleCountFlagBits getMaxUsableSampleCount() const;
-		
-		std::unordered_map<std::thread::id, VkCommandPool> threadCommandPools;
-		
-		VulkanTexture2d colorTexture;
-		VulkanTexture2d depthTexture;
 		
 		int currentFrame = 0;
 		bool framebufferResized = false;
-		
+
 		struct FrameData {
 			VkCommandPool commandPool;
 			VkCommandBuffer commandBuffer;
