@@ -5,6 +5,7 @@ layout(set = 0, binding = 0, std140) uniform GlobalUBO {
     mat4 view;
     mat4 proj;
     vec3 cameraPos;
+    int debug;
 } globalUBO;
 
 // Instance UBO - set 1
@@ -24,9 +25,12 @@ layout(location = 2) out mat3 fragTBN;
 
 mat3 CalculateTBN()
 {
-    vec3 N = normalize(inNormal);
-    vec3 T = normalize(inTangent);
-    vec3 B = normalize(cross(N, T)); // Ensure B is orthogonal
+    mat3 normalMat = mat3(instanceUBO.normalMatrix);
+
+    vec3 N = normalize(normalMat * inNormal);
+    vec3 T = normalize(normalMat * inTangent);
+    T = normalize(T - dot(T, N) * N); // re-orthogonalize against N (Gram-Schmidt)
+    vec3 B = cross(N, T);
 
     return mat3(T, B, N);
 }

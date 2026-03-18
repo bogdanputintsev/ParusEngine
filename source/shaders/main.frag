@@ -8,11 +8,7 @@ layout(set = 0, binding = 0, std140) uniform GlobalUBO {
     mat4 view;
     mat4 proj;
     vec3 cameraPos;
-    float _pad0;
     int debug;
-    int _pad1;
-    int _pad2;
-    int _pad3;
 } globalUBO;
 
 // Set 2: Material

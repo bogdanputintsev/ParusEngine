@@ -1260,6 +1260,7 @@ namespace parus::vulkan
 		// Instance UBO
 		math::InstanceUbo instanceUbo{};
 		instanceUbo.model = math::Matrix4x4().trivial();
+		instanceUbo.normal = math::Matrix4x4().trivial();
 
 		memcpy(storage.instanceUboBuffer.mapped[currentImage], &instanceUbo, sizeof(instanceUbo));
 
