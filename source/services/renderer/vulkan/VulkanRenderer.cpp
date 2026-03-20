@@ -28,14 +28,12 @@ namespace parus::vulkan
 	void VulkanRenderer::init()
 	{
 		registerEvents();
-
-		initializer.initialize(storage);
-
+		defineDescriptors();
+		initializer.initialize(storage, descriptorManager);
 		loadSceneAssets();
-
 		isRunning = true;
 	}
-
+	
 	void VulkanRenderer::registerEvents()
 	{
 		REGISTER_EVENT(EventType::EVENT_WINDOW_RESIZED, [&](const int newWidth, const int newHeight)
@@ -59,9 +57,190 @@ namespace parus::vulkan
 		});
 	}
 
+	void VulkanRenderer::defineDescriptors()
+	{
+		using DescriptorType = VulkanDescriptorManager::DescriptorType;
+		constexpr size_t MAX_MESHES = 100;
+		constexpr uint32_t IMAGE_SAMPLER_POOL = 1000;
+
+		descriptorManager.define(DescriptorType::GLOBAL,
+			VulkanDescriptor()
+				.withLayout("Descriptor Set 0 - Global UBO",
+					{{ "Binding 0: Global UBO", VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT }})
+				.withPoolSizes(
+					{{ .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, .descriptorCount = VulkanStorage::MAX_FRAMES_IN_FLIGHT }},
+					VulkanStorage::MAX_FRAMES_IN_FLIGHT)
+				.withAllocator([&](VulkanStorage& s, const VkDescriptorSetLayout layout)
+				{
+					const std::vector globalLayouts(VulkanStorage::MAX_FRAMES_IN_FLIGHT, layout);
+					VkDescriptorSetAllocateInfo allocInfo{};
+					allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+					allocInfo.descriptorPool = s.descriptorPool;
+					allocInfo.descriptorSetCount = static_cast<uint32_t>(VulkanStorage::MAX_FRAMES_IN_FLIGHT);
+					allocInfo.pSetLayouts = globalLayouts.data();
+
+					ASSERT(vkAllocateDescriptorSets(s.logicalDevice, &allocInfo, s.globalDescriptorSets.data()) == VK_SUCCESS,
+						"Failed to allocate global descriptor sets.");
+
+					for (size_t i = 0; i < VulkanStorage::MAX_FRAMES_IN_FLIGHT; i++)
+					{
+						const VkDescriptorBufferInfo bufferInfo = { .buffer = s.globalUboBuffer.frameBuffers[i], .offset = 0, .range = sizeof(math::GlobalUbo) };
+						const VkWriteDescriptorSet write = {
+							.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, .pNext = nullptr,
+							.dstSet = s.globalDescriptorSets[i], .dstBinding = 0, .dstArrayElement = 0,
+							.descriptorCount = 1, .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+							.pImageInfo = nullptr, .pBufferInfo = &bufferInfo, .pTexelBufferView = nullptr
+						};
+						vkUpdateDescriptorSets(s.logicalDevice, 1, &write, 0, nullptr);
+					}
+				}));
+
+		descriptorManager.define(DescriptorType::INSTANCE,
+			VulkanDescriptor()
+				.withLayout("Descriptor Set 1 - Instance UBO",
+					{{ "Binding 0: Instance UBO", VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT }})
+				.withPoolSizes(
+					{{ .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, .descriptorCount = VulkanStorage::MAX_FRAMES_IN_FLIGHT * static_cast<uint32_t>(MAX_MESHES) * 2 }},
+					VulkanStorage::MAX_FRAMES_IN_FLIGHT * static_cast<uint32_t>(MAX_MESHES))
+				.withAllocator([&](VulkanStorage& s, const VkDescriptorSetLayout layout)
+				{
+					for (auto& meshInstance : meshInstances)
+					{
+						const std::vector instanceLayouts(VulkanStorage::MAX_FRAMES_IN_FLIGHT, layout);
+						VkDescriptorSetAllocateInfo allocInfo{};
+						allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+						allocInfo.descriptorPool = s.descriptorPool;
+						allocInfo.descriptorSetCount = static_cast<uint32_t>(VulkanStorage::MAX_FRAMES_IN_FLIGHT);
+						allocInfo.pSetLayouts = instanceLayouts.data();
+
+						meshInstance.instanceDescriptorSets.resize(VulkanStorage::MAX_FRAMES_IN_FLIGHT);
+						ASSERT(vkAllocateDescriptorSets(s.logicalDevice, &allocInfo, meshInstance.instanceDescriptorSets.data()) == VK_SUCCESS,
+							"Failed to allocate instance descriptor sets.");
+
+						for (size_t i = 0; i < VulkanStorage::MAX_FRAMES_IN_FLIGHT; i++)
+						{
+							const VkDescriptorBufferInfo bufferInfo = { .buffer = s.instanceUboBuffer.frameBuffers[i], .offset = 0, .range = sizeof(math::InstanceUbo) };
+							const VkWriteDescriptorSet write = {
+								.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, .pNext = nullptr,
+								.dstSet = meshInstance.instanceDescriptorSets[i], .dstBinding = 0, .dstArrayElement = 0,
+								.descriptorCount = 1, .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+								.pImageInfo = nullptr, .pBufferInfo = &bufferInfo, .pTexelBufferView = nullptr
+							};
+							vkUpdateDescriptorSets(s.logicalDevice, 1, &write, 0, nullptr);
+						}
+					}
+				}));
+
+		descriptorManager.define(DescriptorType::MATERIAL,
+			VulkanDescriptor()
+				.withLayout("Descriptor Set 2 - Material",
+					{
+						{ "Binding 0: Albedo",            VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT },
+						{ "Binding 1: Normal",            VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT },
+						{ "Binding 2: Metallic",          VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT },
+						{ "Binding 3: Roughness",         VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT },
+						{ "Binding 4: Ambient Occlusion", VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT },
+					})
+				.withPoolSizes(
+					{{ .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .descriptorCount = static_cast<uint32_t>(MAX_MESHES) * NUMBER_OF_TEXTURE_TYPES + IMAGE_SAMPLER_POOL }},
+					static_cast<uint32_t>(MAX_MESHES) * NUMBER_OF_TEXTURE_TYPES + IMAGE_SAMPLER_POOL)
+				.withAllocator([&](VulkanStorage& s, const VkDescriptorSetLayout layout)
+				{
+					for (const auto& mesh : Services::get<World>()->getStorage()->getAllMeshes())
+					{
+						for (auto& meshPart : mesh->meshParts)
+						{
+							ASSERT(meshPart.material, "Material must exist for any mesh part.");
+							const auto& material = meshPart.material;
+
+							VkDescriptorSetAllocateInfo allocInfo{};
+							allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+							allocInfo.descriptorPool = s.descriptorPool;
+							allocInfo.descriptorSetCount = 1;
+							allocInfo.pSetLayouts = &layout;
+
+							ASSERT(vkAllocateDescriptorSets(s.logicalDevice, &allocInfo, &material->materialDescriptorSet) == VK_SUCCESS,
+								"Failed to allocate material descriptor sets.");
+
+							std::vector<VkDescriptorImageInfo> imageInfos;
+							imageInfos.reserve(NUMBER_OF_TEXTURE_TYPES);
+							material->iterateAllTextures([&]([[maybe_unused]] const TextureType textureType, const std::shared_ptr<const VulkanTexture2d>& texture)
+							{
+								imageInfos.push_back({ .sampler = texture->sampler, .imageView = texture->imageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL });
+							});
+
+							std::vector<VkWriteDescriptorSet> writes;
+							writes.reserve(imageInfos.size());
+							for (uint32_t i = 0; i < imageInfos.size(); ++i)
+							{
+								writes.push_back({
+									.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, .pNext = nullptr,
+									.dstSet = material->materialDescriptorSet, .dstBinding = i, .dstArrayElement = 0,
+									.descriptorCount = 1, .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+									.pImageInfo = &imageInfos[i], .pBufferInfo = nullptr, .pTexelBufferView = nullptr
+								});
+							}
+							vkUpdateDescriptorSets(s.logicalDevice, static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
+						}
+					}
+				}));
+
+		descriptorManager.define(DescriptorType::LIGHTS,
+			VulkanDescriptor()
+				.withLayout("Descriptor Set 3 - Lights",
+					{
+						{ "Binding 0: Light UBO", VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,          VK_SHADER_STAGE_FRAGMENT_BIT },
+						{ "Binding 1: Cube map",  VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,  VK_SHADER_STAGE_FRAGMENT_BIT },
+					})
+				.withPoolSizes(
+					{
+						{ .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         .descriptorCount = VulkanStorage::MAX_FRAMES_IN_FLIGHT },
+						{ .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .descriptorCount = VulkanStorage::MAX_FRAMES_IN_FLIGHT },
+					},
+					VulkanStorage::MAX_FRAMES_IN_FLIGHT)
+				.withAllocator([&](VulkanStorage& s, const VkDescriptorSetLayout layout)
+				{
+					if (!directionalLight.descriptorSets.empty())
+						return;
+
+					const std::vector lightLayouts(VulkanStorage::MAX_FRAMES_IN_FLIGHT, layout);
+					VkDescriptorSetAllocateInfo allocInfo{};
+					allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+					allocInfo.descriptorPool = s.descriptorPool;
+					allocInfo.descriptorSetCount = static_cast<uint32_t>(VulkanStorage::MAX_FRAMES_IN_FLIGHT);
+					allocInfo.pSetLayouts = lightLayouts.data();
+
+					directionalLight.descriptorSets.resize(VulkanStorage::MAX_FRAMES_IN_FLIGHT);
+					ASSERT(vkAllocateDescriptorSets(s.logicalDevice, &allocInfo, directionalLight.descriptorSets.data()) == VK_SUCCESS,
+						"Failed to allocate lights descriptor sets.");
+
+					for (size_t i = 0; i < VulkanStorage::MAX_FRAMES_IN_FLIGHT; i++)
+					{
+						const VkDescriptorBufferInfo lightBufferInfo = { .buffer = s.directionalLightUboBuffer.frameBuffers[i], .offset = 0, .range = sizeof(math::DirectionalLightUbo) };
+						const VkDescriptorImageInfo imageInfo = { .sampler = cubemap.sampler, .imageView = cubemap.imageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
+
+						const std::array<VkWriteDescriptorSet, 2> writes = {{
+							{
+								.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, .pNext = nullptr,
+								.dstSet = directionalLight.descriptorSets[i], .dstBinding = 0, .dstArrayElement = 0,
+								.descriptorCount = 1, .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+								.pImageInfo = nullptr, .pBufferInfo = &lightBufferInfo, .pTexelBufferView = nullptr
+							},
+							{
+								.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, .pNext = nullptr,
+								.dstSet = directionalLight.descriptorSets[i], .dstBinding = 1, .dstArrayElement = 0,
+								.descriptorCount = 1, .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+								.pImageInfo = &imageInfo, .pBufferInfo = nullptr, .pTexelBufferView = nullptr
+							}
+						}};
+						vkUpdateDescriptorSets(s.logicalDevice, static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
+					}
+				}));
+	}	
+
 	void VulkanRenderer::clean()
 	{
-		initializer.cleanup(storage);
+		initializer.cleanup(storage, descriptorManager);
 	}
 
 	void VulkanRenderer::drawFrame()
@@ -235,11 +414,7 @@ namespace parus::vulkan
 
 	void VulkanRenderer::rebuildDescriptorSets()
 	{
-		for (auto& mesh : Services::get<World>()->getStorage()->getAllMeshes())
-		{
-			createMeshDescriptorSets(mesh);
-		}
-		createLightsDescriptorSets();
+		descriptorManager.rebuildAll(storage);
 	}
 
 	void VulkanRenderer::loadSceneAssets()
@@ -848,219 +1023,6 @@ namespace parus::vulkan
 		directionalLightUbo.direction = directionalLight.light.direction;
 
 		memcpy(storage.directionalLightUboBuffer.mapped[currentFrame], &directionalLightUbo, sizeof(directionalLightUbo));
-	}
-
-	void VulkanRenderer::createMeshDescriptorSets(const std::shared_ptr<Mesh>& mesh)
-	{
-		createGlobalDescriptorSets();
-		createInstanceDescriptorSets();
-		createMaterialDescriptorSets(mesh);
-	}
-
-	void VulkanRenderer::createGlobalDescriptorSets()
-	{
-		const std::vector globalLayouts(VulkanStorage::MAX_FRAMES_IN_FLIGHT, storage.globalDescriptorSetLayout);
-		VkDescriptorSetAllocateInfo globalAllocateInfo{};
-		globalAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-		globalAllocateInfo.descriptorPool = storage.descriptorPool;
-		globalAllocateInfo.descriptorSetCount = static_cast<uint32_t>(VulkanStorage::MAX_FRAMES_IN_FLIGHT);
-		globalAllocateInfo.pSetLayouts = globalLayouts.data();
-
-		ASSERT(vkAllocateDescriptorSets(storage.logicalDevice, &globalAllocateInfo, storage.globalDescriptorSets.data()) == VK_SUCCESS,
-			"Failed to allocate global descriptor sets.");
-
-		for (size_t frameIndex = 0; frameIndex < VulkanStorage::MAX_FRAMES_IN_FLIGHT; frameIndex++)
-		{
-			// Global UBO descriptor set
-			const VkDescriptorBufferInfo globalBufferInfo =
-				{
-					.buffer = storage.globalUboBuffer.frameBuffers[frameIndex],
-					.offset = 0,
-					.range = sizeof(math::GlobalUbo)
-				};
-
-			const VkWriteDescriptorSet globalWrite =
-				{
-				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-				.pNext = nullptr,
-				.dstSet = storage.globalDescriptorSets[frameIndex],
-				.dstBinding = 0,
-				.dstArrayElement = 0,
-				.descriptorCount = 1,
-				.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-				.pImageInfo = nullptr,
-				.pBufferInfo = &globalBufferInfo,
-				.pTexelBufferView = nullptr
-			};
-
-			vkUpdateDescriptorSets(storage.logicalDevice, 1, &globalWrite, 0, nullptr);
-		}
-	}
-
-	void VulkanRenderer::createInstanceDescriptorSets()
-	{
-		for (auto& meshInstance : meshInstances)
-		{
-			const std::vector instanceLayouts(VulkanStorage::MAX_FRAMES_IN_FLIGHT, storage.instanceDescriptorSetLayout);
-			VkDescriptorSetAllocateInfo instanceSetAllocateInfo{};
-			instanceSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-			instanceSetAllocateInfo.descriptorPool = storage.descriptorPool;
-			instanceSetAllocateInfo.descriptorSetCount = static_cast<uint32_t>(VulkanStorage::MAX_FRAMES_IN_FLIGHT);
-			instanceSetAllocateInfo.pSetLayouts = instanceLayouts.data();
-
-			meshInstance.instanceDescriptorSets.resize(VulkanStorage::MAX_FRAMES_IN_FLIGHT);
-			ASSERT(vkAllocateDescriptorSets(storage.logicalDevice, &instanceSetAllocateInfo, meshInstance.instanceDescriptorSets.data()) == VK_SUCCESS,
-				"Failed to allocate instance descriptor sets.");
-
-			for (size_t frameIndex = 0; frameIndex < VulkanStorage::MAX_FRAMES_IN_FLIGHT; frameIndex++)
-			{
-				// Instance UBO descriptor set
-				const VkDescriptorBufferInfo instanceBufferInfo =
-					{
-						.buffer = storage.instanceUboBuffer.frameBuffers[frameIndex],
-						.offset = 0,
-						.range = sizeof(math::InstanceUbo)
-					};
-
-				const VkWriteDescriptorSet descriptorWrite =
-					{
-						.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-						.pNext = nullptr,
-						.dstSet = meshInstance.instanceDescriptorSets[frameIndex],
-						.dstBinding = 0,
-						.dstArrayElement = 0,
-						.descriptorCount = 1,
-						.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-						.pImageInfo = nullptr,
-						.pBufferInfo = &instanceBufferInfo,
-						.pTexelBufferView = nullptr
-					};
-
-				vkUpdateDescriptorSets(storage.logicalDevice, 1, &descriptorWrite, 0, nullptr);
-			}
-		}
-	}
-
-	void VulkanRenderer::createMaterialDescriptorSets(const std::shared_ptr<Mesh>& mesh) const
-	{
-		for (auto& meshPart : mesh->meshParts)
-		{
-			// Material descriptor set
-			ASSERT(meshPart.material, "Material must exist for any mesh part.");
-			const auto& material = meshPart.material;
-
-			VkDescriptorSetAllocateInfo allocInfo{};
-			allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-			allocInfo.descriptorPool = storage.descriptorPool;
-			allocInfo.descriptorSetCount = 1;
-			allocInfo.pSetLayouts = &storage.materialDescriptorSetLayout;
-
-			ASSERT(vkAllocateDescriptorSets(storage.logicalDevice, &allocInfo, &material->materialDescriptorSet) == VK_SUCCESS,
-				"Failed to allocate material descriptor sets.");
-
-			std::vector<VkDescriptorImageInfo> imageInfos;
-			imageInfos.reserve(NUMBER_OF_TEXTURE_TYPES);
-
-			material->iterateAllTextures([&]([[maybe_unused]] const TextureType textureType, const std::shared_ptr<const VulkanTexture2d>& texture)
-			{
-				imageInfos.push_back(
-					{
-						.sampler = texture->sampler,
-						.imageView = texture->imageView,
-						.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-					});
-			});
-
-			std::vector<VkWriteDescriptorSet> descriptorWrites;
-			descriptorWrites.reserve(imageInfos.size());
-			for (uint32_t i = 0; i < imageInfos.size(); ++i)
-			{
-				descriptorWrites.push_back({
-					.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-					.pNext = nullptr,
-					.dstSet = material->materialDescriptorSet,
-					.dstBinding = i,
-					.dstArrayElement = 0,
-					.descriptorCount = 1,
-					.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-					.pImageInfo = &imageInfos[i],
-					.pBufferInfo = nullptr,
-					.pTexelBufferView = nullptr
-				});
-			}
-
-			vkUpdateDescriptorSets(storage.logicalDevice,
-				static_cast<uint32_t>(descriptorWrites.size()),
-				descriptorWrites.data(),
-				0, nullptr);
-		}
-	}
-
-	void VulkanRenderer::createLightsDescriptorSets()
-	{
-		if (!directionalLight.descriptorSets.empty())
-		{
-			return;
-		}
-
-		const std::vector lightLayouts(VulkanStorage::MAX_FRAMES_IN_FLIGHT, storage.lightsDescriptorSetLayout);
-		VkDescriptorSetAllocateInfo lightSetAllocateInfo{};
-		lightSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-		lightSetAllocateInfo.descriptorPool = storage.descriptorPool;
-		lightSetAllocateInfo.descriptorSetCount = static_cast<uint32_t>(VulkanStorage::MAX_FRAMES_IN_FLIGHT);
-		lightSetAllocateInfo.pSetLayouts = lightLayouts.data();
-
-		directionalLight.descriptorSets.resize(VulkanStorage::MAX_FRAMES_IN_FLIGHT);
-		ASSERT(vkAllocateDescriptorSets(storage.logicalDevice, &lightSetAllocateInfo, directionalLight.descriptorSets.data()) == VK_SUCCESS,
-			"Failed to allocate instance descriptor sets.");
-
-		for (size_t frameIndex = 0; frameIndex < VulkanStorage::MAX_FRAMES_IN_FLIGHT; frameIndex++)
-		{
-			std::array<VkWriteDescriptorSet, 2> descriptorWrites;
-
-			// Light UBO descriptor set
-			const VkDescriptorBufferInfo directionalLightBufferInfo =
-				{
-					.buffer = storage.directionalLightUboBuffer.frameBuffers[frameIndex],
-					.offset = 0,
-					.range = sizeof(math::DirectionalLightUbo)
-				};
-
-			descriptorWrites[0] =
-				{
-					.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-					.pNext = nullptr,
-					.dstSet = directionalLight.descriptorSets[frameIndex],
-					.dstBinding = 0,
-					.dstArrayElement = 0,
-					.descriptorCount = 1,
-					.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-					.pImageInfo = nullptr,
-					.pBufferInfo = &directionalLightBufferInfo,
-					.pTexelBufferView = nullptr
-				};
-
-			VkDescriptorImageInfo descriptorImageInfo = {};
-			descriptorImageInfo.imageView = cubemap.imageView;
-			descriptorImageInfo.sampler = cubemap.sampler;
-			descriptorImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-			descriptorWrites[1] =
-				{
-					.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-					.pNext = nullptr,
-					.dstSet = directionalLight.descriptorSets[frameIndex],
-					.dstBinding = 1,
-					.dstArrayElement = 0,
-					.descriptorCount = 1,
-					.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-					.pImageInfo = &descriptorImageInfo,
-					.pBufferInfo = nullptr,
-					.pTexelBufferView = nullptr
-				};
-
-			vkUpdateDescriptorSets(storage.logicalDevice, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
-		}
 	}
 
 	void VulkanRenderer::onResize()

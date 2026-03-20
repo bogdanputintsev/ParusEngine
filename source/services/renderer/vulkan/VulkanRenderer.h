@@ -15,6 +15,7 @@
 #include "mesh/MeshInstance.h"
 #include "services/renderer/Renderer.h"
 #include "storage/VulkanStorage.h"
+#include "VulkanDescriptorManager.h"
 #include "VulkanInitializer.h"
 
 
@@ -44,6 +45,7 @@ namespace parus::vulkan
 	private:
 		VulkanStorage storage;
 		VulkanInitializer initializer;
+		VulkanDescriptorManager descriptorManager;
 
 		static constexpr float Z_NEAR = 0.1f;
 		static constexpr float Z_FAR = 1500.0f;
@@ -67,6 +69,7 @@ namespace parus::vulkan
 		void rebuildSceneBuffers();
 		void rebuildDescriptorSets();
 
+		void defineDescriptors();
 		void loadSceneAssets();
 
 		// SwapChain
@@ -105,13 +108,6 @@ namespace parus::vulkan
 		void createSkyIndexBuffer(const std::vector<uint32_t>& indices);
 		void createIndexBuffer(const std::vector<uint32_t>& indices);
 		void updateUniformBuffer(uint32_t currentImage);
-
-		// Descriptor Sets
-		void createMeshDescriptorSets(const std::shared_ptr<Mesh>& mesh);
-		void createGlobalDescriptorSets();
-		void createInstanceDescriptorSets();
-		void createMaterialDescriptorSets(const std::shared_ptr<Mesh>& mesh) const;
-		void createLightsDescriptorSets();
 
 		void onResize();
 		

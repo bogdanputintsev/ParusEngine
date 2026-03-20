@@ -56,10 +56,6 @@ namespace parus::vulkan
 		VkRenderPass renderPass = VK_NULL_HANDLE;
 
     	// Descriptors
-    	VkDescriptorSetLayout globalDescriptorSetLayout = VK_NULL_HANDLE;
-    	VkDescriptorSetLayout instanceDescriptorSetLayout = VK_NULL_HANDLE;
-    	VkDescriptorSetLayout materialDescriptorSetLayout = VK_NULL_HANDLE;
-    	VkDescriptorSetLayout lightsDescriptorSetLayout = VK_NULL_HANDLE;
 		VkDescriptorPool descriptorPool;
 
     	// Pipeline

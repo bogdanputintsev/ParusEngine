@@ -193,6 +193,8 @@
     <ClCompile Include="source\services\renderer\vulkan\mesh\MeshInstance.cpp" />
     <ClCompile Include="source\services\renderer\vulkan\storage\VulkanStorage.cpp" />
     <ClCompile Include="source\services\renderer\vulkan\utils\VulkanUtils.cpp" />
+    <ClCompile Include="source\services\renderer\vulkan\VulkanDescriptor.cpp" />
+    <ClCompile Include="source\services\renderer\vulkan\VulkanDescriptorManager.cpp" />
     <ClCompile Include="source\services\renderer\vulkan\VulkanInitializer.cpp" />
     <ClCompile Include="source\services\renderer\vulkan\VulkanRenderer.cpp" />
     <ClCompile Include="source\services\Services.cpp" />
@@ -244,6 +246,8 @@
     <ClInclude Include="source\services\renderer\vulkan\storage\VulkanStorage.h" />
     <ClInclude Include="source\services\renderer\vulkan\texture\VulkanTexture2d.h" />
     <ClInclude Include="source\services\renderer\vulkan\utils\VulkanUtils.h" />
+    <ClInclude Include="source\services\renderer\vulkan\VulkanDescriptor.h" />
+    <ClInclude Include="source\services\renderer\vulkan\VulkanDescriptorManager.h" />
     <ClInclude Include="source\services\renderer\vulkan\VulkanInitializer.h" />
     <ClInclude Include="source\services\renderer\vulkan\VulkanRenderer.h" />
     <ClInclude Include="source\services\Service.h" />

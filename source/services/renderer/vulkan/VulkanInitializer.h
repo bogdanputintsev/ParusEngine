@@ -5,6 +5,7 @@
 
 #include "storage/VulkanStorage.h"
 #include "texture/VulkanTexture2d.h"
+#include "VulkanDescriptorManager.h"
 
 
 namespace parus::vulkan
@@ -13,8 +14,8 @@ namespace parus::vulkan
 	class VulkanInitializer final
 	{
 	public:
-		void initialize(VulkanStorage& storage);
-		void cleanup(VulkanStorage& storage);
+		void initialize(VulkanStorage& storage, VulkanDescriptorManager& descriptorManager);
+		void cleanup(VulkanStorage& storage, VulkanDescriptorManager& descriptorManager);
 		void recreateSwapChain(VulkanStorage& storage);
 
 	private:
@@ -23,10 +24,8 @@ namespace parus::vulkan
 
 		static void createSwapChain(VulkanStorage& storage);
 		void cleanupSwapChain(const VulkanStorage& storage) const;
-		static void createDescriptorSetLayout(VulkanStorage& storage);
-		static void createDescriptorPool(VulkanStorage& storage);
-		static void createSkyPipeline(VulkanStorage& storage);
-		static void createGraphicsPipeline(VulkanStorage& storage);
+		static void createSkyPipeline(VulkanStorage& storage, const VulkanDescriptorManager& descriptorManager);
+		static void createGraphicsPipeline(VulkanStorage& storage, const VulkanDescriptorManager& descriptorManager);
 		void createFramebuffers(VulkanStorage& storage) const;
 		void createDepthResources(const VulkanStorage& storage);
 		void createColorResources(const VulkanStorage& storage);

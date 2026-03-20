@@ -1,8 +1,6 @@
 #include "VulkanInitializer.h"
 
 #include "builder/VkDebugUtilsBuilder.h"
-#include "builder/VkDescriptorPoolBuilder.h"
-#include "builder/VkDescriptorSetLayoutBuilder.h"
 #include "builder/VkDeviceBuilder.h"
 #include "builder/VkFramebufferBuilder.h"
 #include "builder/VkInstanceBuilder.h"
@@ -27,7 +25,7 @@
 namespace parus::vulkan
 {
 	
-	void VulkanInitializer::initialize(VulkanStorage& storage)
+	void VulkanInitializer::initialize(VulkanStorage& storage, VulkanDescriptorManager& descriptorManager)
 	{
 		VkInstanceBuilder()
 			.setApplicationName(Services::get<Configs>()->get("Engine", "applicationName"))
@@ -49,10 +47,9 @@ namespace parus::vulkan
 		VkQueuesBuilder::build(storage);
 		createSwapChain(storage);
 		VkRenderPassBuilder::build("Main Render Pass", storage);
-		createDescriptorSetLayout(storage);
-		createDescriptorPool(storage);
-		createSkyPipeline(storage);
-		createGraphicsPipeline(storage);
+		descriptorManager.setup(storage);
+		createSkyPipeline(storage, descriptorManager);
+		createGraphicsPipeline(storage, descriptorManager);
 		createColorResources(storage);
 		createDepthResources(storage);
 		createFramebuffers(storage);
@@ -66,7 +63,7 @@ namespace parus::vulkan
 			.build("Main Command Buffer", storage);
 	}
 
-	void VulkanInitializer::cleanup(VulkanStorage& storage)
+	void VulkanInitializer::cleanup(VulkanStorage& storage, VulkanDescriptorManager& descriptorManager)
 	{
 		cleanupSwapChain(storage);
 
@@ -86,13 +83,8 @@ namespace parus::vulkan
 			vkFreeMemory(storage.logicalDevice, storage.directionalLightUboBuffer.memory[i], nullptr);
 		}
 
-		vkDestroyDescriptorPool(storage.logicalDevice, storage.descriptorPool, nullptr);
+		descriptorManager.cleanup(storage);
 		cleanupTextures(storage);
-
-		vkDestroyDescriptorSetLayout(storage.logicalDevice, storage.globalDescriptorSetLayout, nullptr);
-		vkDestroyDescriptorSetLayout(storage.logicalDevice, storage.instanceDescriptorSetLayout, nullptr);
-		vkDestroyDescriptorSetLayout(storage.logicalDevice, storage.materialDescriptorSetLayout, nullptr);
-		vkDestroyDescriptorSetLayout(storage.logicalDevice, storage.lightsDescriptorSetLayout, nullptr);
 
 		vkDestroyBuffer(storage.logicalDevice, storage.globalBuffers.indexBuffer, nullptr);
 		vkFreeMemory(storage.logicalDevice, storage.globalBuffers.indexBufferMemory, nullptr);
@@ -167,102 +159,10 @@ namespace parus::vulkan
 		vkDestroySwapchainKHR(storage.logicalDevice, storage.swapChain, nullptr);
 	}
 
-	void VulkanInitializer::createDescriptorSetLayout(VulkanStorage& storage)
-	{
-		storage.globalDescriptorSetLayout = VkDescriptorSetLayoutBuilder("Descriptor Set 0 - Global UBO")
-			.withBindings({
-				{
-					.bindingName = "Binding 0: Global UBO",
-					.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-					.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT
-				}})
-			.build(storage);
-
-		storage.instanceDescriptorSetLayout = VkDescriptorSetLayoutBuilder("Descriptor Set 1 - Instance UBO")
-			.withBindings({
-				{
-					.bindingName = "Binding 0: Instance UBO",
-					.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-					.stageFlags = VK_SHADER_STAGE_VERTEX_BIT
-				}})
-			.build(storage);
-
-		storage.materialDescriptorSetLayout = VkDescriptorSetLayoutBuilder("Descriptor Set 2 - Material")
-			.withBindings({
-				{
-					.bindingName = "Binding 0: Albedo",
-					.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-					.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT
-				},
-				{
-					.bindingName = "Binding 1: Normal",
-					.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-					.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT
-				},
-				{
-					.bindingName = "Binding 2: Metallic",
-					.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-					.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT
-				},
-				{
-					.bindingName = "Binding 3: Roughness",
-					.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-					.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT
-				},
-				{
-					.bindingName = "Binding 4: Ambient Occlusion",
-					.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-					.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT
-				}})
-			.build(storage);
-
-		storage.lightsDescriptorSetLayout = VkDescriptorSetLayoutBuilder("Descriptor Set 3 - Lights")
-			.withBindings({
-				{
-					.bindingName = "Binding 0: Light UBO",
-					.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-					.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT
-				},
-				{
-					.bindingName = "Binding 1: Cube map",
-					.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-					.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT
-				}})
-			.build(storage);
-	}
-
-	void VulkanInitializer::createDescriptorPool(VulkanStorage& storage)
-	{
-		constexpr size_t MAX_NUMBER_OF_MESHES = 100;
-		constexpr int IMAGE_SAMPLER_POOL_SIZE = 1000;
-
-		VkDescriptorPoolBuilder()
-			.setMaxSets(VulkanStorage::MAX_FRAMES_IN_FLIGHT * MAX_NUMBER_OF_MESHES * NUMBER_OF_TEXTURE_TYPES + IMAGE_SAMPLER_POOL_SIZE + 1)
-			.setPoolSizes({{
-				{
-					.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-					.descriptorCount = VulkanStorage::MAX_FRAMES_IN_FLIGHT
-				},
-				{
-					.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-					.descriptorCount = VulkanStorage::MAX_FRAMES_IN_FLIGHT * MAX_NUMBER_OF_MESHES * 2
-				},
-				{
-					.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-					.descriptorCount = MAX_NUMBER_OF_MESHES * NUMBER_OF_TEXTURE_TYPES + IMAGE_SAMPLER_POOL_SIZE
-				},
-				{
-					.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-					.descriptorCount = VulkanStorage::MAX_FRAMES_IN_FLIGHT
-				},
-			}})
-			.build(storage);
-	}
-
-	void VulkanInitializer::createSkyPipeline(VulkanStorage& storage)
+	void VulkanInitializer::createSkyPipeline(VulkanStorage& storage, const VulkanDescriptorManager& descriptorManager)
 	{
 		VkPipelineBuilder("Sky Pipeline Layout")
-			.useLayouts({storage.globalDescriptorSetLayout})
+			.useLayouts({descriptorManager.getLayout(VulkanDescriptorManager::DescriptorType::GLOBAL)})
 			.addStage(storage, VK_SHADER_STAGE_VERTEX_BIT, "bin/shaders/sky.vert.spv")
 			.addStage(storage, VK_SHADER_STAGE_FRAGMENT_BIT, "bin/shaders/sky.frag.spv")
 			.withVertexInput(
@@ -291,15 +191,16 @@ namespace parus::vulkan
 			.build(storage, storage.skyPipelineLayout, storage.skyPipeline);
 	}
 
-	void VulkanInitializer::createGraphicsPipeline(VulkanStorage& storage)
+	void VulkanInitializer::createGraphicsPipeline(VulkanStorage& storage, const VulkanDescriptorManager& descriptorManager)
 	{
+		using DescriptorType = VulkanDescriptorManager::DescriptorType;
 		VkPipelineBuilder("Main Pipeline Layout")
 			.useLayouts(
 				{
-					storage.globalDescriptorSetLayout,
-					storage.instanceDescriptorSetLayout,
-					storage.materialDescriptorSetLayout,
-					storage.lightsDescriptorSetLayout
+					descriptorManager.getLayout(DescriptorType::GLOBAL),
+					descriptorManager.getLayout(DescriptorType::INSTANCE),
+					descriptorManager.getLayout(DescriptorType::MATERIAL),
+					descriptorManager.getLayout(DescriptorType::LIGHTS),
 				})
 			.addStage(storage, VK_SHADER_STAGE_VERTEX_BIT, "bin/shaders/main.vert.spv")
 			.addStage(storage, VK_SHADER_STAGE_FRAGMENT_BIT, "bin/shaders/main.frag.spv")
