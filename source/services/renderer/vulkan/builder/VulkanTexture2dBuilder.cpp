@@ -55,12 +55,12 @@ namespace parus::vulkan
     VulkanTexture2d VulkanTexture2dBuilder::buildFromFile(const std::string& filePath)
     {
     	debugName = debugName = "[" + filePath + "]";
-    	
+
         ASSERT(std::filesystem::exists(filePath),
 			"File " + filePath + " must exist.");
     	ASSERT(std::filesystem::is_regular_file(filePath),
-			"File " + filePath + " must be character file."); 
-    	
+			"File " + filePath + " must be character file.");
+
 		VulkanTexture2d newTexture{};
 		LOG_INFO("Importing texture: " + filePath);
 
@@ -68,7 +68,7 @@ namespace parus::vulkan
 		int textureHeight;
 		int textureChannels;
 		stbi_uc* pixels = stbi_load(filePath.c_str(), &textureWidth, &textureHeight, &textureChannels, STBI_rgb_alpha);
-		
+
     	static constexpr uint64_t NUMBER_OF_CHANNELS = 4;
 		const VkDeviceSize imageSize = static_cast<uint64_t>(textureWidth) * static_cast<uint64_t>(textureHeight) * NUMBER_OF_CHANNELS;
 		newTexture.maxMipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(textureWidth, textureHeight)))) + 1;
@@ -76,6 +76,8 @@ namespace parus::vulkan
 		ASSERT(pixels, "Failed to load texture image.");
 
     	const auto& vulkanRenderer = Services::get<VulkanRenderer>();
+
+    	const VkFormat imageFormat = (format != VK_FORMAT_UNDEFINED) ? format : VK_FORMAT_R8G8B8A8_SRGB;
 
 		auto [stagingBuffer, stagingBufferMemory] = VkBufferBuilder(debugName + " Staging Buffer")
 			.setSize(imageSize)
@@ -87,35 +89,35 @@ namespace parus::vulkan
 		vkMapMemory(vulkanRenderer->storage.logicalDevice, stagingBufferMemory, 0, imageSize, 0, &data);
 		memcpy(data, pixels, static_cast<size_t>(imageSize));
 		vkUnmapMemory(vulkanRenderer->storage.logicalDevice, stagingBufferMemory);
-		
+
 		stbi_image_free(pixels);
 
     	newTexture.image = VkImageBuilder(debugName)
 			.setWidth(textureWidth)
 			.setHeight(textureHeight)
 			.setMipLevels(newTexture.maxMipLevels)
-			.setFormat(VK_FORMAT_R8G8B8A8_SRGB)
+			.setFormat(imageFormat)
 			.setTiling(VK_IMAGE_TILING_OPTIMAL)
 			.setUsage(VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT)
 			.setSamples(VK_SAMPLE_COUNT_1_BIT)
 			.build(vulkanRenderer->storage);
-		
+
     	newTexture.imageMemory = VkDeviceMemoryBuilder(debugName)
     		.setImage(newTexture.image)
     		.setPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
     		.build(vulkanRenderer->storage);
-    	
-		vulkanRenderer->transitionImageLayout(newTexture.image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, newTexture.maxMipLevels);
+
+		vulkanRenderer->transitionImageLayout(newTexture.image, imageFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, newTexture.maxMipLevels);
 		vulkanRenderer->copyBufferToImage(stagingBuffer, newTexture.image, static_cast<uint32_t>(textureWidth), static_cast<uint32_t>(textureHeight));
 
 		vkDestroyBuffer(vulkanRenderer->storage.logicalDevice, stagingBuffer, nullptr);
 		vkFreeMemory(vulkanRenderer->storage.logicalDevice, stagingBufferMemory, nullptr);
 
-		vulkanRenderer->generateMipmaps(newTexture, VK_FORMAT_R8G8B8A8_SRGB, textureWidth, textureHeight);
+		vulkanRenderer->generateMipmaps(newTexture, imageFormat, textureWidth, textureHeight);
 
 		newTexture.imageView = VkImageViewBuilder()
 			.setImage(newTexture.image)
-			.setFormat(VK_FORMAT_R8G8B8A8_SRGB)
+			.setFormat(imageFormat)
 			.setAspectMask(VK_IMAGE_ASPECT_COLOR_BIT)
 			.setLevelCount(newTexture.maxMipLevels)
 			.build(debugName, vulkanRenderer->storage);

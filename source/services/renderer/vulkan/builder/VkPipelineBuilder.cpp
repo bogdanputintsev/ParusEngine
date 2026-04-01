@@ -166,6 +166,26 @@ namespace parus::vulkan
         return *this;
     }
 
+    VkPipelineBuilder& VkPipelineBuilder::withRasterization(const VkCullModeFlagBits cullMode, const bool enableDepthBias, const float depthBiasConstant, const float depthBiasSlope)
+    {
+        VkPipelineRasterizationStateCreateInfo rasterizationStateCreateInfo{};
+        rasterizationStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+        rasterizationStateCreateInfo.depthClampEnable = VK_FALSE;
+        rasterizationStateCreateInfo.rasterizerDiscardEnable = VK_FALSE;
+        rasterizationStateCreateInfo.polygonMode = VK_POLYGON_MODE_FILL;
+        rasterizationStateCreateInfo.lineWidth = 1.0f;
+        rasterizationStateCreateInfo.cullMode = cullMode;
+        rasterizationStateCreateInfo.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+        rasterizationStateCreateInfo.depthBiasEnable = enableDepthBias ? VK_TRUE : VK_FALSE;
+        rasterizationStateCreateInfo.depthBiasConstantFactor = depthBiasConstant;
+        rasterizationStateCreateInfo.depthBiasClamp = 0.0f;
+        rasterizationStateCreateInfo.depthBiasSlopeFactor = depthBiasSlope;
+
+        rasterizationState = rasterizationStateCreateInfo;
+
+        return *this;
+    }
+
     VkPipelineBuilder& VkPipelineBuilder::withMultisample(const VkSampleCountFlagBits rasterizationSamples)
     {
         VkPipelineMultisampleStateCreateInfo multisampleStateCreateInfo{};
@@ -221,6 +241,19 @@ namespace parus::vulkan
         colorBlendStateCreateInfo.blendConstants[1] = 0.0f;
         colorBlendStateCreateInfo.blendConstants[2] = 0.0f;
         colorBlendStateCreateInfo.blendConstants[3] = 0.0f;
+
+        colorBlendState = colorBlendStateCreateInfo;
+
+        return *this;
+    }
+
+    VkPipelineBuilder& VkPipelineBuilder::withNoColorBlend()
+    {
+        VkPipelineColorBlendStateCreateInfo colorBlendStateCreateInfo{};
+        colorBlendStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+        colorBlendStateCreateInfo.logicOpEnable = VK_FALSE;
+        colorBlendStateCreateInfo.attachmentCount = 0;
+        colorBlendStateCreateInfo.pAttachments = nullptr;
 
         colorBlendState = colorBlendStateCreateInfo;
 

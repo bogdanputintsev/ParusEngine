@@ -32,11 +32,11 @@ namespace parus
         {
             vulkan::Material newMaterial;
 
-            newMaterial.addOrUpdateTexture(vulkan::TextureType::ALBEDO, getOrLoadTexture(diffuseTexturePath));
-            newMaterial.addOrUpdateTexture(vulkan::TextureType::NORMAL, getOrLoadTexture(normalTexturePath));
-            newMaterial.addOrUpdateTexture(vulkan::TextureType::METALLIC, getOrLoadTexture(metallicTexturePath));
-            newMaterial.addOrUpdateTexture(vulkan::TextureType::ROUGHNESS, getOrLoadTexture(roughnessTexturePath));
-            newMaterial.addOrUpdateTexture(vulkan::TextureType::AMBIENT_OCCLUSION, getOrLoadTexture(ambientOcclusionTexturePath));
+            newMaterial.addOrUpdateTexture(vulkan::TextureType::ALBEDO, getOrLoadTexture(diffuseTexturePath, vulkan::TextureType::ALBEDO));
+            newMaterial.addOrUpdateTexture(vulkan::TextureType::NORMAL, getOrLoadTexture(normalTexturePath, vulkan::TextureType::NORMAL));
+            newMaterial.addOrUpdateTexture(vulkan::TextureType::METALLIC, getOrLoadTexture(metallicTexturePath, vulkan::TextureType::METALLIC));
+            newMaterial.addOrUpdateTexture(vulkan::TextureType::ROUGHNESS, getOrLoadTexture(roughnessTexturePath, vulkan::TextureType::ROUGHNESS));
+            newMaterial.addOrUpdateTexture(vulkan::TextureType::AMBIENT_OCCLUSION, getOrLoadTexture(ambientOcclusionTexturePath, vulkan::TextureType::AMBIENT_OCCLUSION));
             
             ASSERT(newMaterial.getTexture(vulkan::TextureType::ALBEDO), "Albedo texture must always exist in the model.");
             
@@ -124,7 +124,7 @@ namespace parus
         return defaultTextures[textureType];
     }
 
-    std::shared_ptr<vulkan::VulkanTexture2d> Storage::getOrLoadTexture(const std::string& texturePath)
+    std::shared_ptr<vulkan::VulkanTexture2d> Storage::getOrLoadTexture(const std::string& texturePath, const vulkan::TextureType textureType)
     {
         if (texturePath.empty()
             || !std::filesystem::exists(texturePath)
@@ -132,12 +132,21 @@ namespace parus
         {
             return nullptr;
         }
-        
+
         if (!hasTexture(texturePath))
         {
-            vulkan::VulkanTexture2d newTexture 
-                = vulkan::VulkanTexture2dBuilder("Texture " + texturePath)
-                    .buildFromFile(texturePath);
+            const bool isLinearData = (textureType == vulkan::TextureType::NORMAL
+                || textureType == vulkan::TextureType::METALLIC
+                || textureType == vulkan::TextureType::ROUGHNESS
+                || textureType == vulkan::TextureType::AMBIENT_OCCLUSION);
+
+            auto builder = vulkan::VulkanTexture2dBuilder("Texture " + texturePath);
+            if (isLinearData)
+            {
+                builder.setFormat(VK_FORMAT_R8G8B8A8_UNORM);
+            }
+
+            vulkan::VulkanTexture2d newTexture = builder.buildFromFile(texturePath);
             addNewTexture(texturePath, std::make_shared<vulkan::VulkanTexture2d>(newTexture));
         }
 			
@@ -256,7 +265,7 @@ namespace parus
                 break;
             case vulkan::TextureType::ROUGHNESS:
                 defaultTexture = vulkan::VulkanTexture2dBuilder("Default Roughness Map")
-                    .buildFromSolidColor(math::Vector3(0.0f, 0.0f, 0.0f));
+                    .buildFromSolidColor(math::Vector3(0.8f, 0.8f, 0.8f));
                 break;
             }
                 

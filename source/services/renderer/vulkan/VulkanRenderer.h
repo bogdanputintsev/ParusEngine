@@ -54,6 +54,7 @@ namespace parus::vulkan
 
 		std::vector<MeshInstance> meshInstances;
 		VulkanDirectionalLight directionalLight;
+		std::vector<PointLight> pointLights;
 
 		void cleanupFrameResources();
 
@@ -86,6 +87,10 @@ namespace parus::vulkan
 		void resetCommandBuffer(const int bufferId) const;
 		void setFullscreenViewportScissor(VkCommandBuffer cmd) const;
 		void drawMainScenePass(VkCommandBuffer commandBufferToRecord) const;
+		void drawShadowPass(VkCommandBuffer commandBufferToRecord) const;
+		void drawDepthPrePass(VkCommandBuffer commandBufferToRecord) const;
+		void drawSSAOPass(VkCommandBuffer commandBufferToRecord) const;
+		void drawSSAOBlurPass(VkCommandBuffer commandBufferToRecord) const;
 		void drawSkyboxPass(VkCommandBuffer commandBufferToRecord) const;
 		void recordCommandBuffer(VkCommandBuffer commandBufferToRecord, uint32_t imageIndex) const;
 

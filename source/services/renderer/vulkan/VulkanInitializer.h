@@ -16,7 +16,7 @@ namespace parus::vulkan
 	public:
 		void initialize(VulkanStorage& storage, VulkanDescriptorManager& descriptorManager);
 		void cleanup(VulkanStorage& storage, VulkanDescriptorManager& descriptorManager);
-		void recreateSwapChain(VulkanStorage& storage);
+		void recreateSwapChain(VulkanStorage& storage, const VulkanDescriptorManager& descriptorManager);
 
 	private:
 		VulkanTexture2d colorTexture;
@@ -30,6 +30,9 @@ namespace parus::vulkan
 		void createDepthResources(const VulkanStorage& storage);
 		void createColorResources(const VulkanStorage& storage);
 		static void createUniformBuffer(VulkanStorage& storage);
+		static void createShadowMapResources(VulkanStorage& storage, const VulkanDescriptorManager& descriptorManager);
+		static void createSSAOResources(VulkanStorage& storage, const VulkanDescriptorManager& descriptorManager);
+		static void cleanupSSAOResources(const VulkanStorage& storage);
 		static void cleanupTextures(const VulkanStorage& storage);
 
 		[[nodiscard]] static VkSampleCountFlagBits getMaxUsableSampleCount(const VulkanStorage& storage);

@@ -11,6 +11,7 @@
 #endif // SAVE_CAPTURE_CUBEMAP_TEXTURES
 
 #include <array>
+#include <chrono>
 #include <set>
 #include <stdexcept>
 
@@ -215,19 +216,24 @@ namespace parus::vulkan
 			VulkanDescriptor()
 				.withLayout("Descriptor Set 3 - Lights",
 					{
-						{ "Binding 0: Light UBO", VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,          VK_SHADER_STAGE_FRAGMENT_BIT },
-						{ "Binding 1: Cube map",  VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,  VK_SHADER_STAGE_FRAGMENT_BIT },
+						{ "Binding 0: Light UBO",    VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         VK_SHADER_STAGE_FRAGMENT_BIT },
+						{ "Binding 1: Cube map",     VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT },
+						{ "Binding 2: Shadow map",   VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT },
+						{ "Binding 3: Point lights", VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         VK_SHADER_STAGE_FRAGMENT_BIT },
+						{ "Binding 4: SSAO",         VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT },
 					})
 				.withPoolSizes(
 					{
-						{ .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         .descriptorCount = VulkanStorage::MAX_FRAMES_IN_FLIGHT },
-						{ .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .descriptorCount = VulkanStorage::MAX_FRAMES_IN_FLIGHT },
+						{ .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         .descriptorCount = VulkanStorage::MAX_FRAMES_IN_FLIGHT * 2 },
+						{ .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .descriptorCount = VulkanStorage::MAX_FRAMES_IN_FLIGHT * 3 },
 					},
 					VulkanStorage::MAX_FRAMES_IN_FLIGHT)
 				.withAllocator([&](VulkanStorage& s, const VkDescriptorSetLayout layout)
 				{
 					if (!directionalLight.descriptorSets.empty())
+					{
 						return;
+					}
 
 					const std::vector lightLayouts(VulkanStorage::MAX_FRAMES_IN_FLIGHT, layout);
 					VkDescriptorSetAllocateInfo allocInfo{};
@@ -243,9 +249,12 @@ namespace parus::vulkan
 					for (size_t i = 0; i < VulkanStorage::MAX_FRAMES_IN_FLIGHT; i++)
 					{
 						const VkDescriptorBufferInfo lightBufferInfo = { .buffer = s.directionalLightUboBuffer.frameBuffers[i], .offset = 0, .range = sizeof(math::DirectionalLightUbo) };
-						const VkDescriptorImageInfo imageInfo = { .sampler = cubemap.sampler, .imageView = cubemap.imageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
+						const VkDescriptorImageInfo cubemapInfo = { .sampler = cubemap.sampler, .imageView = cubemap.imageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
+						const VkDescriptorImageInfo shadowMapInfo = { .sampler = s.shadowMap.sampler, .imageView = s.shadowMap.imageView, .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL };
+						const VkDescriptorBufferInfo pointLightBufferInfo = { .buffer = s.pointLightUboBuffer.frameBuffers[i], .offset = 0, .range = sizeof(math::PointLightUbo) };
+						const VkDescriptorImageInfo ssaoInfo = { .sampler = s.ssaoBlurBuffer.sampler, .imageView = s.ssaoBlurBuffer.imageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
 
-						const std::array<VkWriteDescriptorSet, 2> writes = {{
+						const std::array<VkWriteDescriptorSet, 5> writes = {{
 							{
 								.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, .pNext = nullptr,
 								.dstSet = directionalLight.descriptorSets[i], .dstBinding = 0, .dstArrayElement = 0,
@@ -256,7 +265,25 @@ namespace parus::vulkan
 								.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, .pNext = nullptr,
 								.dstSet = directionalLight.descriptorSets[i], .dstBinding = 1, .dstArrayElement = 0,
 								.descriptorCount = 1, .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-								.pImageInfo = &imageInfo, .pBufferInfo = nullptr, .pTexelBufferView = nullptr
+								.pImageInfo = &cubemapInfo, .pBufferInfo = nullptr, .pTexelBufferView = nullptr
+							},
+							{
+								.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, .pNext = nullptr,
+								.dstSet = directionalLight.descriptorSets[i], .dstBinding = 2, .dstArrayElement = 0,
+								.descriptorCount = 1, .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+								.pImageInfo = &shadowMapInfo, .pBufferInfo = nullptr, .pTexelBufferView = nullptr
+							},
+							{
+								.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, .pNext = nullptr,
+								.dstSet = directionalLight.descriptorSets[i], .dstBinding = 3, .dstArrayElement = 0,
+								.descriptorCount = 1, .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+								.pImageInfo = nullptr, .pBufferInfo = &pointLightBufferInfo, .pTexelBufferView = nullptr
+							},
+							{
+								.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, .pNext = nullptr,
+								.dstSet = directionalLight.descriptorSets[i], .dstBinding = 4, .dstArrayElement = 0,
+								.descriptorCount = 1, .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+								.pImageInfo = &ssaoInfo, .pBufferInfo = nullptr, .pTexelBufferView = nullptr
 							}
 						}};
 						vkUpdateDescriptorSets(s.logicalDevice, static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
@@ -332,7 +359,11 @@ namespace parus::vulkan
 		if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebufferResized)
 		{
 			framebufferResized = false;
-			initializer.recreateSwapChain(storage);
+			initializer.recreateSwapChain(storage, descriptorManager);
+
+			// Force LIGHTS descriptor re-creation since SSAO blur texture was recreated
+			directionalLight.descriptorSets.clear();
+			rebuildDescriptorSets();
 		}
 		else
 		{
@@ -460,7 +491,7 @@ namespace parus::vulkan
 		directionalLight =
 			{
 				.light = {
-					.color = math::Vector3(1.0f, 0.65f, 0.8f).trivial(),
+					.color = math::Vector3(1.0f, 0.95f, 0.85f).trivial(),
 					.direction = math::Vector3(66.0f, 70.0f, 429.0f).trivial()
 					// .direction = math::Vector3(1.0f, 0.4f, 0.3f).trivial()
 
@@ -468,11 +499,16 @@ namespace parus::vulkan
 				.descriptorSets = {}
 			};
 
-		skyHorizonColor = math::Vector3(0.8f, 0.9f, 1.0f);
-		skyZenithColor  = math::Vector3(0.0f, 0.05f, 0.3f);
+		skyHorizonColor = math::Vector3(0.85f, 0.92f, 1.0f);
+		skyZenithColor  = math::Vector3(0.25f, 0.45f, 0.85f);
 
-		// skyHorizonColor = math::Vector3(0.6f, 0.2f, 0.15f);  // dark red glow
-		// skyZenithColor  = math::Vector3(0.02f, 0.02f, 0.15f); // near-black blue
+		// Point lights (e.g., torch inside the tunnel)
+		pointLights.push_back({
+			.position = math::Vector3(62.0f, 57.0f, -33.0f),
+			.color = math::Vector3(1.0f, 0.7f, 0.3f),
+			.radius = 80.0f,
+			.intensity = 4.0f
+		});
 
 		createCubemapTexture();
 
@@ -495,7 +531,9 @@ namespace parus::vulkan
 
 		if (result == VK_ERROR_OUT_OF_DATE_KHR)
 		{
-			initializer.recreateSwapChain(storage);
+			initializer.recreateSwapChain(storage, descriptorManager);
+			directionalLight.descriptorSets.clear();
+			rebuildDescriptorSets();
 			return std::nullopt;
 		}
 
@@ -964,6 +1002,269 @@ namespace parus::vulkan
 		}
 	}
 
+	void VulkanRenderer::drawDepthPrePass(const VkCommandBuffer commandBufferToRecord) const
+	{
+		if (!storage.globalBuffers.vertexBuffer)
+		{
+			return;
+		}
+
+		const VkExtent2D extent = storage.swapChainDetails.swapChainExtent;
+
+		VkRenderPassBeginInfo renderPassInfo{};
+		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+		renderPassInfo.renderPass = storage.depthPrePassRenderPass;
+		renderPassInfo.framebuffer = storage.depthPrePass.framebuffer;
+		renderPassInfo.renderArea = { {0, 0}, extent };
+
+		VkClearValue clearValue{};
+		clearValue.depthStencil = { .depth = 1.0f, .stencil = 0 };
+		renderPassInfo.clearValueCount = 1;
+		renderPassInfo.pClearValues = &clearValue;
+
+		vkCmdBeginRenderPass(commandBufferToRecord, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+		vkCmdBindPipeline(commandBufferToRecord, VK_PIPELINE_BIND_POINT_GRAPHICS, storage.depthPrePassPipeline);
+
+		VkViewport viewport{};
+		viewport.width = static_cast<float>(extent.width);
+		viewport.height = static_cast<float>(extent.height);
+		viewport.minDepth = 0.0f;
+		viewport.maxDepth = 1.0f;
+		vkCmdSetViewport(commandBufferToRecord, 0, 1, &viewport);
+
+		VkRect2D scissor = { {0, 0}, extent };
+		vkCmdSetScissor(commandBufferToRecord, 0, 1, &scissor);
+
+		const VkBuffer vertexBuffers[] = { storage.globalBuffers.vertexBuffer };
+		constexpr VkDeviceSize offsets[] = { 0 };
+		vkCmdBindVertexBuffers(commandBufferToRecord, 0, 1, vertexBuffers, offsets);
+		vkCmdBindIndexBuffer(commandBufferToRecord, storage.globalBuffers.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+
+		// Bind global descriptor (camera view/proj)
+		vkCmdBindDescriptorSets(
+			commandBufferToRecord,
+			VK_PIPELINE_BIND_POINT_GRAPHICS,
+			storage.depthPrePassPipelineLayout,
+			0,
+			1,
+			&storage.globalDescriptorSets[currentFrame], 0, nullptr);
+
+		for (const auto& meshInstance : meshInstances)
+		{
+			if (meshInstance.mesh->meshType != MeshType::STATIC_MESH)
+			{
+				continue;
+			}
+
+			// Bind instance descriptor
+			vkCmdBindDescriptorSets(
+				commandBufferToRecord,
+				VK_PIPELINE_BIND_POINT_GRAPHICS,
+				storage.depthPrePassPipelineLayout,
+				1,
+				1,
+				&meshInstance.instanceDescriptorSets[currentFrame], 0, nullptr);
+
+			for (const auto& meshPart : meshInstance.mesh->meshParts)
+			{
+				vkCmdDrawIndexed(commandBufferToRecord,
+					static_cast<uint32_t>(meshPart.indexCount),
+					1,
+					static_cast<uint32_t>(meshPart.indexOffset),
+					static_cast<int32_t>(meshPart.vertexOffset),
+					0);
+			}
+		}
+
+		vkCmdEndRenderPass(commandBufferToRecord);
+	}
+
+	void VulkanRenderer::drawSSAOPass(const VkCommandBuffer commandBufferToRecord) const
+	{
+		if (!storage.globalBuffers.vertexBuffer)
+		{
+			return;
+		}
+
+		const VkExtent2D extent = storage.swapChainDetails.swapChainExtent;
+
+		VkRenderPassBeginInfo renderPassInfo{};
+		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+		renderPassInfo.renderPass = storage.ssaoRenderPass;
+		renderPassInfo.framebuffer = storage.ssaoBuffer.framebuffer;
+		renderPassInfo.renderArea = { {0, 0}, extent };
+
+		VkClearValue clearValue{};
+		clearValue.color = {{ 1.0f, 1.0f, 1.0f, 1.0f }};
+		renderPassInfo.clearValueCount = 1;
+		renderPassInfo.pClearValues = &clearValue;
+
+		vkCmdBeginRenderPass(commandBufferToRecord, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+		vkCmdBindPipeline(commandBufferToRecord, VK_PIPELINE_BIND_POINT_GRAPHICS, storage.ssaoPipeline);
+
+		VkViewport viewport{};
+		viewport.width = static_cast<float>(extent.width);
+		viewport.height = static_cast<float>(extent.height);
+		viewport.minDepth = 0.0f;
+		viewport.maxDepth = 1.0f;
+		vkCmdSetViewport(commandBufferToRecord, 0, 1, &viewport);
+
+		VkRect2D scissor = { {0, 0}, extent };
+		vkCmdSetScissor(commandBufferToRecord, 0, 1, &scissor);
+
+		// Bind global UBO (set 0) - contains proj matrix for SSAO reconstruction
+		vkCmdBindDescriptorSets(
+			commandBufferToRecord,
+			VK_PIPELINE_BIND_POINT_GRAPHICS,
+			storage.ssaoPipelineLayout,
+			0,
+			1,
+			&storage.globalDescriptorSets[currentFrame], 0, nullptr);
+
+		// Bind SSAO descriptor (set 1) - contains depth pre-pass texture
+		vkCmdBindDescriptorSets(
+			commandBufferToRecord,
+			VK_PIPELINE_BIND_POINT_GRAPHICS,
+			storage.ssaoPipelineLayout,
+			1,
+			1,
+			&storage.ssaoDescriptorSet, 0, nullptr);
+
+		// Fullscreen triangle - 3 vertices, no vertex buffer
+		vkCmdDraw(commandBufferToRecord, 3, 1, 0, 0);
+
+		vkCmdEndRenderPass(commandBufferToRecord);
+	}
+
+	void VulkanRenderer::drawSSAOBlurPass(const VkCommandBuffer commandBufferToRecord) const
+	{
+		if (!storage.globalBuffers.vertexBuffer)
+		{
+			return;
+		}
+
+		const VkExtent2D extent = storage.swapChainDetails.swapChainExtent;
+
+		VkRenderPassBeginInfo renderPassInfo{};
+		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+		renderPassInfo.renderPass = storage.ssaoBlurRenderPass;
+		renderPassInfo.framebuffer = storage.ssaoBlurBuffer.framebuffer;
+		renderPassInfo.renderArea = { {0, 0}, extent };
+
+		VkClearValue clearValue{};
+		clearValue.color = {{ 1.0f, 1.0f, 1.0f, 1.0f }};
+		renderPassInfo.clearValueCount = 1;
+		renderPassInfo.pClearValues = &clearValue;
+
+		vkCmdBeginRenderPass(commandBufferToRecord, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+		vkCmdBindPipeline(commandBufferToRecord, VK_PIPELINE_BIND_POINT_GRAPHICS, storage.ssaoBlurPipeline);
+
+		VkViewport viewport{};
+		viewport.width = static_cast<float>(extent.width);
+		viewport.height = static_cast<float>(extent.height);
+		viewport.minDepth = 0.0f;
+		viewport.maxDepth = 1.0f;
+		vkCmdSetViewport(commandBufferToRecord, 0, 1, &viewport);
+
+		VkRect2D scissor = { {0, 0}, extent };
+		vkCmdSetScissor(commandBufferToRecord, 0, 1, &scissor);
+
+		// Bind SSAO blur descriptor (set 0) - contains raw SSAO texture
+		vkCmdBindDescriptorSets(
+			commandBufferToRecord,
+			VK_PIPELINE_BIND_POINT_GRAPHICS,
+			storage.ssaoBlurPipelineLayout,
+			0,
+			1,
+			&storage.ssaoBlurDescriptorSet, 0, nullptr);
+
+		// Fullscreen triangle - 3 vertices, no vertex buffer
+		vkCmdDraw(commandBufferToRecord, 3, 1, 0, 0);
+
+		vkCmdEndRenderPass(commandBufferToRecord);
+	}
+
+	void VulkanRenderer::drawShadowPass(const VkCommandBuffer commandBufferToRecord) const
+	{
+		if (!storage.globalBuffers.vertexBuffer)
+		{
+			return;
+		}
+
+		constexpr uint32_t shadowMapSize = decltype(storage.shadowMap)::SIZE;
+
+		VkRenderPassBeginInfo renderPassInfo{};
+		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+		renderPassInfo.renderPass = storage.shadowRenderPass;
+		renderPassInfo.framebuffer = storage.shadowMap.framebuffer;
+		renderPassInfo.renderArea = { {0, 0}, {shadowMapSize, shadowMapSize} };
+
+		VkClearValue clearValue{};
+		clearValue.depthStencil = { .depth = 1.0f, .stencil = 0 };
+		renderPassInfo.clearValueCount = 1;
+		renderPassInfo.pClearValues = &clearValue;
+
+		vkCmdBeginRenderPass(commandBufferToRecord, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+		vkCmdBindPipeline(commandBufferToRecord, VK_PIPELINE_BIND_POINT_GRAPHICS, storage.shadowPipeline);
+
+		VkViewport viewport{};
+		viewport.width = static_cast<float>(shadowMapSize);
+		viewport.height = static_cast<float>(shadowMapSize);
+		viewport.minDepth = 0.0f;
+		viewport.maxDepth = 1.0f;
+		vkCmdSetViewport(commandBufferToRecord, 0, 1, &viewport);
+
+		VkRect2D scissor = { {0, 0}, {shadowMapSize, shadowMapSize} };
+		vkCmdSetScissor(commandBufferToRecord, 0, 1, &scissor);
+
+		const VkBuffer vertexBuffers[] = { storage.globalBuffers.vertexBuffer };
+		constexpr VkDeviceSize offsets[] = { 0 };
+		vkCmdBindVertexBuffers(commandBufferToRecord, 0, 1, vertexBuffers, offsets);
+		vkCmdBindIndexBuffer(commandBufferToRecord, storage.globalBuffers.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+
+		// Bind global descriptor (contains lightSpaceMatrix)
+		vkCmdBindDescriptorSets(
+			commandBufferToRecord,
+			VK_PIPELINE_BIND_POINT_GRAPHICS,
+			storage.shadowPipelineLayout,
+			0,
+			1,
+			&storage.globalDescriptorSets[currentFrame], 0, nullptr);
+
+		for (const auto& meshInstance : meshInstances)
+		{
+			if (meshInstance.mesh->meshType != MeshType::STATIC_MESH)
+			{
+				continue;
+			}
+
+			// Bind instance descriptor
+			vkCmdBindDescriptorSets(
+				commandBufferToRecord,
+				VK_PIPELINE_BIND_POINT_GRAPHICS,
+				storage.shadowPipelineLayout,
+				1,
+				1,
+				&meshInstance.instanceDescriptorSets[currentFrame], 0, nullptr);
+
+			for (const auto& meshPart : meshInstance.mesh->meshParts)
+			{
+				vkCmdDrawIndexed(commandBufferToRecord,
+					static_cast<uint32_t>(meshPart.indexCount),
+					1,
+					static_cast<uint32_t>(meshPart.indexOffset),
+					static_cast<int32_t>(meshPart.vertexOffset),
+					0);
+			}
+		}
+
+		vkCmdEndRenderPass(commandBufferToRecord);
+	}
+
 	void VulkanRenderer::recordCommandBuffer(const VkCommandBuffer commandBufferToRecord, const uint32_t imageIndex) const
 	{
 		VkCommandBufferBeginInfo beginInfo{};
@@ -974,7 +1275,19 @@ namespace parus::vulkan
 		ASSERT(vkBeginCommandBuffer(commandBufferToRecord, &beginInfo) == VK_SUCCESS,
 			"Failed to begin recording command buffer.");
 
-		// Start the rendering pass
+		// Shadow pass (off-screen depth-only)
+		drawShadowPass(commandBufferToRecord);
+
+		// Depth pre-pass (screen-resolution, for SSAO)
+		drawDepthPrePass(commandBufferToRecord);
+
+		// SSAO pass (fullscreen, reads depth pre-pass)
+		drawSSAOPass(commandBufferToRecord);
+
+		// SSAO blur pass (fullscreen, smooths SSAO)
+		drawSSAOBlurPass(commandBufferToRecord);
+
+		// Main rendering pass
 		VkRenderPassBeginInfo renderPassInfo{};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 		renderPassInfo.renderPass = storage.renderPass;
@@ -1372,6 +1685,41 @@ namespace parus::vulkan
 	{
 		const SpectatorCamera camera = Services::get<World>()->getMainCamera();
 
+		// Compute light-space matrix for shadow mapping
+		const math::Vector3 lightDir = math::Vector3(
+			directionalLight.light.direction.x,
+			directionalLight.light.direction.y,
+			directionalLight.light.direction.z).normalize();
+
+		constexpr float shadowExtent = 150.0f;
+		constexpr float shadowNear = 0.1f;
+		constexpr float shadowFar = 500.0f;
+
+		const math::Vector3 shadowCenter = camera.getPosition();
+		const math::Vector3 lightPos = shadowCenter + lightDir * (shadowFar * 0.5f);
+
+		const math::Matrix4x4 lightView = math::Matrix4x4::lookAt(
+			lightPos,
+			shadowCenter,
+			math::Vector3(0.0f, 1.0f, 0.0f));
+
+		const math::Matrix4x4 lightProj = math::Matrix4x4::orthographic(
+			-shadowExtent, shadowExtent,
+			-shadowExtent, shadowExtent,
+			shadowNear, shadowFar);
+
+		const math::Matrix4x4 lightSpaceMatrix = lightProj * lightView;
+
+		// Shadow texel snapping - eliminates shadow shimmer on camera movement
+		math::TrivialMatrix4x4 snappedLightSpaceMatrix = lightSpaceMatrix.trivial();
+		{
+			constexpr float shadowMapSize = static_cast<float>(decltype(storage.shadowMap)::SIZE);
+			const float texelSize = (2.0f * shadowExtent) / shadowMapSize;
+
+			snappedLightSpaceMatrix.values[3][0] = std::floor(snappedLightSpaceMatrix.values[3][0] / texelSize) * texelSize;
+			snappedLightSpaceMatrix.values[3][1] = std::floor(snappedLightSpaceMatrix.values[3][1] / texelSize) * texelSize;
+		}
+
 		// Global UBO
 		math::GlobalUbo globalUbo{};
 
@@ -1385,11 +1733,22 @@ namespace parus::vulkan
 			static_cast<float>(storage.swapChainDetails.swapChainExtent.width) / static_cast<float>(storage.swapChainDetails.swapChainExtent.height),
 			Z_NEAR, Z_FAR).trivial();
 
+		globalUbo.lightSpaceMatrix = snappedLightSpaceMatrix;
 		globalUbo.cameraPosition = camera.getPosition().trivial();
 
 		globalUbo.debug = isDrawDebugEnabled ? 1 : 0;
 		globalUbo.skyHorizonColor = skyHorizonColor.trivial();
 		globalUbo.skyZenithColor = skyZenithColor.trivial();
+		globalUbo.fogStart = 500.0f;
+		globalUbo.fogEnd = 2500.0f;
+
+		// Time for animated effects (sky clouds, etc.)
+		static const auto startTime = std::chrono::high_resolution_clock::now();
+		const auto currentTime = std::chrono::high_resolution_clock::now();
+		globalUbo.time = std::chrono::duration<float>(currentTime - startTime).count();
+
+		// Sun direction (normalized light direction for sky shader)
+		globalUbo.sunDirection = lightDir.trivial();
 
 		memcpy(storage.globalUboBuffer.mapped[currentImage], &globalUbo, sizeof(globalUbo));
 
@@ -1406,6 +1765,23 @@ namespace parus::vulkan
 		directionalLightUbo.direction = directionalLight.light.direction;
 
 		memcpy(storage.directionalLightUboBuffer.mapped[currentFrame], &directionalLightUbo, sizeof(directionalLightUbo));
+
+		// Point Light UBO
+		math::PointLightUbo pointLightUbo{};
+		pointLightUbo.count = static_cast<int>(std::min(pointLights.size(), static_cast<size_t>(math::MAX_POINT_LIGHTS)));
+		for (int i = 0; i < pointLightUbo.count; ++i)
+		{
+			pointLightUbo.lights[i].posX = pointLights[i].position.x;
+			pointLightUbo.lights[i].posY = pointLights[i].position.y;
+			pointLightUbo.lights[i].posZ = pointLights[i].position.z;
+			pointLightUbo.lights[i].radius = pointLights[i].radius;
+			pointLightUbo.lights[i].colorR = pointLights[i].color.x;
+			pointLightUbo.lights[i].colorG = pointLights[i].color.y;
+			pointLightUbo.lights[i].colorB = pointLights[i].color.z;
+			pointLightUbo.lights[i].intensity = pointLights[i].intensity;
+		}
+
+		memcpy(storage.pointLightUboBuffer.mapped[currentFrame], &pointLightUbo, sizeof(pointLightUbo));
 	}
 
 	void VulkanRenderer::onResize()

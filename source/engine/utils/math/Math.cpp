@@ -330,6 +330,32 @@ namespace parus::math
         return result;
     }
 
+    Matrix4x4 Matrix4x4::orthographic(const float left, const float right, const float bottom, const float top, const float near, const float far)
+    {
+        Matrix4x4 result{};
+
+        result.values[0][0] = 2.0f / (right - left);
+        result.values[1][1] = -2.0f / (top - bottom);
+        result.values[2][2] = -1.0f / (far - near);
+        result.values[3][0] = -(right + left) / (right - left);
+        result.values[3][1] = -(top + bottom) / (top - bottom);
+        result.values[3][2] = -near / (far - near);
+        result.values[3][3] = 1.0f;
+
+        return result;
+    }
+
+    Matrix4x4 Matrix4x4::translation(const float x, const float y, const float z)
+    {
+        Matrix4x4 result{};
+
+        result.values[3][0] = x;
+        result.values[3][1] = y;
+        result.values[3][2] = z;
+
+        return result;
+    }
+
     Matrix4x4 Matrix4x4::lookAt(const Vector3& eye, const Vector3& target, const Vector3& up)
     {
         const Vector3 forward = (eye - target).normalize();  // Camera direction (negative Z)

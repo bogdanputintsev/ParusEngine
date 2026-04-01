@@ -31,7 +31,7 @@ namespace parus
         void setCubemapTexture(const std::shared_ptr<vulkan::VulkanTexture2d>& newCubemapTexture);
         std::shared_ptr<vulkan::VulkanTexture2d> getTexture(const std::string& path);
         std::shared_ptr<vulkan::VulkanTexture2d> getDefaultTextureOfType(const vulkan::TextureType textureType);
-        std::shared_ptr<vulkan::VulkanTexture2d> getOrLoadTexture(const std::string& texturePath);
+        std::shared_ptr<vulkan::VulkanTexture2d> getOrLoadTexture(const std::string& texturePath, vulkan::TextureType textureType = vulkan::TextureType::ALBEDO);
         bool hasTexture(const std::string& path) const;
         std::vector<std::shared_ptr<vulkan::VulkanTexture2d>> getAllTextures() const;
 

@@ -23,9 +23,11 @@ namespace parus::vulkan
         VkPipelineBuilder& withInputAssembly();
         VkPipelineBuilder& withViewportState();
         VkPipelineBuilder& withRasterization();
+        VkPipelineBuilder& withRasterization(VkCullModeFlagBits cullMode, bool enableDepthBias, float depthBiasConstant, float depthBiasSlope);
         VkPipelineBuilder& withMultisample(VkSampleCountFlagBits rasterizationSamples);
         VkPipelineBuilder& withDepthStencil(bool depthWriteEnabled);
         VkPipelineBuilder& withColorBlend();
+        VkPipelineBuilder& withNoColorBlend();
         VkPipelineBuilder& withDynamicState();
         VkPipelineBuilder& setRenderPass(VkRenderPass renderPass);
 

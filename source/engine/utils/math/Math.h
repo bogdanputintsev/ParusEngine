@@ -209,7 +209,11 @@ namespace parus::math
         
         static Matrix4x4 perspective(const float fovRadians, const float aspectRatio, const float near, const float far);
 
+        static Matrix4x4 orthographic(const float left, const float right, const float bottom, const float top, const float near, const float far);
+
         static Matrix4x4 lookAt(const Vector3& eye, const Vector3& target, const Vector3& up);
+
+        static Matrix4x4 translation(const float x, const float y, const float z);
 
         static Matrix4x4 identity() { return {}; }
 
