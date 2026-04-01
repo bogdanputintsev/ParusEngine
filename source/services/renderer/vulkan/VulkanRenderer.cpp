@@ -1,11 +1,22 @@
 #include "VulkanRenderer.h"
 
+// #define SAVE_CAPTURE_CUBEMAP_TEXTURES
+
+#ifdef SAVE_CAPTURE_CUBEMAP_TEXTURES
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#pragma warning(push)
+#pragma warning(disable: 4996)
+#include "third-party/stb_image_write.h"
+#pragma warning(pop)
+#endif // SAVE_CAPTURE_CUBEMAP_TEXTURES
+
 #include <array>
-#include <cassert>
 #include <set>
 #include <stdexcept>
 
 #include "builder/VkBufferBuilder.h"
+#include "builder/VkPipelineBuilder.h"
+#include <filesystem>
 #include "builder/VkDeviceMemoryBuilder.h"
 #include "builder/VkImageBuilder.h"
 #include "builder/VkImageViewBuilder.h"
@@ -352,6 +363,12 @@ namespace parus::vulkan
 		}
 		rebuildSceneBuffers();
 		rebuildDescriptorSets();
+
+		if (needsCubemapCapture && storage.globalBuffers.skyVertexBuffer != VK_NULL_HANDLE)
+		{
+			captureSkyToCubemap();
+			needsCubemapCapture = false;
+		}
 	}
 
 	bool VulkanRenderer::flushMeshQueue()
@@ -445,9 +462,17 @@ namespace parus::vulkan
 				.light = {
 					.color = math::Vector3(1.0f, 0.65f, 0.8f).trivial(),
 					.direction = math::Vector3(66.0f, 70.0f, 429.0f).trivial()
+					// .direction = math::Vector3(1.0f, 0.4f, 0.3f).trivial()
+
 				},
 				.descriptorSets = {}
 			};
+
+		skyHorizonColor = math::Vector3(0.8f, 0.9f, 1.0f);
+		skyZenithColor  = math::Vector3(0.0f, 0.05f, 0.3f);
+
+		// skyHorizonColor = math::Vector3(0.6f, 0.2f, 0.15f);  // dark red glow
+		// skyZenithColor  = math::Vector3(0.02f, 0.02f, 0.15f); // near-black blue
 
 		createCubemapTexture();
 
@@ -481,32 +506,41 @@ namespace parus::vulkan
 
 	void VulkanRenderer::createCubemapTexture()
 	{
-		const VkImage cubemapImage = VkImageBuilder("Cubemap Image")
-			.setWidth(512)
-			.setHeight(512)
-			.setArrayLayers(6)
-			.setFormat(VK_FORMAT_R32G32B32A32_SFLOAT)
-			.setUsage(VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT)
+		static constexpr uint32_t CUBE_FACE_COUNT = 6;
+		static constexpr uint32_t FACE_SIZE = 512;
+		static constexpr VkFormat CUBEMAP_FORMAT = VK_FORMAT_R8G8B8A8_UNORM;
+
+		cubemap.image = VkImageBuilder("Cubemap Image")
+			.setWidth(FACE_SIZE)
+			.setHeight(FACE_SIZE)
+			.setArrayLayers(CUBE_FACE_COUNT)
+			.setFormat(CUBEMAP_FORMAT)
+			.setTiling(VK_IMAGE_TILING_OPTIMAL)
+			.setUsage(VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
 			.setFlags(VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT)
 			.build(storage);
-
-		cubemap.image = cubemapImage;
 
 		cubemap.imageMemory = VkDeviceMemoryBuilder("Cubemap Image Memory")
 			.setImage(cubemap.image)
 			.setPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
 			.build(storage);
 
-		const VkImageView cubemapImageView = VkImageViewBuilder()
-			.setImage(cubemapImage)
+		transitionImageLayout(cubemap.image, CUBEMAP_FORMAT,
+			VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			1, CUBE_FACE_COUNT);
+
+		transitionImageLayout(cubemap.image, CUBEMAP_FORMAT,
+			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			1, CUBE_FACE_COUNT);
+
+		cubemap.imageView = VkImageViewBuilder()
+			.setImage(cubemap.image)
 			.setViewType(VK_IMAGE_VIEW_TYPE_CUBE)
-			.setFormat(VK_FORMAT_R32G32B32A32_SFLOAT)
+			.setFormat(CUBEMAP_FORMAT)
 			.setComponents({VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A})
 			.setAspectMask(VK_IMAGE_ASPECT_COLOR_BIT)
-			.setLayerCount(6)
+			.setLayerCount(CUBE_FACE_COUNT)
 			.build("Cubemap Image View", storage);
-
-		cubemap.imageView = cubemapImageView;
 
 		cubemap.sampler = VkSamplerBuilder("Cubemap Sampler")
 			.setSamplerMode(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE)
@@ -514,6 +548,326 @@ namespace parus::vulkan
 			.build(storage);
 
 		Services::get<World>()->getStorage()->setCubemapTexture(std::make_shared<VulkanTexture2d>(cubemap));
+	}
+
+	void VulkanRenderer::captureSkyToCubemap()
+	{
+		static constexpr uint32_t CAPTURE_SIZE = 512;
+		static constexpr uint32_t CUBE_FACE_COUNT = 6;
+		static constexpr VkFormat CUBEMAP_FORMAT = VK_FORMAT_R8G8B8A8_UNORM;
+
+		vkDeviceWaitIdle(storage.logicalDevice);
+
+		// Offscreen render pass for capture
+		VkRenderPass captureRenderPass;
+		{
+			const VkAttachmentDescription colorAttachment =
+			{
+				.flags = 0,
+				.format = CUBEMAP_FORMAT,
+				.samples = VK_SAMPLE_COUNT_1_BIT,
+				.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+				.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+				.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+				.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+				.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+				.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			};
+
+			const VkAttachmentReference colorAttachmentRef = { .attachment = 0, .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
+
+			VkSubpassDescription subpass{};
+			subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+			subpass.colorAttachmentCount = 1;
+			subpass.pColorAttachments = &colorAttachmentRef;
+
+			const VkSubpassDependency dependency =
+			{
+				.srcSubpass = VK_SUBPASS_EXTERNAL,
+				.dstSubpass = 0,
+				.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+				.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+				.srcAccessMask = 0,
+				.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+				.dependencyFlags = 0,
+			};
+
+			VkRenderPassCreateInfo renderPassInfo{};
+			renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+			renderPassInfo.attachmentCount = 1;
+			renderPassInfo.pAttachments = &colorAttachment;
+			renderPassInfo.subpassCount = 1;
+			renderPassInfo.pSubpasses = &subpass;
+			renderPassInfo.dependencyCount = 1;
+			renderPassInfo.pDependencies = &dependency;
+
+			ASSERT(vkCreateRenderPass(storage.logicalDevice, &renderPassInfo, nullptr, &captureRenderPass) == VK_SUCCESS,
+				"Failed to create cubemap capture render pass.");
+		}
+
+		// Sky capture pipeline (no MSAA, uses capture render pass)
+		VkPipeline capturePipeline;
+		VkPipelineLayout capturePipelineLayout;
+		{
+			using DescriptorType = VulkanDescriptorManager::DescriptorType;
+			VkPipelineBuilder("Sky Capture Pipeline")
+				.setRenderPass(captureRenderPass)
+				.useLayouts({ descriptorManager.getLayout(DescriptorType::GLOBAL) })
+				.addStage(storage, VK_SHADER_STAGE_VERTEX_BIT,   "bin/shaders/sky.vert.spv")
+				.addStage(storage, VK_SHADER_STAGE_FRAGMENT_BIT, "bin/shaders/sky.frag.spv")
+				.withVertexInput(
+					{{ .binding = 0, .stride = sizeof(math::Vertex), .inputRate = VK_VERTEX_INPUT_RATE_VERTEX }},
+					{{ .location = 0, .binding = 0, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = offsetof(math::Vertex, position) }})
+				.withInputAssembly()
+				.withViewportState()
+				.withRasterization()
+				.withMultisample(VK_SAMPLE_COUNT_1_BIT)
+				.withDepthStencil(false)
+				.withColorBlend()
+				.withDynamicState()
+				.build(storage, capturePipelineLayout, capturePipeline);
+		}
+
+		// Per-face 2D image views and framebuffers
+		std::array<VkImageView,   CUBE_FACE_COUNT> faceViews{};
+		std::array<VkFramebuffer, CUBE_FACE_COUNT> faceFramebuffers{};
+
+		for (uint32_t faceIndex = 0; faceIndex < CUBE_FACE_COUNT; faceIndex++)
+		{
+			VkImageViewCreateInfo viewInfo{};
+			viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+			viewInfo.image = cubemap.image;
+			viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+			viewInfo.format = CUBEMAP_FORMAT;
+			viewInfo.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, faceIndex, 1 };
+
+			ASSERT(vkCreateImageView(storage.logicalDevice, &viewInfo, nullptr, &faceViews[faceIndex]) == VK_SUCCESS,
+				"Failed to create cubemap face image view.");
+
+			VkFramebufferCreateInfo framebufferInfo{};
+			framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+			framebufferInfo.renderPass = captureRenderPass;
+			framebufferInfo.attachmentCount = 1;
+			framebufferInfo.pAttachments = &faceViews[faceIndex];
+			framebufferInfo.width  = CAPTURE_SIZE;
+			framebufferInfo.height = CAPTURE_SIZE;
+			framebufferInfo.layers = 1;
+
+			ASSERT(vkCreateFramebuffer(storage.logicalDevice, &framebufferInfo, nullptr, &faceFramebuffers[faceIndex]) == VK_SUCCESS,
+				"Failed to create cubemap face framebuffer.");
+		}
+
+		// View directions for each cubemap face (forward, up)
+		struct FaceDirection { math::Vector3 forward; math::Vector3 up; };
+		const std::array<FaceDirection, CUBE_FACE_COUNT> faceDirections = {{
+			{{ 1,  0,  0}, {0, -1,  0}},  // +X
+			{{-1,  0,  0}, {0, -1,  0}},  // -X
+			{{ 0,  1,  0}, {0,  0,  1}},  // +Y
+			{{ 0, -1,  0}, {0,  0, -1}},  // -Y
+			{{ 0,  0,  1}, {0, -1,  0}},  // +Z
+			{{ 0,  0, -1}, {0, -1,  0}},  // -Z
+		}};
+
+		const math::Matrix4x4 captureProjection = math::Matrix4x4::perspective(
+			math::radians(90.0f), 1.0f, Z_NEAR, Z_FAR);
+
+		const std::shared_ptr<Mesh> skyMesh = Services::get<World>()->getStorage()->getAllMeshesByType(MeshType::SKY)[0];
+		const MeshPart& skyMeshPart = skyMesh->meshParts[0];
+
+		// Render each face
+		for (uint32_t faceIndex = 0; faceIndex < CUBE_FACE_COUNT; faceIndex++)
+		{
+			// Update global UBO with this face's view matrix
+			math::GlobalUbo captureUbo{};
+			captureUbo.view = math::Matrix4x4::lookAt(
+				math::Vector3(0, 0, 0),
+				faceDirections[faceIndex].forward,
+				faceDirections[faceIndex].up).trivial();
+			captureUbo.projection   = captureProjection.trivial();
+			captureUbo.skyHorizonColor = skyHorizonColor.trivial();
+			captureUbo.skyZenithColor  = skyZenithColor.trivial();
+			memcpy(storage.globalUboBuffer.mapped[0], &captureUbo, sizeof(captureUbo));
+
+			const VkCommandBuffer commandBuffer = utils::beginSingleTimeCommands(storage, utils::getCommandPool(storage));
+
+			VkClearValue clearValue{};
+			clearValue.color = {{ 0.0f, 0.0f, 0.0f, 1.0f }};
+
+			VkRenderPassBeginInfo renderPassBeginInfo{};
+			renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+			renderPassBeginInfo.renderPass = captureRenderPass;
+			renderPassBeginInfo.framebuffer = faceFramebuffers[faceIndex];
+			renderPassBeginInfo.renderArea = { {0, 0}, {CAPTURE_SIZE, CAPTURE_SIZE} };
+			renderPassBeginInfo.clearValueCount = 1;
+			renderPassBeginInfo.pClearValues = &clearValue;
+
+			vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+			vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, capturePipeline);
+
+			VkViewport viewport{ 0, 0, static_cast<float>(CAPTURE_SIZE), static_cast<float>(CAPTURE_SIZE), 0.0f, 1.0f };
+			vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+
+			VkRect2D scissor{ {0, 0}, {CAPTURE_SIZE, CAPTURE_SIZE} };
+			vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
+			const VkBuffer vertexBuffers[] = { storage.globalBuffers.skyVertexBuffer };
+			constexpr VkDeviceSize offsets[] = { 0 };
+			vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+			vkCmdBindIndexBuffer(commandBuffer, storage.globalBuffers.skyIndexBuffer, 0, VK_INDEX_TYPE_UINT32);
+
+			vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+				capturePipelineLayout, 0, 1,
+				&storage.globalDescriptorSets[0], 0, nullptr);
+
+			vkCmdDrawIndexed(commandBuffer,
+				static_cast<uint32_t>(skyMeshPart.indexCount),
+				1,
+				static_cast<uint32_t>(skyMeshPart.indexOffset),
+				static_cast<int32_t>(skyMeshPart.vertexOffset),
+				0);
+
+			vkCmdEndRenderPass(commandBuffer);
+
+			utils::endSingleTimeCommands(storage, utils::getCommandPool(storage), commandBuffer);
+		}
+
+#ifdef SAVE_CAPTURE_CUBEMAP_TEXTURES
+		// Transition all 6 faces COLOR_ATTACHMENT_OPTIMAL -> TRANSFER_SRC_OPTIMAL for readback
+		{
+			const VkCommandBuffer commandBuffer = utils::beginSingleTimeCommands(storage, utils::getCommandPool(storage));
+
+			VkImageMemoryBarrier barrier{};
+			barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+			barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+			barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+			barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+			barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+			barrier.image = cubemap.image;
+			barrier.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, CUBE_FACE_COUNT };
+			barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+			barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+
+			vkCmdPipelineBarrier(commandBuffer,
+				VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+				VK_PIPELINE_STAGE_TRANSFER_BIT,
+				0, 0, nullptr, 0, nullptr, 1, &barrier);
+
+			utils::endSingleTimeCommands(storage, utils::getCommandPool(storage), commandBuffer);
+		}
+
+		// Read back all 6 faces and save to bin/assets/cubemap/
+		{
+			static constexpr uint32_t NUMBER_OF_CHANNELS = 4;
+			static constexpr const char* FACE_NAMES[CUBE_FACE_COUNT] = { "px", "nx", "py", "ny", "pz", "nz" };
+
+			std::filesystem::create_directories("bin/assets/cubemap");
+
+			const VkDeviceSize faceDataSize = static_cast<VkDeviceSize>(CAPTURE_SIZE) * CAPTURE_SIZE * NUMBER_OF_CHANNELS;
+			const VkDeviceSize totalSize = faceDataSize * CUBE_FACE_COUNT;
+
+			auto [readbackBuffer, readbackMemory] = VkBufferBuilder("Cubemap Readback Buffer")
+				.setSize(totalSize)
+				.setUsage(VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+				.setMemoryProperties(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)
+				.build(storage);
+
+			{
+				const VkCommandBuffer commandBuffer = utils::beginSingleTimeCommands(storage, utils::getCommandPool(storage));
+
+				std::array<VkBufferImageCopy, CUBE_FACE_COUNT> copyRegions{};
+				for (uint32_t faceIndex = 0; faceIndex < CUBE_FACE_COUNT; faceIndex++)
+				{
+					copyRegions[faceIndex].bufferOffset      = faceIndex * faceDataSize;
+					copyRegions[faceIndex].bufferRowLength   = 0;
+					copyRegions[faceIndex].bufferImageHeight = 0;
+					copyRegions[faceIndex].imageSubresource  = { VK_IMAGE_ASPECT_COLOR_BIT, 0, faceIndex, 1 };
+					copyRegions[faceIndex].imageOffset       = { 0, 0, 0 };
+					copyRegions[faceIndex].imageExtent       = { CAPTURE_SIZE, CAPTURE_SIZE, 1 };
+				}
+
+				vkCmdCopyImageToBuffer(commandBuffer, cubemap.image,
+					VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+					readbackBuffer,
+					static_cast<uint32_t>(copyRegions.size()), copyRegions.data());
+
+				utils::endSingleTimeCommands(storage, utils::getCommandPool(storage), commandBuffer);
+			}
+
+			void* mappedData;
+			vkMapMemory(storage.logicalDevice, readbackMemory, 0, totalSize, 0, &mappedData);
+
+			for (uint32_t faceIndex = 0; faceIndex < CUBE_FACE_COUNT; faceIndex++)
+			{
+				const uint8_t* facePixels = static_cast<const uint8_t*>(mappedData) + faceIndex * faceDataSize;
+				const std::string filePath = std::string("bin/assets/cubemap/") + FACE_NAMES[faceIndex] + ".png";
+				stbi_write_png(filePath.c_str(), static_cast<int>(CAPTURE_SIZE), static_cast<int>(CAPTURE_SIZE), NUMBER_OF_CHANNELS, facePixels, static_cast<int>(CAPTURE_SIZE * NUMBER_OF_CHANNELS));
+				LOG_INFO("Saved cubemap face: " + filePath);
+			}
+
+			vkUnmapMemory(storage.logicalDevice, readbackMemory);
+			vkDestroyBuffer(storage.logicalDevice, readbackBuffer, nullptr);
+			vkFreeMemory(storage.logicalDevice,   readbackMemory,  nullptr);
+		}
+
+		// Transition all 6 faces TRANSFER_SRC_OPTIMAL -> SHADER_READ_ONLY_OPTIMAL
+		{
+			const VkCommandBuffer commandBuffer = utils::beginSingleTimeCommands(storage, utils::getCommandPool(storage));
+
+			VkImageMemoryBarrier barrier{};
+			barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+			barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+			barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+			barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+			barrier.image = cubemap.image;
+			barrier.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, CUBE_FACE_COUNT };
+			barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+			barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+			vkCmdPipelineBarrier(commandBuffer,
+				VK_PIPELINE_STAGE_TRANSFER_BIT,
+				VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+				0, 0, nullptr, 0, nullptr, 1, &barrier);
+
+			utils::endSingleTimeCommands(storage, utils::getCommandPool(storage), commandBuffer);
+		}
+#else
+		// Transition all 6 faces COLOR_ATTACHMENT_OPTIMAL -> SHADER_READ_ONLY_OPTIMAL
+		{
+			const VkCommandBuffer commandBuffer = utils::beginSingleTimeCommands(storage, utils::getCommandPool(storage));
+
+			VkImageMemoryBarrier barrier{};
+			barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+			barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+			barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+			barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+			barrier.image = cubemap.image;
+			barrier.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, CUBE_FACE_COUNT };
+			barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+			barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+			vkCmdPipelineBarrier(commandBuffer,
+				VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+				VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+				0, 0, nullptr, 0, nullptr, 1, &barrier);
+
+			utils::endSingleTimeCommands(storage, utils::getCommandPool(storage), commandBuffer);
+		}
+#endif // SAVE_CAPTURE_CUBEMAP_TEXTURES
+
+		// Cleanup temporary capture resources
+		for (uint32_t faceIndex = 0; faceIndex < CUBE_FACE_COUNT; faceIndex++)
+		{
+			vkDestroyFramebuffer(storage.logicalDevice, faceFramebuffers[faceIndex], nullptr);
+			vkDestroyImageView(storage.logicalDevice,   faceViews[faceIndex],        nullptr);
+		}
+		vkDestroyPipeline(storage.logicalDevice,       capturePipeline,       nullptr);
+		vkDestroyPipelineLayout(storage.logicalDevice, capturePipelineLayout, nullptr);
+		vkDestroyRenderPass(storage.logicalDevice,     captureRenderPass,     nullptr);
+
+		LOG_INFO("Sky captured to cubemap.");
 	}
 
 	void VulkanRenderer::setFullscreenViewportScissor(const VkCommandBuffer cmd) const
@@ -786,7 +1140,8 @@ namespace parus::vulkan
 		[[maybe_unused]] VkFormat format,
 		const VkImageLayout oldLayout,
 		const VkImageLayout newLayout,
-		const uint32_t mipLevels)
+		const uint32_t mipLevels,
+		const uint32_t layerCount)
 	{
 		const VkCommandBuffer commandBuffer = utils::beginSingleTimeCommands(storage, utils::getCommandPool(storage));
 
@@ -801,7 +1156,7 @@ namespace parus::vulkan
 		barrier.subresourceRange.baseMipLevel = 0;
 		barrier.subresourceRange.levelCount = mipLevels;
 		barrier.subresourceRange.baseArrayLayer = 0;
-		barrier.subresourceRange.layerCount = 1;
+		barrier.subresourceRange.layerCount = layerCount;
 
 		VkPipelineStageFlags sourceStage{};
 		VkPipelineStageFlags destinationStage{};
@@ -1033,6 +1388,8 @@ namespace parus::vulkan
 		globalUbo.cameraPosition = camera.getPosition().trivial();
 
 		globalUbo.debug = isDrawDebugEnabled ? 1 : 0;
+		globalUbo.skyHorizonColor = skyHorizonColor.trivial();
+		globalUbo.skyZenithColor = skyZenithColor.trivial();
 
 		memcpy(storage.globalUboBuffer.mapped[currentImage], &globalUbo, sizeof(globalUbo));
 

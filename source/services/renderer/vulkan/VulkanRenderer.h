@@ -61,6 +61,8 @@ namespace parus::vulkan
 		std::mutex importModelMutex;
 
 		VulkanTexture2d cubemap;
+		math::Vector3 skyHorizonColor;
+		math::Vector3 skyZenithColor;
 
 		// Load model
 		void importMesh(const std::string& meshPath, const MeshType meshType = MeshType::STATIC_MESH);
@@ -76,6 +78,9 @@ namespace parus::vulkan
 		[[nodiscard]] std::optional<uint32_t> acquireNextImage();
 
 		void createCubemapTexture();
+		void captureSkyToCubemap();
+
+		bool needsCubemapCapture = true;
 
 		// Command buffer
 		void resetCommandBuffer(const int bufferId) const;
@@ -98,7 +103,8 @@ namespace parus::vulkan
 			VkFormat format,
 			const VkImageLayout oldLayout,
 			const VkImageLayout newLayout,
-			uint32_t mipLevels);
+			uint32_t mipLevels,
+			uint32_t layerCount = 1);
 		void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
 
 		// Buffer manager

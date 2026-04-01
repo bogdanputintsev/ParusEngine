@@ -7,10 +7,12 @@ namespace parus::math
 
     struct alignas(16) GlobalUbo
     {
-        alignas(16) TrivialMatrix4x4 view; 
+        alignas(16) TrivialMatrix4x4 view;
         alignas(16) TrivialMatrix4x4 projection;
         TrivialVector3 cameraPosition;
         int debug = 0;
+        TrivialVector3 skyHorizonColor;
+        TrivialVector3 skyZenithColor;
     };
 
     struct alignas(16) InstanceUbo

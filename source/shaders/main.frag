@@ -8,7 +8,14 @@ layout(set = 0, binding = 0, std140) uniform GlobalUBO {
     mat4 view;
     mat4 proj;
     vec3 cameraPos;
+    float _pad0;
     int debug;
+    int _pad1;
+    int _pad2;
+    int _pad3;
+    vec3 skyHorizonColor;
+    float _pad4;
+    vec3 skyZenithColor;
 } globalUBO;
 
 // Set 2: Material
@@ -24,6 +31,7 @@ layout(set = 3, binding = 0, std140) uniform DirectionalLightUBO
     vec3 color;
     vec3 direction;
 }   directionalLight;
+layout(set = 3, binding = 1) uniform samplerCube environmentMap;
 
 // =============================================
 // Input / Output
@@ -185,7 +193,8 @@ void main()
     float NdotL = max(dot(N, L), 0.0);
     Lo += (kD * albedo / PI + specular) * radiance * NdotL;
 
-    vec3 ambient = vec3(0.03) * albedo * ao;
+    vec3 envAmbient = texture(environmentMap, N).rgb;
+    vec3 ambient = envAmbient * 0.03 * albedo * ao;
     vec3 color = ambient + Lo;
 
     color = color / (color + vec3(1.0));

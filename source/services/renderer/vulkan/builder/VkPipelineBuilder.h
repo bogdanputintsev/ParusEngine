@@ -27,8 +27,10 @@ namespace parus::vulkan
         VkPipelineBuilder& withDepthStencil(bool depthWriteEnabled);
         VkPipelineBuilder& withColorBlend();
         VkPipelineBuilder& withDynamicState();
-        
+        VkPipelineBuilder& setRenderPass(VkRenderPass renderPass);
+
     private:
+        std::optional<VkRenderPass> customRenderPass;
         std::string debugName;
         
         std::vector<VkPipelineShaderStageCreateInfo> pipelineStages;

@@ -1,4 +1,4 @@
-﻿#include "VkPipelineBuilder.h"
+#include "VkPipelineBuilder.h"
 
 #include "engine/utils/Utils.h"
 #include "engine/utils/math/Math.h"
@@ -45,7 +45,7 @@ namespace parus::vulkan
         pipelineInfo.pColorBlendState = colorBlendState.has_value() ? &*colorBlendState : nullptr;
         pipelineInfo.pDynamicState = dynamicState.has_value() ? &*dynamicState : nullptr;
         pipelineInfo.layout = outPipelineLayout;
-        pipelineInfo.renderPass = storage.renderPass;
+        pipelineInfo.renderPass = customRenderPass.has_value() ? *customRenderPass : storage.renderPass;
         pipelineInfo.subpass = 0;
         pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
         pipelineInfo.basePipelineIndex = -1;
@@ -224,6 +224,12 @@ namespace parus::vulkan
 
         colorBlendState = colorBlendStateCreateInfo;
 
+        return *this;
+    }
+
+    VkPipelineBuilder& VkPipelineBuilder::setRenderPass(const VkRenderPass renderPass)
+    {
+        customRenderPass = renderPass;
         return *this;
     }
 
