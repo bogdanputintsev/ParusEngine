@@ -72,6 +72,11 @@ namespace parus::vulkan
 					VulkanStorage::MAX_FRAMES_IN_FLIGHT)
 				.withAllocator([&](VulkanStorage& s, const VkDescriptorSetLayout layout)
 				{
+					if (s.globalDescriptorSets[0] != VK_NULL_HANDLE)
+					{
+						return;
+					}
+
 					const std::vector globalLayouts(VulkanStorage::MAX_FRAMES_IN_FLIGHT, layout);
 					VkDescriptorSetAllocateInfo allocInfo{};
 					allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -106,6 +111,11 @@ namespace parus::vulkan
 				{
 					for (auto& meshInstance : meshInstances)
 					{
+						if (!meshInstance.instanceDescriptorSets.empty())
+						{
+							continue;
+						}
+
 						const std::vector instanceLayouts(VulkanStorage::MAX_FRAMES_IN_FLIGHT, layout);
 						VkDescriptorSetAllocateInfo allocInfo{};
 						allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -152,6 +162,11 @@ namespace parus::vulkan
 						{
 							ASSERT(meshPart.material, "Material must exist for any mesh part.");
 							const auto& material = meshPart.material;
+
+							if (material->materialDescriptorSet != VK_NULL_HANDLE)
+							{
+								continue;
+							}
 
 							VkDescriptorSetAllocateInfo allocInfo{};
 							allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -341,18 +356,24 @@ namespace parus::vulkan
 
 	bool VulkanRenderer::flushMeshQueue()
 	{
-		std::unique_lock lock(importModelMutex);
-		if (modelQueue.empty())
+		std::vector<std::pair<std::string, std::shared_ptr<Mesh>>> pendingMeshes;
+
 		{
-			return false;
+			std::scoped_lock lock(importModelMutex);
+			if (modelQueue.empty())
+			{
+				return false;
+			}
+
+			while (!modelQueue.empty())
+			{
+				pendingMeshes.push_back(modelQueue.front());
+				modelQueue.pop();
+			}
 		}
 
-		while (!modelQueue.empty())
+		for (auto& [meshPath, newMesh] : pendingMeshes)
 		{
-			auto [meshPath, newMesh] = modelQueue.front();
-			modelQueue.pop();
-			lock.unlock();
-
 			Services::get<World>()->getStorage()->addNewMesh(meshPath, newMesh);
 			meshInstances.push_back({
 				.mesh = newMesh,
@@ -552,6 +573,11 @@ namespace parus::vulkan
 
 		for (const auto& meshInstance : meshInstances)
 		{
+			if (meshInstance.mesh->meshType != MeshType::STATIC_MESH)
+			{
+				continue;
+			}
+
 			// Bind the instance descriptor set.
 			vkCmdBindDescriptorSets(
 				commandBufferToRecord,

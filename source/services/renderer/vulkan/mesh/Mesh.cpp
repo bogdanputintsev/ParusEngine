@@ -1,4 +1,4 @@
-﻿#include "Mesh.h"
+#include "Mesh.h"
 
 #define TINYOBJLOADER_IMPLEMENTATION
 #include <third-party/tiny_obj_loader.h>
@@ -13,6 +13,15 @@ namespace parus
 {
 	namespace
 	{
+		math::Vector3 fallbackTangent(const math::Vector3& normal)
+		{
+			const math::Vector3 arbitraryVector = (std::abs(normal.x) < 0.9f)
+				? math::Vector3(1.0f, 0.0f, 0.0f)
+				: math::Vector3(0.0f, 1.0f, 0.0f);
+
+			return (arbitraryVector - normal * normal.dot(arbitraryVector)).normalize();
+		}
+
 		void calculateTangents(std::vector<math::Vertex>& vertices, const std::vector<uint32_t>& indices)
 		{
 			for (size_t i = 0; i < indices.size(); i += 3)
@@ -30,7 +39,13 @@ namespace parus
 				const math::Vector2 deltaUv2 = v2.textureCoordinates - v0.textureCoordinates;
 
 				// Tangent calculation
-				const float f = 1.0f / (deltaUv1.x * deltaUv2.y - deltaUv2.x * deltaUv1.y);
+				const float determinant = deltaUv1.x * deltaUv2.y - deltaUv2.x * deltaUv1.y;
+				if (std::abs(determinant) < 1e-6f)
+				{
+					continue;
+				}
+
+				const float f = 1.0f / determinant;
 
 				math::Vector3 tangent;
 				tangent.x = f * (deltaUv2.y * edge1.x - deltaUv1.y * edge2.x);
@@ -42,6 +57,20 @@ namespace parus
 				v0.tangent = tangent;
 				v1.tangent = tangent;
 				v2.tangent = tangent;
+			}
+
+			// Assign a fallback tangent to any vertex whose tangent was never set
+			// (e.g. vertices that belong only to degenerate UV triangles).
+			for (math::Vertex& vertex : vertices)
+			{
+				const float tangentLengthSquared = vertex.tangent.x * vertex.tangent.x
+					+ vertex.tangent.y * vertex.tangent.y
+					+ vertex.tangent.z * vertex.tangent.z;
+
+				if (tangentLengthSquared < 1e-6f)
+				{
+					vertex.tangent = fallbackTangent(vertex.normal);
+				}
 			}
 		}
 	}
@@ -106,12 +135,12 @@ namespace parus
 		}
 
 		std::unordered_map<int, MeshPart> materialMeshes;
-		std::unordered_map<math::Vertex, uint32_t> uniqueVertices;
+		std::unordered_map<int, std::unordered_map<math::Vertex, uint32_t>> uniqueVerticesPerMaterial;
 
 		ASSERT(!modelMaterials.empty(),
 			"Default material is missing for mesh " + filePath);
-		
-		for (const auto& shape : shapes) 
+
+		for (const auto& shape : shapes)
 		{
 			size_t indexOffset = 0;
 
@@ -119,7 +148,7 @@ namespace parus
 			for (size_t faceIndex = 0; faceIndex < shape.mesh.num_face_vertices.size(); faceIndex++)
 			{
 				int materialId = shape.mesh.material_ids[faceIndex];
-				
+
 				if (!materialMeshes.contains(materialId))
 				{
 					MeshPart newMeshPart;
@@ -138,14 +167,15 @@ namespace parus
 				}
 
 				MeshPart& currentMesh = materialMeshes[materialId];
-				
+				std::unordered_map<math::Vertex, uint32_t>& uniqueVertices = uniqueVerticesPerMaterial[materialId];
+
 				size_t faceVertices = 3;
 				for (size_t v = 0; v < faceVertices; v++)
 				{
 					tinyobj::index_t index = shape.mesh.indices[indexOffset + v];
 
 					math::Vertex vertex{};
-			
+
 					vertex.position = {
 						attrib.vertices[3 * index.vertex_index + 0],
 						attrib.vertices[3 * index.vertex_index + 1],
@@ -165,7 +195,7 @@ namespace parus
 						// LOG_ERROR("Model " + filePath + " has missing normals that require recalculation.");
 						vertex.normal = { 0.0f, 0.0f, 0.0f };
 					}
-					
+
 					if (index.texcoord_index >= 0)
 					{
 						vertex.textureCoordinates = math::Vector2(
@@ -180,19 +210,17 @@ namespace parus
 
 					// Will be calculated after loading.
 					vertex.tangent = math::Vector3();
-					
+
 					if (!uniqueVertices.contains(vertex))
 					{
 						uniqueVertices[vertex] = static_cast<uint32_t>(currentMesh.vertices.size());
 						currentMesh.vertices.push_back(vertex);
 					}
-			
+
 					currentMesh.indices.push_back(uniqueVertices[vertex]);
 				}
 				indexOffset += faceVertices;
 			}
-
-			uniqueVertices.clear();
 		}
 
 		// Convert temporary meshes to final model meshes
