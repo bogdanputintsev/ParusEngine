@@ -59,7 +59,8 @@ namespace parus::vulkan
 		{
 			if (key == KeyButton::KEY_Z)
 			{
-				isDrawDebugEnabled = !isDrawDebugEnabled;
+				debugMode = (debugMode + 1) % 10;
+				LOG_DEBUG("Debug mode: " + std::to_string(debugMode));
 			}
 		});
 
@@ -1691,9 +1692,9 @@ namespace parus::vulkan
 			directionalLight.light.direction.y,
 			directionalLight.light.direction.z).normalize();
 
-		constexpr float shadowExtent = 150.0f;
-		constexpr float shadowNear = 0.1f;
-		constexpr float shadowFar = 500.0f;
+		constexpr float shadowExtent = 120.0f;
+		constexpr float shadowNear = 1.0f;
+		constexpr float shadowFar = 350.0f;
 
 		const math::Vector3 shadowCenter = camera.getPosition();
 		const math::Vector3 lightPos = shadowCenter + lightDir * (shadowFar * 0.5f);
@@ -1708,7 +1709,7 @@ namespace parus::vulkan
 			-shadowExtent, shadowExtent,
 			shadowNear, shadowFar);
 
-		const math::Matrix4x4 lightSpaceMatrix = lightProj * lightView;
+		const math::Matrix4x4 lightSpaceMatrix = lightView * lightProj;
 
 		// Shadow texel snapping - eliminates shadow shimmer on camera movement
 		math::TrivialMatrix4x4 snappedLightSpaceMatrix = lightSpaceMatrix.trivial();
@@ -1736,7 +1737,7 @@ namespace parus::vulkan
 		globalUbo.lightSpaceMatrix = snappedLightSpaceMatrix;
 		globalUbo.cameraPosition = camera.getPosition().trivial();
 
-		globalUbo.debug = isDrawDebugEnabled ? 1 : 0;
+		globalUbo.debug = debugMode;
 		globalUbo.skyHorizonColor = skyHorizonColor.trivial();
 		globalUbo.skyZenithColor = skyZenithColor.trivial();
 		globalUbo.fogStart = 500.0f;

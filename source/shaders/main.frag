@@ -146,6 +146,13 @@ vec3 FresnelFunction(float cosTheta, vec3 F0)
 //----------------------------------------------------------------------------------------------------------------------
 // Shadow calculation with PCF
 //----------------------------------------------------------------------------------------------------------------------
+// Interleaved gradient noise for per-pixel PCF rotation (Jorge Jimenez)
+float interleavedGradientNoise(vec2 position)
+{
+    vec3 magic = vec3(0.06711056, 0.00583715, 52.9829189);
+    return fract(magic.z * fract(dot(position, magic.xy)));
+}
+
 float calculateShadow(vec4 lightSpacePos, vec3 N, vec3 L)
 {
     vec3 projCoords = lightSpacePos.xyz / lightSpacePos.w;
@@ -156,21 +163,55 @@ float calculateShadow(vec4 lightSpacePos, vec3 N, vec3 L)
         return 1.0;
     }
 
-    float bias = max(0.005 * (1.0 - dot(N, L)), 0.001);
-    float currentDepth = projCoords.z - bias;
+    // Normal offset bias: shift sample position along surface normal to eliminate
+    // shadow acne on surfaces at grazing angles to the light
+    vec2 texelSize = 1.0 / textureSize(shadowMap, 0);
+    float NdotL = dot(N, L);
+    float normalOffsetScale = texelSize.x * 3.0 * clamp(1.0 - NdotL, 0.0, 1.0);
+    vec3 offsetPos = inPosition + N * normalOffsetScale;
+    vec4 offsetLightSpacePos = globalUBO.lightSpaceMatrix * vec4(offsetPos, 1.0);
+    vec3 offsetProjCoords = offsetLightSpacePos.xyz / offsetLightSpacePos.w;
+    offsetProjCoords.xy = offsetProjCoords.xy * 0.5 + 0.5;
 
-    // 5x5 PCF for softer shadows
-    float shadow = 0.0;
-    vec2 texelSize = 1.5 / textureSize(shadowMap, 0);
+    float bias = max(0.002 * (1.0 - NdotL), 0.0005);
+    float currentDepth = offsetProjCoords.z - bias;
+
+    // Per-pixel rotation angle to break up regular PCF grid patterns
+    float angle = interleavedGradientNoise(gl_FragCoord.xy) * 2.0 * PI;
+    float cosA = cos(angle);
+    float sinA = sin(angle);
+    mat2 rotation = mat2(cosA, -sinA, sinA, cosA);
+
+    // Inner pass: 3x3 rotated kernel for sharp nearby shadows
+    float innerShadow = 0.0;
+    for (int x = -1; x <= 1; ++x)
+    {
+        for (int y = -1; y <= 1; ++y)
+        {
+            vec2 offset = rotation * vec2(x, y) * texelSize;
+            vec2 sampleCoord = offsetProjCoords.xy + offset;
+            innerShadow += texture(shadowMap, vec3(sampleCoord, currentDepth));
+        }
+    }
+    innerShadow /= 9.0;
+
+    // Outer pass: 5x5 rotated kernel for soft penumbra
+    float outerShadow = 0.0;
+    vec2 outerTexelSize = texelSize * 2.5;
     for (int x = -2; x <= 2; ++x)
     {
         for (int y = -2; y <= 2; ++y)
         {
-            vec2 sampleCoord = projCoords.xy + vec2(x, y) * texelSize;
-            shadow += texture(shadowMap, vec3(sampleCoord, currentDepth));
+            vec2 offset = rotation * vec2(x, y) * outerTexelSize;
+            vec2 sampleCoord = offsetProjCoords.xy + offset;
+            outerShadow += texture(shadowMap, vec3(sampleCoord, currentDepth));
         }
     }
-    shadow /= 25.0;
+    outerShadow /= 25.0;
+
+    // Blend: smooth transition between inner and outer kernels
+    float penumbra = abs(innerShadow - 0.5) * 2.0;
+    float shadow = mix(outerShadow, innerShadow, smoothstep(0.2, 0.8, penumbra));
 
     return shadow;
 }
@@ -204,6 +245,8 @@ vec3 calculateLight(vec3 L, vec3 radiance, vec3 N, vec3 V, vec3 F0, vec3 albedo,
 // =============================================
 void main()
 {
+    vec3 V = normalize(globalUBO.cameraPos - inPosition);
+
     // UV-based texture sampling
     vec3 albedo = texture(albedoMap, inTextureCoordinate).rgb;
     vec3 normalSample = texture(normalMap, inTextureCoordinate).rgb;
@@ -211,14 +254,8 @@ void main()
     float metallic = texture(metallicMap, inTextureCoordinate).r;
     float roughness = texture(roughnessMap, inTextureCoordinate).r;
     float ao = texture(aoMap, inTextureCoordinate).r;
-
-    if (globalUBO.debug == 1)
-    {
-        albedo = vec3(1.0);
-    }
-
+    
     vec3 N = normalize(inTBN * normal);
-    vec3 V = normalize(globalUBO.cameraPos - inPosition);
 
     vec3 F0 = vec3(0.04);
     F0 = mix(F0, albedo, metallic);
@@ -232,7 +269,10 @@ void main()
 
     vec3 directionalContrib = calculateLight(L, radiance, N, V, F0, albedo, metallic, roughness);
     float shadow = calculateShadow(inLightSpacePos, N, L);
-    Lo += directionalContrib * shadow;
+
+    // AO micro-shadowing: subtle darkening in crevices (smoothstep avoids hard cutoff bands)
+    float microShadow = smoothstep(0.0, 1.0, ao + dot(N, L) * 0.5);
+    Lo += directionalContrib * shadow * microShadow;
 
     // =========================================
     // Point lights (no shadow, separate from directional shadow)
@@ -269,9 +309,9 @@ void main()
         }
     }
 
-    // Ground-bounce fill light
+    // Ground-bounce fill light (smoothstep avoids hard cutoff at N.y=0)
     vec3 groundColor = vec3(0.1, 0.08, 0.06);
-    float groundFactor = max(-N.y, 0.0) * 0.15;
+    float groundFactor = smoothstep(0.0, -0.5, N.y) * 0.15;
     Lo += groundColor * albedo * groundFactor;
 
     // =========================================
@@ -279,13 +319,60 @@ void main()
     // =========================================
     vec3 envDiffuse = texture(environmentMap, N).rgb;
 
+    // Hemisphere ambient: sky from above, warm ground bounce from below
+    float hemisphereBlend = N.y * 0.5 + 0.5;
+    vec3 skyAmbientColor = globalUBO.skyHorizonColor * 0.6;
+    vec3 groundAmbientColor = vec3(0.14, 0.11, 0.08);
+    vec3 hemisphereAmbient = mix(groundAmbientColor, skyAmbientColor, hemisphereBlend);
+
     // Blend sky ambient down when point light ambient is dominant (warm indoors)
     float skyAmbientWeight = clamp(1.0 - length(pointLightAmbient) * 2.0, 0.0, 1.0);
     vec2 screenUV = gl_FragCoord.xy / textureSize(ssaoMap, 0);
-    float ssao = texture(ssaoMap, screenUV).r;
-    vec3 ambient = (envDiffuse * skyAmbientWeight + pointLightAmbient) * albedo * ao * ssao * AMBIENT_STRENGTH;
-    ambient = max(ambient, vec3(0.04) * albedo);
+    float ssao = mix(1.0, texture(ssaoMap, screenUV).r, 0.7);
+
+    // Combine: hemisphere fill as base, light cubemap tint, point light ambient
+    // Low cubemap weight (0.3) prevents banding from discrete cubemap texel changes on curved surfaces
+    vec3 ambientLight = mix(hemisphereAmbient, envDiffuse, skyAmbientWeight * 0.3) + pointLightAmbient;
+    vec3 ambient = ambientLight * albedo * ao * ssao * AMBIENT_STRENGTH;
+
+    // Indirect bounce: simulate scattered light reaching both shadow-occluded
+    // and back-facing surfaces (Lambert falloff treated as a form of occlusion)
+    float NdotL = max(dot(N, L), 0.0);
+    float occlusionFromShadow = smoothstep(0.0, 0.3, 1.0 - shadow);
+    float occlusionFromFacing = 1.0 - NdotL;
+    float totalOcclusion = max(occlusionFromShadow, occlusionFromFacing);
+    float indirectFill = totalOcclusion * 0.12;
+    vec3 indirectBounce = directionalLight.color * albedo * indirectFill;
+    ambient += indirectBounce;
+
+    // Warm ambient floor: shadows tinted slightly warm rather than pure grey
+    ambient = max(ambient, vec3(0.06, 0.05, 0.04) * albedo);
     vec3 color = ambient + Lo;
+
+    // =========================================
+    // Debug visualization modes
+    // =========================================
+    if (globalUBO.debug == 1) { outColor = vec4(vec3(shadow), 1.0); return; }           // Shadow only
+    if (globalUBO.debug == 2) { outColor = vec4(vec3(ssao), 1.0); return; }             // SSAO
+    if (globalUBO.debug == 3) { outColor = vec4(ambient, 1.0); return; }                // Ambient only
+    if (globalUBO.debug == 4) { outColor = vec4(N * 0.5 + 0.5, 1.0); return; }         // World normals
+    if (globalUBO.debug == 5) { outColor = vec4(vec3(ao), 1.0); return; }               // AO texture only
+    if (globalUBO.debug == 6) { outColor = vec4(Lo, 1.0); return; }                     // Direct light only
+    if (globalUBO.debug == 7) { outColor = vec4(vec3(microShadow), 1.0); return; }      // Micro-shadow only
+    if (globalUBO.debug == 8) { outColor = vec4(indirectBounce * 10.0, 1.0); return; }  // Indirect bounce (10x)
+    if (globalUBO.debug == 9)                                                            // Matrix diagnostic
+    {
+        // Check if lightSpaceMatrix has non-zero values
+        // R = M[0][0] * 100 (should be 2/240 * 100 ≈ 0.83 for extent=120)
+        // G = M[2][2] * 1000 (should be -1/349 * 1000 ≈ 2.86 for near=1,far=350)
+        // B = M[3][3] (should be 1.0 for orthographic)
+        outColor = vec4(
+            abs(globalUBO.lightSpaceMatrix[0][0]) * 100.0,
+            abs(globalUBO.lightSpaceMatrix[2][2]) * 1000.0,
+            abs(globalUBO.lightSpaceMatrix[3][3]),
+            1.0);
+        return;
+    }
 
     // =========================================
     // Distance fog (applied in LINEAR space, before tone mapping)

@@ -286,10 +286,15 @@
     <ClInclude Include="source\third-party\tiny_obj_loader.h" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="source\shaders\depthprepass.vert" />
     <Content Include="source\shaders\main.frag" />
     <Content Include="source\shaders\main.vert" />
+    <Content Include="source\shaders\shadow.vert" />
     <Content Include="source\shaders\sky.frag" />
     <Content Include="source\shaders\sky.vert" />
+    <Content Include="source\shaders\ssao.frag" />
+    <Content Include="source\shaders\ssao.vert" />
+    <Content Include="source\shaders\ssao_blur.frag" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

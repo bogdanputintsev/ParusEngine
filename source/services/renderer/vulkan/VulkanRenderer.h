@@ -50,7 +50,7 @@ namespace parus::vulkan
 		static constexpr float Z_NEAR = 0.1f;
 		static constexpr float Z_FAR = 1500.0f;
 
-		bool isDrawDebugEnabled = false;
+		int debugMode = 0;
 
 		std::vector<MeshInstance> meshInstances;
 		VulkanDirectionalLight directionalLight;

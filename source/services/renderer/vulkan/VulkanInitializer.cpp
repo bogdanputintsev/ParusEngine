@@ -25,6 +25,7 @@
 #include "builder/VkCommandBufferBuilder.h"
 #include "builder/VkSamplerBuilder.h"
 
+#include <array>
 
 namespace parus::vulkan
 {
@@ -568,7 +569,7 @@ namespace parus::vulkan
 				.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
 				.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
 				.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-				.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+				.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL,
 			};
 
 			const VkAttachmentReference depthAttachmentRef =
@@ -588,16 +589,16 @@ namespace parus::vulkan
 				{
 					.srcSubpass = VK_SUBPASS_EXTERNAL,
 					.dstSubpass = 0,
-					.srcStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-					.dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
-					.srcAccessMask = VK_ACCESS_SHADER_READ_BIT,
-					.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+					.srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+					.dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+					.srcAccessMask = VK_ACCESS_NONE,
+					.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
 					.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT,
 				},
 				{
 					.srcSubpass = 0,
 					.dstSubpass = VK_SUBPASS_EXTERNAL,
-					.srcStageMask = VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+					.srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
 					.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
 					.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
 					.dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
@@ -677,7 +678,7 @@ namespace parus::vulkan
 			const VkAttachmentDescription colorAttachment =
 			{
 				.flags = 0,
-				.format = VK_FORMAT_R8_UNORM,
+				.format = VK_FORMAT_R16_SFLOAT,
 				.samples = VK_SAMPLE_COUNT_1_BIT,
 				.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
 				.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
@@ -738,7 +739,7 @@ namespace parus::vulkan
 		storage.ssaoBuffer.image = VkImageBuilder("SSAO Image")
 			.setWidth(screenWidth)
 			.setHeight(screenHeight)
-			.setFormat(VK_FORMAT_R8_UNORM)
+			.setFormat(VK_FORMAT_R16_SFLOAT)
 			.setTiling(VK_IMAGE_TILING_OPTIMAL)
 			.setUsage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT)
 			.build(storage);
@@ -751,7 +752,7 @@ namespace parus::vulkan
 		storage.ssaoBuffer.imageView = VkImageViewBuilder()
 			.setImage(storage.ssaoBuffer.image)
 			.setViewType(VK_IMAGE_VIEW_TYPE_2D)
-			.setFormat(VK_FORMAT_R8_UNORM)
+			.setFormat(VK_FORMAT_R16_SFLOAT)
 			.setAspectMask(VK_IMAGE_ASPECT_COLOR_BIT)
 			.build("SSAO Image View", storage);
 
@@ -793,7 +794,7 @@ namespace parus::vulkan
 			{
 				.sampler = storage.depthPrePass.sampler,
 				.imageView = storage.depthPrePass.imageView,
-				.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+				.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL
 			};
 
 			const VkWriteDescriptorSet write =
@@ -825,7 +826,7 @@ namespace parus::vulkan
 			.withVertexInput({}, {})
 			.withInputAssembly()
 			.withViewportState()
-			.withRasterization()
+			.withRasterization(VK_CULL_MODE_NONE, false, 0.0f, 0.0f)
 			.withMultisample(VK_SAMPLE_COUNT_1_BIT)
 			.withColorBlend()
 			.withDynamicState()
@@ -840,7 +841,7 @@ namespace parus::vulkan
 			const VkAttachmentDescription colorAttachment =
 			{
 				.flags = 0,
-				.format = VK_FORMAT_R8_UNORM,
+				.format = VK_FORMAT_R16_SFLOAT,
 				.samples = VK_SAMPLE_COUNT_1_BIT,
 				.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
 				.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
@@ -901,7 +902,7 @@ namespace parus::vulkan
 		storage.ssaoBlurBuffer.image = VkImageBuilder("SSAO Blur Image")
 			.setWidth(screenWidth)
 			.setHeight(screenHeight)
-			.setFormat(VK_FORMAT_R8_UNORM)
+			.setFormat(VK_FORMAT_R16_SFLOAT)
 			.setTiling(VK_IMAGE_TILING_OPTIMAL)
 			.setUsage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT)
 			.build(storage);
@@ -914,7 +915,7 @@ namespace parus::vulkan
 		storage.ssaoBlurBuffer.imageView = VkImageViewBuilder()
 			.setImage(storage.ssaoBlurBuffer.image)
 			.setViewType(VK_IMAGE_VIEW_TYPE_2D)
-			.setFormat(VK_FORMAT_R8_UNORM)
+			.setFormat(VK_FORMAT_R16_SFLOAT)
 			.setAspectMask(VK_IMAGE_ASPECT_COLOR_BIT)
 			.build("SSAO Blur Image View", storage);
 
@@ -942,7 +943,8 @@ namespace parus::vulkan
 		// SSAO blur descriptor set layout
 		storage.ssaoBlurDescriptorSetLayout = VkDescriptorSetLayoutBuilder("SSAO Blur Descriptor Set Layout")
 			.withBindings({
-				{ "Binding 0: SSAO Texture", VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT }
+				{ "Binding 0: SSAO Texture", VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT },
+				{ "Binding 1: Depth Map", VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT }
 			})
 			.build(storage);
 
@@ -964,21 +966,44 @@ namespace parus::vulkan
 				.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 			};
 
-			const VkWriteDescriptorSet write =
+			const VkDescriptorImageInfo depthImageInfo =
 			{
-				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-				.pNext = nullptr,
-				.dstSet = storage.ssaoBlurDescriptorSet,
-				.dstBinding = 0,
-				.dstArrayElement = 0,
-				.descriptorCount = 1,
-				.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-				.pImageInfo = &ssaoImageInfo,
-				.pBufferInfo = nullptr,
-				.pTexelBufferView = nullptr
+				.sampler = storage.depthPrePass.sampler,
+				.imageView = storage.depthPrePass.imageView,
+				.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL
 			};
 
-			vkUpdateDescriptorSets(storage.logicalDevice, 1, &write, 0, nullptr);
+			const std::array<VkWriteDescriptorSet, 2> writes =
+			{
+				VkWriteDescriptorSet
+				{
+					.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+					.pNext = nullptr,
+					.dstSet = storage.ssaoBlurDescriptorSet,
+					.dstBinding = 0,
+					.dstArrayElement = 0,
+					.descriptorCount = 1,
+					.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+					.pImageInfo = &ssaoImageInfo,
+					.pBufferInfo = nullptr,
+					.pTexelBufferView = nullptr
+				},
+				VkWriteDescriptorSet
+				{
+					.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+					.pNext = nullptr,
+					.dstSet = storage.ssaoBlurDescriptorSet,
+					.dstBinding = 1,
+					.dstArrayElement = 0,
+					.descriptorCount = 1,
+					.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+					.pImageInfo = &depthImageInfo,
+					.pBufferInfo = nullptr,
+					.pTexelBufferView = nullptr
+				}
+			};
+
+			vkUpdateDescriptorSets(storage.logicalDevice, static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
 		}
 
 		// SSAO blur pipeline
@@ -990,7 +1015,7 @@ namespace parus::vulkan
 			.withVertexInput({}, {})
 			.withInputAssembly()
 			.withViewportState()
-			.withRasterization()
+			.withRasterization(VK_CULL_MODE_NONE, false, 0.0f, 0.0f)
 			.withMultisample(VK_SAMPLE_COUNT_1_BIT)
 			.withColorBlend()
 			.withDynamicState()
