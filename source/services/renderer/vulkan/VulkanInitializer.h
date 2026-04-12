@@ -5,6 +5,7 @@
 
 #include "storage/VulkanStorage.h"
 #include "texture/VulkanTexture2d.h"
+#include "VulkanConfigurator.h"
 #include "VulkanDescriptorManager.h"
 
 
@@ -14,7 +15,7 @@ namespace parus::vulkan
 	class VulkanInitializer final
 	{
 	public:
-		void initialize(VulkanStorage& storage, VulkanDescriptorManager& descriptorManager);
+		void initialize(VulkanStorage& storage, VulkanDescriptorManager& descriptorManager, const VulkanConfigurator& configurator);
 		void cleanup(VulkanStorage& storage, VulkanDescriptorManager& descriptorManager);
 		void recreateSwapChain(VulkanStorage& storage, const VulkanDescriptorManager& descriptorManager);
 
@@ -24,15 +25,10 @@ namespace parus::vulkan
 
 		static void createSwapChain(VulkanStorage& storage);
 		void cleanupSwapChain(const VulkanStorage& storage) const;
-		static void createSkyPipeline(VulkanStorage& storage, const VulkanDescriptorManager& descriptorManager);
-		static void createGraphicsPipeline(VulkanStorage& storage, const VulkanDescriptorManager& descriptorManager);
 		void createFramebuffers(VulkanStorage& storage) const;
 		void createDepthResources(const VulkanStorage& storage);
 		void createColorResources(const VulkanStorage& storage);
 		static void createUniformBuffer(VulkanStorage& storage);
-		static void createShadowMapResources(VulkanStorage& storage, const VulkanDescriptorManager& descriptorManager);
-		static void createSSAOResources(VulkanStorage& storage, const VulkanDescriptorManager& descriptorManager);
-		static void cleanupSSAOResources(const VulkanStorage& storage);
 		static void cleanupTextures(const VulkanStorage& storage);
 
 		[[nodiscard]] static VkSampleCountFlagBits getMaxUsableSampleCount(const VulkanStorage& storage);

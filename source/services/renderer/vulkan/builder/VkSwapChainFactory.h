@@ -6,7 +6,7 @@
 
 namespace parus::vulkan
 {
-    class VkSwapChainBuilder
+    class VkSwapChainFactory
     {
     public:
         static void build(VulkanStorage& storage);

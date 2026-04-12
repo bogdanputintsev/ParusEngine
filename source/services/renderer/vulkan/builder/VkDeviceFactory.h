@@ -7,7 +7,7 @@
 
 namespace parus::vulkan
 {
-    class VkDeviceBuilder
+    class VkDeviceFactory
     {
     public:
         static void build(VulkanStorage& storage);

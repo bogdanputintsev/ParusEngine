@@ -1,10 +1,10 @@
-#include "VkCommandPoolBuilder.h"
+#include "VkCommandPoolFactory.h"
 
 #include "services/renderer/vulkan/utils/VulkanUtils.h"
 
 namespace parus::vulkan
 {
-    VkCommandPool VkCommandPoolBuilder::build(const std::string& name, const VulkanStorage& storage) const
+    VkCommandPool VkCommandPoolFactory::build(const std::string& name, const VulkanStorage& storage) const
     {
         const auto [graphicsFamily, presentFamily] = utils::findQueueFamilies(storage.physicalDevice, storage.surface);
         ASSERT(graphicsFamily.has_value(), "Graphics family is incomplete.");

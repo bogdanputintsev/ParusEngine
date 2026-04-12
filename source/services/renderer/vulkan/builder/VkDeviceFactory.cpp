@@ -1,4 +1,4 @@
-﻿#include "VkDeviceBuilder.h"
+﻿#include "VkDeviceFactory.h"
 
 #include <set>
 #include <unordered_set>
@@ -9,7 +9,7 @@
 
 namespace parus::vulkan
 {
-    void VkDeviceBuilder::build(VulkanStorage& storage)
+    void VkDeviceFactory::build(VulkanStorage& storage)
     {
         pickAnySuitableDevice(storage);
  
@@ -64,7 +64,7 @@ namespace parus::vulkan
     	utils::setDebugName(storage, storage.logicalDevice, VK_OBJECT_TYPE_DEVICE, "Main Logical Device");
     }
  
-    void VkDeviceBuilder::pickAnySuitableDevice(VulkanStorage& storage)
+    void VkDeviceFactory::pickAnySuitableDevice(VulkanStorage& storage)
     {
         uint32_t deviceCount = 0;
         vkEnumeratePhysicalDevices(storage.instance, &deviceCount, nullptr);
@@ -88,7 +88,7 @@ namespace parus::vulkan
 
     }
  
-    bool VkDeviceBuilder::isDeviceSuitable(const VkPhysicalDevice& device, VulkanStorage& storage)
+    bool VkDeviceFactory::isDeviceSuitable(const VkPhysicalDevice& device, VulkanStorage& storage)
     {
         // Basic device properties like the name, type and supported Vulkan version.
         [[maybe_unused]] VkPhysicalDeviceProperties deviceProperties;
@@ -117,7 +117,7 @@ namespace parus::vulkan
             && supportedFeatures.samplerAnisotropy;
     }
  
-	bool VkDeviceBuilder::isDeviceExtensionSupported(const VkPhysicalDevice& device) 
+	bool VkDeviceFactory::isDeviceExtensionSupported(const VkPhysicalDevice& device) 
     {
         uint32_t extensionCount;
         vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
@@ -135,7 +135,7 @@ namespace parus::vulkan
         return requiredExtensionsSet.empty();
     }
  
-    VkSampleCountFlagBits VkDeviceBuilder::getMaxUsableSampleCount(const VulkanStorage& storage)
+    VkSampleCountFlagBits VkDeviceFactory::getMaxUsableSampleCount(const VulkanStorage& storage)
     {
         VkPhysicalDeviceProperties physicalDeviceProperties;
         vkGetPhysicalDeviceProperties(storage.physicalDevice, &physicalDeviceProperties);

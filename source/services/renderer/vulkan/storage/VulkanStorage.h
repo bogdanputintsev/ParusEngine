@@ -58,12 +58,6 @@ namespace parus::vulkan
     	// Descriptors
 		VkDescriptorPool descriptorPool;
 
-    	// Pipeline
-    	VkPipelineLayout skyPipelineLayout = VK_NULL_HANDLE;
-    	VkPipeline skyPipeline = VK_NULL_HANDLE;
-    	VkPipelineLayout mainPipelineLayout = VK_NULL_HANDLE;
-    	VkPipeline mainPipeline = VK_NULL_HANDLE;
-
     	// Framebuffers
     	std::vector<VkFramebuffer> swapChainFramebuffers{};
 
@@ -72,20 +66,6 @@ namespace parus::vulkan
     	UboBuffer instanceUboBuffer{};
     	UboBuffer directionalLightUboBuffer{};
     	UboBuffer pointLightUboBuffer{};
-
-    	// Shadow Map
-    	struct
-    	{
-    		VkImage image = VK_NULL_HANDLE;
-    		VkDeviceMemory imageMemory = VK_NULL_HANDLE;
-    		VkImageView imageView = VK_NULL_HANDLE;
-    		VkSampler sampler = VK_NULL_HANDLE;
-    		VkFramebuffer framebuffer = VK_NULL_HANDLE;
-    		static constexpr uint32_t SIZE = 4096;
-    	} shadowMap;
-    	VkRenderPass shadowRenderPass = VK_NULL_HANDLE;
-    	VkPipelineLayout shadowPipelineLayout = VK_NULL_HANDLE;
-    	VkPipeline shadowPipeline = VK_NULL_HANDLE;
 
     	// Geometry Buffers
     	GlobalGeometryBuffers globalBuffers{};
@@ -104,45 +84,6 @@ namespace parus::vulkan
     	std::vector<VkSemaphore> renderFinishedSemaphores{};
     	std::vector<VkFence> inFlightFences{};
 
-    	// Depth Pre-pass
-    	struct
-    	{
-    		VkImage image = VK_NULL_HANDLE;
-    		VkDeviceMemory imageMemory = VK_NULL_HANDLE;
-    		VkImageView imageView = VK_NULL_HANDLE;
-    		VkSampler sampler = VK_NULL_HANDLE;
-    		VkFramebuffer framebuffer = VK_NULL_HANDLE;
-    	} depthPrePass;
-    	VkRenderPass depthPrePassRenderPass = VK_NULL_HANDLE;
-    	VkPipelineLayout depthPrePassPipelineLayout = VK_NULL_HANDLE;
-    	VkPipeline depthPrePassPipeline = VK_NULL_HANDLE;
-
-    	// SSAO
-    	struct
-    	{
-    		VkImage image = VK_NULL_HANDLE;
-    		VkDeviceMemory imageMemory = VK_NULL_HANDLE;
-    		VkImageView imageView = VK_NULL_HANDLE;
-    		VkFramebuffer framebuffer = VK_NULL_HANDLE;
-    	} ssaoBuffer;
-    	struct
-    	{
-    		VkImage image = VK_NULL_HANDLE;
-    		VkDeviceMemory imageMemory = VK_NULL_HANDLE;
-    		VkImageView imageView = VK_NULL_HANDLE;
-    		VkSampler sampler = VK_NULL_HANDLE;
-    		VkFramebuffer framebuffer = VK_NULL_HANDLE;
-    	} ssaoBlurBuffer;
-    	VkRenderPass ssaoRenderPass = VK_NULL_HANDLE;
-    	VkPipelineLayout ssaoPipelineLayout = VK_NULL_HANDLE;
-    	VkPipeline ssaoPipeline = VK_NULL_HANDLE;
-    	VkRenderPass ssaoBlurRenderPass = VK_NULL_HANDLE;
-    	VkPipelineLayout ssaoBlurPipelineLayout = VK_NULL_HANDLE;
-    	VkPipeline ssaoBlurPipeline = VK_NULL_HANDLE;
-    	VkDescriptorSetLayout ssaoDescriptorSetLayout = VK_NULL_HANDLE;
-    	VkDescriptorSet ssaoDescriptorSet = VK_NULL_HANDLE;
-    	VkDescriptorSetLayout ssaoBlurDescriptorSetLayout = VK_NULL_HANDLE;
-    	VkDescriptorSet ssaoBlurDescriptorSet = VK_NULL_HANDLE;
     };
 
 }

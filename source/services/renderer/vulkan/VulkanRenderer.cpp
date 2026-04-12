@@ -1,4 +1,5 @@
 #include "VulkanRenderer.h"
+#include "pass/VulkanRenderPass.h"
 
 // #define SAVE_CAPTURE_CUBEMAP_TEXTURES
 
@@ -41,7 +42,17 @@ namespace parus::vulkan
 	{
 		registerEvents();
 		defineDescriptors();
-		initializer.initialize(storage, descriptorManager);
+		initializer.initialize(storage, descriptorManager, configurator);
+		shadowPass.init(storage, configurator);
+		shadowPass.initPipeline(storage, descriptorManager, configurator);
+		depthPrePass.init(storage, configurator);
+		depthPrePass.initPipeline(storage, descriptorManager);
+		ssaoPass.init(storage, configurator);
+		ssaoPass.initPipeline(storage, descriptorManager, depthPrePass);
+		ssaoBlurPass.init(storage, configurator);
+		ssaoBlurPass.initPipeline(storage, depthPrePass, ssaoPass);
+		mainPass.init(storage, configurator);
+		mainPass.initPipelines(storage, descriptorManager);
 		loadSceneAssets();
 		isRunning = true;
 	}
@@ -251,9 +262,9 @@ namespace parus::vulkan
 					{
 						const VkDescriptorBufferInfo lightBufferInfo = { .buffer = s.directionalLightUboBuffer.frameBuffers[i], .offset = 0, .range = sizeof(math::DirectionalLightUbo) };
 						const VkDescriptorImageInfo cubemapInfo = { .sampler = cubemap.sampler, .imageView = cubemap.imageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
-						const VkDescriptorImageInfo shadowMapInfo = { .sampler = s.shadowMap.sampler, .imageView = s.shadowMap.imageView, .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL };
+						const VkDescriptorImageInfo shadowMapInfo = { .sampler = shadowPass.getSampler(), .imageView = shadowPass.getImageView(), .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL };
 						const VkDescriptorBufferInfo pointLightBufferInfo = { .buffer = s.pointLightUboBuffer.frameBuffers[i], .offset = 0, .range = sizeof(math::PointLightUbo) };
-						const VkDescriptorImageInfo ssaoInfo = { .sampler = s.ssaoBlurBuffer.sampler, .imageView = s.ssaoBlurBuffer.imageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
+						const VkDescriptorImageInfo ssaoInfo = { .sampler = ssaoBlurPass.getSampler(), .imageView = ssaoBlurPass.getImageView(), .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
 
 						const std::array<VkWriteDescriptorSet, 5> writes = {{
 							{
@@ -294,6 +305,11 @@ namespace parus::vulkan
 
 	void VulkanRenderer::clean()
 	{
+		mainPass.cleanup(storage);
+		ssaoBlurPass.cleanup(storage);
+		ssaoPass.cleanup(storage);
+		depthPrePass.cleanup(storage);
+		shadowPass.cleanup(storage);
 		initializer.cleanup(storage, descriptorManager);
 	}
 
@@ -361,6 +377,12 @@ namespace parus::vulkan
 		{
 			framebufferResized = false;
 			initializer.recreateSwapChain(storage, descriptorManager);
+			depthPrePass.onSwapchainRecreate(storage, configurator);
+			depthPrePass.initPipeline(storage, descriptorManager);
+			ssaoPass.onSwapchainRecreate(storage, configurator);
+			ssaoPass.initPipeline(storage, descriptorManager, depthPrePass);
+			ssaoBlurPass.onSwapchainRecreate(storage, configurator);
+			ssaoBlurPass.initPipeline(storage, depthPrePass, ssaoPass);
 
 			// Force LIGHTS descriptor re-creation since SSAO blur texture was recreated
 			directionalLight.descriptorSets.clear();
@@ -533,6 +555,12 @@ namespace parus::vulkan
 		if (result == VK_ERROR_OUT_OF_DATE_KHR)
 		{
 			initializer.recreateSwapChain(storage, descriptorManager);
+			depthPrePass.onSwapchainRecreate(storage, configurator);
+			depthPrePass.initPipeline(storage, descriptorManager);
+			ssaoPass.onSwapchainRecreate(storage, configurator);
+			ssaoPass.initPipeline(storage, descriptorManager, depthPrePass);
+			ssaoBlurPass.onSwapchainRecreate(storage, configurator);
+			ssaoBlurPass.initPipeline(storage, depthPrePass, ssaoPass);
 			directionalLight.descriptorSets.clear();
 			rebuildDescriptorSets();
 			return std::nullopt;
@@ -546,12 +574,12 @@ namespace parus::vulkan
 	void VulkanRenderer::createCubemapTexture()
 	{
 		static constexpr uint32_t CUBE_FACE_COUNT = 6;
-		static constexpr uint32_t FACE_SIZE = 512;
+		const uint32_t faceSize = configurator.cubemapFaceSize;
 		static constexpr VkFormat CUBEMAP_FORMAT = VK_FORMAT_R8G8B8A8_UNORM;
 
 		cubemap.image = VkImageBuilder("Cubemap Image")
-			.setWidth(FACE_SIZE)
-			.setHeight(FACE_SIZE)
+			.setWidth(faceSize)
+			.setHeight(faceSize)
 			.setArrayLayers(CUBE_FACE_COUNT)
 			.setFormat(CUBEMAP_FORMAT)
 			.setTiling(VK_IMAGE_TILING_OPTIMAL)
@@ -591,7 +619,7 @@ namespace parus::vulkan
 
 	void VulkanRenderer::captureSkyToCubemap()
 	{
-		static constexpr uint32_t CAPTURE_SIZE = 512;
+		const uint32_t CAPTURE_SIZE = configurator.cubemapFaceSize;
 		static constexpr uint32_t CUBE_FACE_COUNT = 6;
 		static constexpr VkFormat CUBEMAP_FORMAT = VK_FORMAT_R8G8B8A8_UNORM;
 
@@ -708,7 +736,7 @@ namespace parus::vulkan
 		}};
 
 		const math::Matrix4x4 captureProjection = math::Matrix4x4::perspective(
-			math::radians(90.0f), 1.0f, Z_NEAR, Z_FAR);
+			math::radians(90.0f), 1.0f, configurator.zNear, configurator.zFar);
 
 		const std::shared_ptr<Mesh> skyMesh = Services::get<World>()->getStorage()->getAllMeshesByType(MeshType::SKY)[0];
 		const MeshPart& skyMeshPart = skyMesh->meshParts[0];
@@ -909,20 +937,6 @@ namespace parus::vulkan
 		LOG_INFO("Sky captured to cubemap.");
 	}
 
-	void VulkanRenderer::setFullscreenViewportScissor(const VkCommandBuffer cmd) const
-	{
-		VkViewport viewport{};
-		viewport.x = 0.0f;
-		viewport.y = 0.0f;
-		viewport.width = static_cast<float>(storage.swapChainDetails.swapChainExtent.width);
-		viewport.height = static_cast<float>(storage.swapChainDetails.swapChainExtent.height);
-		viewport.minDepth = 0.0f;
-		viewport.maxDepth = 1.0f;
-		vkCmdSetViewport(cmd, 0, 1, &viewport);
-
-		const VkRect2D scissor = { {0, 0}, storage.swapChainDetails.swapChainExtent };
-		vkCmdSetScissor(cmd, 0, 1, &scissor);
-	}
 
 	void VulkanRenderer::resetCommandBuffer(const int bufferId) const
 	{
@@ -930,342 +944,7 @@ namespace parus::vulkan
 
 		ASSERT(vkResetCommandBuffer(storage.commandBuffers[bufferId], 0) == VK_SUCCESS, "Failed to reset command buffer.");
 	}
-
-	void VulkanRenderer::drawMainScenePass(const VkCommandBuffer commandBufferToRecord) const
-	{
-		if (!storage.globalBuffers.vertexBuffer)
-		{
-			return;
-		}
-
-		vkCmdBindPipeline(commandBufferToRecord, VK_PIPELINE_BIND_POINT_GRAPHICS, storage.mainPipeline);
-		setFullscreenViewportScissor(commandBufferToRecord);
-
-		const VkBuffer vertexBuffers[] = { storage.globalBuffers.vertexBuffer };
-		constexpr VkDeviceSize offsets[] = { 0 };
-		vkCmdBindVertexBuffers(commandBufferToRecord, 0, 1, vertexBuffers, offsets);
-		vkCmdBindIndexBuffer(commandBufferToRecord, storage.globalBuffers.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-
-		// Bind the global descriptor set.
-		vkCmdBindDescriptorSets(
-			commandBufferToRecord,
-			VK_PIPELINE_BIND_POINT_GRAPHICS,
-			storage.mainPipelineLayout,
-			0,
-			1,
-			&storage.globalDescriptorSets[currentFrame], 0, nullptr);
-
-		// Bind the directional light descriptor set.
-		vkCmdBindDescriptorSets(
-			commandBufferToRecord,
-			VK_PIPELINE_BIND_POINT_GRAPHICS,
-			storage.mainPipelineLayout,
-			3,
-			1,
-			&directionalLight.descriptorSets[currentFrame], 0, nullptr);
-
-		for (const auto& meshInstance : meshInstances)
-		{
-			if (meshInstance.mesh->meshType != MeshType::STATIC_MESH)
-			{
-				continue;
-			}
-
-			// Bind the instance descriptor set.
-			vkCmdBindDescriptorSets(
-				commandBufferToRecord,
-				VK_PIPELINE_BIND_POINT_GRAPHICS,
-				storage.mainPipelineLayout,
-				1,
-				1,
-				&meshInstance.instanceDescriptorSets[currentFrame], 0, nullptr);
-
-
-			for (const auto& meshPart : meshInstance.mesh->meshParts)
-			{
-				// Bind the material descriptor set.
-				vkCmdBindDescriptorSets(
-					commandBufferToRecord,
-					VK_PIPELINE_BIND_POINT_GRAPHICS,
-					storage.mainPipelineLayout,
-					2,
-					1,
-					&meshPart.material->materialDescriptorSet, 0, nullptr);
-
-				// Draw mesh part.
-				vkCmdDrawIndexed(commandBufferToRecord,
-	                 static_cast<uint32_t>(meshPart.indexCount),
-	                 1,
-	                 static_cast<uint32_t>(meshPart.indexOffset),
-	                 static_cast<int32_t>(meshPart.vertexOffset),
-	                 0);
-			}
-		}
-	}
-
-	void VulkanRenderer::drawDepthPrePass(const VkCommandBuffer commandBufferToRecord) const
-	{
-		if (!storage.globalBuffers.vertexBuffer)
-		{
-			return;
-		}
-
-		const VkExtent2D extent = storage.swapChainDetails.swapChainExtent;
-
-		VkRenderPassBeginInfo renderPassInfo{};
-		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-		renderPassInfo.renderPass = storage.depthPrePassRenderPass;
-		renderPassInfo.framebuffer = storage.depthPrePass.framebuffer;
-		renderPassInfo.renderArea = { {0, 0}, extent };
-
-		VkClearValue clearValue{};
-		clearValue.depthStencil = { .depth = 1.0f, .stencil = 0 };
-		renderPassInfo.clearValueCount = 1;
-		renderPassInfo.pClearValues = &clearValue;
-
-		vkCmdBeginRenderPass(commandBufferToRecord, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-		vkCmdBindPipeline(commandBufferToRecord, VK_PIPELINE_BIND_POINT_GRAPHICS, storage.depthPrePassPipeline);
-
-		VkViewport viewport{};
-		viewport.width = static_cast<float>(extent.width);
-		viewport.height = static_cast<float>(extent.height);
-		viewport.minDepth = 0.0f;
-		viewport.maxDepth = 1.0f;
-		vkCmdSetViewport(commandBufferToRecord, 0, 1, &viewport);
-
-		VkRect2D scissor = { {0, 0}, extent };
-		vkCmdSetScissor(commandBufferToRecord, 0, 1, &scissor);
-
-		const VkBuffer vertexBuffers[] = { storage.globalBuffers.vertexBuffer };
-		constexpr VkDeviceSize offsets[] = { 0 };
-		vkCmdBindVertexBuffers(commandBufferToRecord, 0, 1, vertexBuffers, offsets);
-		vkCmdBindIndexBuffer(commandBufferToRecord, storage.globalBuffers.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-
-		// Bind global descriptor (camera view/proj)
-		vkCmdBindDescriptorSets(
-			commandBufferToRecord,
-			VK_PIPELINE_BIND_POINT_GRAPHICS,
-			storage.depthPrePassPipelineLayout,
-			0,
-			1,
-			&storage.globalDescriptorSets[currentFrame], 0, nullptr);
-
-		for (const auto& meshInstance : meshInstances)
-		{
-			if (meshInstance.mesh->meshType != MeshType::STATIC_MESH)
-			{
-				continue;
-			}
-
-			// Bind instance descriptor
-			vkCmdBindDescriptorSets(
-				commandBufferToRecord,
-				VK_PIPELINE_BIND_POINT_GRAPHICS,
-				storage.depthPrePassPipelineLayout,
-				1,
-				1,
-				&meshInstance.instanceDescriptorSets[currentFrame], 0, nullptr);
-
-			for (const auto& meshPart : meshInstance.mesh->meshParts)
-			{
-				vkCmdDrawIndexed(commandBufferToRecord,
-					static_cast<uint32_t>(meshPart.indexCount),
-					1,
-					static_cast<uint32_t>(meshPart.indexOffset),
-					static_cast<int32_t>(meshPart.vertexOffset),
-					0);
-			}
-		}
-
-		vkCmdEndRenderPass(commandBufferToRecord);
-	}
-
-	void VulkanRenderer::drawSSAOPass(const VkCommandBuffer commandBufferToRecord) const
-	{
-		if (!storage.globalBuffers.vertexBuffer)
-		{
-			return;
-		}
-
-		const VkExtent2D extent = storage.swapChainDetails.swapChainExtent;
-
-		VkRenderPassBeginInfo renderPassInfo{};
-		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-		renderPassInfo.renderPass = storage.ssaoRenderPass;
-		renderPassInfo.framebuffer = storage.ssaoBuffer.framebuffer;
-		renderPassInfo.renderArea = { {0, 0}, extent };
-
-		VkClearValue clearValue{};
-		clearValue.color = {{ 1.0f, 1.0f, 1.0f, 1.0f }};
-		renderPassInfo.clearValueCount = 1;
-		renderPassInfo.pClearValues = &clearValue;
-
-		vkCmdBeginRenderPass(commandBufferToRecord, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-		vkCmdBindPipeline(commandBufferToRecord, VK_PIPELINE_BIND_POINT_GRAPHICS, storage.ssaoPipeline);
-
-		VkViewport viewport{};
-		viewport.width = static_cast<float>(extent.width);
-		viewport.height = static_cast<float>(extent.height);
-		viewport.minDepth = 0.0f;
-		viewport.maxDepth = 1.0f;
-		vkCmdSetViewport(commandBufferToRecord, 0, 1, &viewport);
-
-		VkRect2D scissor = { {0, 0}, extent };
-		vkCmdSetScissor(commandBufferToRecord, 0, 1, &scissor);
-
-		// Bind global UBO (set 0) - contains proj matrix for SSAO reconstruction
-		vkCmdBindDescriptorSets(
-			commandBufferToRecord,
-			VK_PIPELINE_BIND_POINT_GRAPHICS,
-			storage.ssaoPipelineLayout,
-			0,
-			1,
-			&storage.globalDescriptorSets[currentFrame], 0, nullptr);
-
-		// Bind SSAO descriptor (set 1) - contains depth pre-pass texture
-		vkCmdBindDescriptorSets(
-			commandBufferToRecord,
-			VK_PIPELINE_BIND_POINT_GRAPHICS,
-			storage.ssaoPipelineLayout,
-			1,
-			1,
-			&storage.ssaoDescriptorSet, 0, nullptr);
-
-		// Fullscreen triangle - 3 vertices, no vertex buffer
-		vkCmdDraw(commandBufferToRecord, 3, 1, 0, 0);
-
-		vkCmdEndRenderPass(commandBufferToRecord);
-	}
-
-	void VulkanRenderer::drawSSAOBlurPass(const VkCommandBuffer commandBufferToRecord) const
-	{
-		if (!storage.globalBuffers.vertexBuffer)
-		{
-			return;
-		}
-
-		const VkExtent2D extent = storage.swapChainDetails.swapChainExtent;
-
-		VkRenderPassBeginInfo renderPassInfo{};
-		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-		renderPassInfo.renderPass = storage.ssaoBlurRenderPass;
-		renderPassInfo.framebuffer = storage.ssaoBlurBuffer.framebuffer;
-		renderPassInfo.renderArea = { {0, 0}, extent };
-
-		VkClearValue clearValue{};
-		clearValue.color = {{ 1.0f, 1.0f, 1.0f, 1.0f }};
-		renderPassInfo.clearValueCount = 1;
-		renderPassInfo.pClearValues = &clearValue;
-
-		vkCmdBeginRenderPass(commandBufferToRecord, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-		vkCmdBindPipeline(commandBufferToRecord, VK_PIPELINE_BIND_POINT_GRAPHICS, storage.ssaoBlurPipeline);
-
-		VkViewport viewport{};
-		viewport.width = static_cast<float>(extent.width);
-		viewport.height = static_cast<float>(extent.height);
-		viewport.minDepth = 0.0f;
-		viewport.maxDepth = 1.0f;
-		vkCmdSetViewport(commandBufferToRecord, 0, 1, &viewport);
-
-		VkRect2D scissor = { {0, 0}, extent };
-		vkCmdSetScissor(commandBufferToRecord, 0, 1, &scissor);
-
-		// Bind SSAO blur descriptor (set 0) - contains raw SSAO texture
-		vkCmdBindDescriptorSets(
-			commandBufferToRecord,
-			VK_PIPELINE_BIND_POINT_GRAPHICS,
-			storage.ssaoBlurPipelineLayout,
-			0,
-			1,
-			&storage.ssaoBlurDescriptorSet, 0, nullptr);
-
-		// Fullscreen triangle - 3 vertices, no vertex buffer
-		vkCmdDraw(commandBufferToRecord, 3, 1, 0, 0);
-
-		vkCmdEndRenderPass(commandBufferToRecord);
-	}
-
-	void VulkanRenderer::drawShadowPass(const VkCommandBuffer commandBufferToRecord) const
-	{
-		if (!storage.globalBuffers.vertexBuffer)
-		{
-			return;
-		}
-
-		constexpr uint32_t shadowMapSize = decltype(storage.shadowMap)::SIZE;
-
-		VkRenderPassBeginInfo renderPassInfo{};
-		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-		renderPassInfo.renderPass = storage.shadowRenderPass;
-		renderPassInfo.framebuffer = storage.shadowMap.framebuffer;
-		renderPassInfo.renderArea = { {0, 0}, {shadowMapSize, shadowMapSize} };
-
-		VkClearValue clearValue{};
-		clearValue.depthStencil = { .depth = 1.0f, .stencil = 0 };
-		renderPassInfo.clearValueCount = 1;
-		renderPassInfo.pClearValues = &clearValue;
-
-		vkCmdBeginRenderPass(commandBufferToRecord, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-		vkCmdBindPipeline(commandBufferToRecord, VK_PIPELINE_BIND_POINT_GRAPHICS, storage.shadowPipeline);
-
-		VkViewport viewport{};
-		viewport.width = static_cast<float>(shadowMapSize);
-		viewport.height = static_cast<float>(shadowMapSize);
-		viewport.minDepth = 0.0f;
-		viewport.maxDepth = 1.0f;
-		vkCmdSetViewport(commandBufferToRecord, 0, 1, &viewport);
-
-		VkRect2D scissor = { {0, 0}, {shadowMapSize, shadowMapSize} };
-		vkCmdSetScissor(commandBufferToRecord, 0, 1, &scissor);
-
-		const VkBuffer vertexBuffers[] = { storage.globalBuffers.vertexBuffer };
-		constexpr VkDeviceSize offsets[] = { 0 };
-		vkCmdBindVertexBuffers(commandBufferToRecord, 0, 1, vertexBuffers, offsets);
-		vkCmdBindIndexBuffer(commandBufferToRecord, storage.globalBuffers.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-
-		// Bind global descriptor (contains lightSpaceMatrix)
-		vkCmdBindDescriptorSets(
-			commandBufferToRecord,
-			VK_PIPELINE_BIND_POINT_GRAPHICS,
-			storage.shadowPipelineLayout,
-			0,
-			1,
-			&storage.globalDescriptorSets[currentFrame], 0, nullptr);
-
-		for (const auto& meshInstance : meshInstances)
-		{
-			if (meshInstance.mesh->meshType != MeshType::STATIC_MESH)
-			{
-				continue;
-			}
-
-			// Bind instance descriptor
-			vkCmdBindDescriptorSets(
-				commandBufferToRecord,
-				VK_PIPELINE_BIND_POINT_GRAPHICS,
-				storage.shadowPipelineLayout,
-				1,
-				1,
-				&meshInstance.instanceDescriptorSets[currentFrame], 0, nullptr);
-
-			for (const auto& meshPart : meshInstance.mesh->meshParts)
-			{
-				vkCmdDrawIndexed(commandBufferToRecord,
-					static_cast<uint32_t>(meshPart.indexCount),
-					1,
-					static_cast<uint32_t>(meshPart.indexOffset),
-					static_cast<int32_t>(meshPart.vertexOffset),
-					0);
-			}
-		}
-
-		vkCmdEndRenderPass(commandBufferToRecord);
-	}
-
+	
 	void VulkanRenderer::recordCommandBuffer(const VkCommandBuffer commandBufferToRecord, const uint32_t imageIndex) const
 	{
 		VkCommandBufferBeginInfo beginInfo{};
@@ -1276,85 +955,18 @@ namespace parus::vulkan
 		ASSERT(vkBeginCommandBuffer(commandBufferToRecord, &beginInfo) == VK_SUCCESS,
 			"Failed to begin recording command buffer.");
 
-		// Shadow pass (off-screen depth-only)
-		drawShadowPass(commandBufferToRecord);
+		const FrameContext frame{ commandBufferToRecord, static_cast<uint32_t>(currentFrame), imageIndex };
+		const SceneData scene{ meshInstances, directionalLight, pointLights };
 
-		// Depth pre-pass (screen-resolution, for SSAO)
-		drawDepthPrePass(commandBufferToRecord);
+		shadowPass.record(frame, storage, scene);
+		depthPrePass.record(frame, storage, scene);
+		ssaoPass.record(frame, storage, scene);
+		ssaoBlurPass.record(frame, storage, scene);
+		mainPass.record(frame, storage, scene);
 
-		// SSAO pass (fullscreen, reads depth pre-pass)
-		drawSSAOPass(commandBufferToRecord);
-
-		// SSAO blur pass (fullscreen, smooths SSAO)
-		drawSSAOBlurPass(commandBufferToRecord);
-
-		// Main rendering pass
-		VkRenderPassBeginInfo renderPassInfo{};
-		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-		renderPassInfo.renderPass = storage.renderPass;
-		renderPassInfo.framebuffer = storage.swapChainFramebuffers[imageIndex];
-		renderPassInfo.renderArea.offset = { .x = 0, .y = 0};
-		renderPassInfo.renderArea.extent = storage.swapChainDetails.swapChainExtent;
-
-		std::array<VkClearValue, 2> clearValues{};
-		clearValues[0].color = { {0.0f, 0.0f, 0.0f, 1.0f} };
-		clearValues[1].depthStencil = { .depth = 1.0f, .stencil = 0};
-
-		renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
-		renderPassInfo.pClearValues = clearValues.data();
-
-		// Draw.
-		vkCmdBeginRenderPass(commandBufferToRecord, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-			drawSkyboxPass(commandBufferToRecord);
-			drawMainScenePass(commandBufferToRecord);
-			Services::get<imgui::ImGuiLibrary>()->renderDrawData(commandBufferToRecord);
-		vkCmdEndRenderPass(commandBufferToRecord);
-
-		ASSERT(vkEndCommandBuffer(commandBufferToRecord) == VK_SUCCESS, "Failed to fend recording command buffer.");
+		ASSERT(vkEndCommandBuffer(commandBufferToRecord) == VK_SUCCESS, "Failed to end recording command buffer.");
 	}
-
-	void VulkanRenderer::drawSkyboxPass(const VkCommandBuffer commandBufferToRecord) const
-	{
-		ASSERT(!Services::get<World>()->getStorage()->getAllMeshesByType(MeshType::SKY).empty(),
-			   "Sky mesh must always exist");
-
-		const std::shared_ptr<Mesh> skyMesh = Services::get<World>()->getStorage()->getAllMeshesByType(MeshType::SKY)[0];
-
-		ASSERT(!skyMesh->meshParts.empty(),
-			   "Sky mesh exists, but it has zero mesh parts.");
-
-		const MeshPart& skyMeshPart = skyMesh->meshParts[0];
-
-		ASSERT(skyMeshPart.vertexCount > 0 && skyMeshPart.indexCount > 0,
-			   "Sky mesh has no vertices or indices");
-
-		vkCmdBindPipeline(commandBufferToRecord, VK_PIPELINE_BIND_POINT_GRAPHICS, storage.skyPipeline);
-		setFullscreenViewportScissor(commandBufferToRecord);
-
-		// Sky vertices
-		const VkBuffer skyVertexBuffers[] = { storage.globalBuffers.skyVertexBuffer };
-		constexpr VkDeviceSize skyOffsets[] = { 0 };
-		vkCmdBindVertexBuffers(commandBufferToRecord, 0, 1, skyVertexBuffers, skyOffsets);
-		vkCmdBindIndexBuffer(commandBufferToRecord, storage.globalBuffers.skyIndexBuffer, 0, VK_INDEX_TYPE_UINT32);
-
-		// Bind
-		vkCmdBindDescriptorSets(
-			commandBufferToRecord,
-			VK_PIPELINE_BIND_POINT_GRAPHICS,
-			storage.skyPipelineLayout,
-			0, 1,
-			&storage.globalDescriptorSets[currentFrame],
-			0, nullptr);
-
-		// Draw mesh part.
-		vkCmdDrawIndexed(commandBufferToRecord,
-			 static_cast<uint32_t>(skyMeshPart.indexCount),
-			 1,
-			 static_cast<uint32_t>(skyMeshPart.indexOffset),
-			 static_cast<int32_t>(skyMeshPart.vertexOffset),
-			 0);
-	}
-
+	
 	VkCommandBuffer VulkanRenderer::getCommandBuffer(const int bufferId) const
 	{
 		ASSERT(static_cast<size_t>(bufferId) < storage.commandBuffers.size() && bufferId >= 0, "current frame number is larger than number of fences.");
@@ -1692,9 +1304,9 @@ namespace parus::vulkan
 			directionalLight.light.direction.y,
 			directionalLight.light.direction.z).normalize();
 
-		constexpr float shadowExtent = 500.0f;
-		constexpr float shadowNear = 1.0f;
-		constexpr float shadowFar = 1200.0f;
+		const float shadowExtent = configurator.shadowExtent;
+		const float shadowNear = configurator.shadowNear;
+		const float shadowFar = configurator.shadowFar;
 
 		const math::Vector3 shadowCenter = camera.getPosition();
 		const math::Vector3 lightPos = shadowCenter + lightDir * (shadowFar * 0.5f);
@@ -1714,7 +1326,7 @@ namespace parus::vulkan
 		// Shadow texel snapping - eliminates shadow shimmer on camera movement
 		math::TrivialMatrix4x4 snappedLightSpaceMatrix = lightSpaceMatrix.trivial();
 		{
-			constexpr float shadowMapSize = static_cast<float>(decltype(storage.shadowMap)::SIZE);
+			const float shadowMapSize = static_cast<float>(configurator.shadowMapSize);
 			const float texelSize = (2.0f * shadowExtent) / shadowMapSize;
 
 			snappedLightSpaceMatrix.values[3][0] = std::floor(snappedLightSpaceMatrix.values[3][0] / texelSize) * texelSize;
@@ -1730,9 +1342,9 @@ namespace parus::vulkan
 			camera.getUpVector()).trivial();
 
 		globalUbo.projection = math::Matrix4x4::perspective(
-			math::radians(45.0f),
+			math::radians(configurator.fieldOfView),
 			static_cast<float>(storage.swapChainDetails.swapChainExtent.width) / static_cast<float>(storage.swapChainDetails.swapChainExtent.height),
-			Z_NEAR, Z_FAR).trivial();
+			configurator.zNear, configurator.zFar).trivial();
 
 		globalUbo.lightSpaceMatrix = snappedLightSpaceMatrix;
 		globalUbo.cameraPosition = camera.getPosition().trivial();
@@ -1740,8 +1352,8 @@ namespace parus::vulkan
 		globalUbo.debug = debugMode;
 		globalUbo.skyHorizonColor = skyHorizonColor.trivial();
 		globalUbo.skyZenithColor = skyZenithColor.trivial();
-		globalUbo.fogStart = 500.0f;
-		globalUbo.fogEnd = 2500.0f;
+		globalUbo.fogStart = configurator.fogStart;
+		globalUbo.fogEnd = configurator.fogEnd;
 
 		// Time for animated effects (sky clouds, etc.)
 		static const auto startTime = std::chrono::high_resolution_clock::now();

@@ -4,8 +4,7 @@
 #include <vulkan/vulkan_core.h>
 
 #include "engine/utils/math/Math.h"
-
-struct Mesh;
+#include "services/renderer/vulkan/mesh/Mesh.h"
 
 namespace parus
 {

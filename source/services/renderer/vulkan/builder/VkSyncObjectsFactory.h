@@ -4,7 +4,7 @@
 
 namespace parus::vulkan
 {
-    class VkSyncObjectsBuilder final
+    class VkSyncObjectsFactory final
     {
     public:
         void build(VulkanStorage& storage) const;

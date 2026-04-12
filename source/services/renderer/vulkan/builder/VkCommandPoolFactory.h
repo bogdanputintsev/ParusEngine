@@ -6,7 +6,7 @@
 
 namespace parus::vulkan
 {
-    class VkCommandPoolBuilder final
+    class VkCommandPoolFactory final
     {
     public:
         [[nodiscard]] VkCommandPool build(const std::string& name, const VulkanStorage& storage) const;

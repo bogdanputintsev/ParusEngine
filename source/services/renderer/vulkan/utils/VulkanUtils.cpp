@@ -2,7 +2,7 @@
 
 #include <mutex>
 
-#include "services/renderer/vulkan/builder/VkCommandPoolBuilder.h"
+#include "services/renderer/vulkan/builder/VkCommandPoolFactory.h"
 #include "services/renderer/vulkan/storage/VulkanStorage.h"
 
 namespace parus::vulkan::utils
@@ -194,7 +194,7 @@ namespace parus::vulkan::utils
     VkCommandPool createCommandPool(const VulkanStorage& storage)
     {
         const std::thread::id threadId = std::this_thread::get_id();
-        return VkCommandPoolBuilder().build("Command Pool [thread " + std::to_string(std::hash<std::thread::id>{}(threadId)) + "]", storage);
+        return VkCommandPoolFactory().build("Command Pool [thread " + std::to_string(std::hash<std::thread::id>{}(threadId)) + "]", storage);
     }
 
     VkCommandPool getCommandPool(VulkanStorage& storage)

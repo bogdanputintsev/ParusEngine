@@ -7,7 +7,7 @@
 namespace parus::vulkan
 {
     
-    class VkRenderPassBuilder final
+    class VkRenderPassFactory final
     {
     public:
         static void build(const std::string& name, VulkanStorage& storage);

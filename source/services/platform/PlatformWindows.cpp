@@ -14,7 +14,7 @@
 #include "engine/input/Input.h"
 #include "services/Services.h"
 #include "services/config/Configs.h"
-#include "services/renderer/vulkan/builder/VkSurfaceBuilder.h"
+#include "services/renderer/vulkan/builder/VkSurfaceFactory.h"
 #include "services/renderer/vulkan/storage/VulkanStorage.h"
 
 namespace parus

@@ -1,4 +1,4 @@
-﻿#include "VkSwapChainBuilder.h"
+﻿#include "VkSwapChainFactory.h"
 
 #include <utility>
 
@@ -10,7 +10,7 @@
 namespace parus::vulkan
 {
     
-    void VkSwapChainBuilder::build(VulkanStorage& storage)
+    void VkSwapChainFactory::build(VulkanStorage& storage)
     {
 		const auto [capabilities, formats, presentModes] = utils::querySwapChainSupport(storage.physicalDevice, storage.surface);
 
@@ -94,7 +94,7 @@ namespace parus::vulkan
 		};
     }
 
-    VkSurfaceFormatKHR VkSwapChainBuilder::chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats)
+    VkSurfaceFormatKHR VkSwapChainFactory::chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats)
     {
     	ASSERT(!availableFormats.empty(), "No swap chain formats available.");
 
@@ -109,7 +109,7 @@ namespace parus::vulkan
     	return availableFormats[0];
     }
 
-    VkPresentModeKHR VkSwapChainBuilder::chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes)
+    VkPresentModeKHR VkSwapChainFactory::chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes)
     {
     	for (const auto& availablePresentMode : availablePresentModes)
     	{
@@ -123,7 +123,7 @@ namespace parus::vulkan
     	return VK_PRESENT_MODE_FIFO_KHR;
     }
 
-    VkExtent2D VkSwapChainBuilder::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities)
+    VkExtent2D VkSwapChainFactory::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities)
     {
     	if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max())
     	{

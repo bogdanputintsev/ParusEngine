@@ -1,4 +1,4 @@
-﻿#include "VkQueuesBuilder.h"
+﻿#include "VkQueuesFactory.h"
 
 #include <mutex>
 
@@ -8,7 +8,7 @@
 namespace parus::vulkan
 {
     
-    void VkQueuesBuilder::build(VulkanStorage& storage)
+    void VkQueuesFactory::build(VulkanStorage& storage)
     {
         const auto [graphicsFamily, presentFamily] = utils::findQueueFamilies(storage.physicalDevice, storage.surface);
 

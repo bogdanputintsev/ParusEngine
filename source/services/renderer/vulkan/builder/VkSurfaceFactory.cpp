@@ -1,4 +1,4 @@
-﻿#include "VkSurfaceBuilder.h"
+﻿#include "VkSurfaceFactory.h"
 
 #include "engine/EngineCore.h"
 #include "services/platform/Platform.h"
@@ -8,7 +8,7 @@
 namespace parus::vulkan
 {
 
-    void VkSurfaceBuilder::build(VulkanStorage& vulkanStorage)
+    void VkSurfaceFactory::build(VulkanStorage& vulkanStorage)
     {
         const PlatformStorage platformStorage = Services::get<Platform>()->getPlatformStorage();
 

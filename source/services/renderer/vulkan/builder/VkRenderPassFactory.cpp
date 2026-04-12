@@ -1,10 +1,10 @@
-﻿#include "VkRenderPassBuilder.h"
+﻿#include "VkRenderPassFactory.h"
 
 
 namespace parus::vulkan
 {
     
-    void VkRenderPassBuilder::build(const std::string& name, VulkanStorage& storage)
+    void VkRenderPassFactory::build(const std::string& name, VulkanStorage& storage)
     {
         VkAttachmentDescription colorAttachment{};
 		colorAttachment.format = storage.swapChainDetails.swapChainImageFormat;

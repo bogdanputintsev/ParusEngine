@@ -1,12 +1,14 @@
 ﻿#pragma once
 
+
 #include "services/renderer/vulkan/storage/VulkanStorage.h"
+
 
 namespace parus::vulkan
 {
-    class VkSurfaceBuilder
+    class VkQueuesFactory
     {
     public:
-        static void build(VulkanStorage& vulkanStorage);
+        static void build(VulkanStorage& storage);
     };
-}   
+}

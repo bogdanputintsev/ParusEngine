@@ -14,7 +14,13 @@
 #include "mesh/Mesh.h"
 #include "mesh/MeshInstance.h"
 #include "services/renderer/Renderer.h"
+#include "pass/ShadowPass.h"
+#include "pass/DepthPrePass.h"
+#include "pass/SSAOPass.h"
+#include "pass/SSAOBlurPass.h"
+#include "pass/MainPass.h"
 #include "storage/VulkanStorage.h"
+#include "VulkanConfigurator.h"
 #include "VulkanDescriptorManager.h"
 #include "VulkanInitializer.h"
 
@@ -44,11 +50,15 @@ namespace parus::vulkan
 
 	private:
 		VulkanStorage storage;
+		VulkanConfigurator configurator;
 		VulkanInitializer initializer;
 		VulkanDescriptorManager descriptorManager;
 
-		static constexpr float Z_NEAR = 0.1f;
-		static constexpr float Z_FAR = 1500.0f;
+		ShadowPass shadowPass;
+		DepthPrePass depthPrePass;
+		SSAOPass ssaoPass;
+		SSAOBlurPass ssaoBlurPass;
+		MainPass mainPass;
 
 		int debugMode = 0;
 
@@ -85,13 +95,6 @@ namespace parus::vulkan
 
 		// Command buffer
 		void resetCommandBuffer(const int bufferId) const;
-		void setFullscreenViewportScissor(VkCommandBuffer cmd) const;
-		void drawMainScenePass(VkCommandBuffer commandBufferToRecord) const;
-		void drawShadowPass(VkCommandBuffer commandBufferToRecord) const;
-		void drawDepthPrePass(VkCommandBuffer commandBufferToRecord) const;
-		void drawSSAOPass(VkCommandBuffer commandBufferToRecord) const;
-		void drawSSAOBlurPass(VkCommandBuffer commandBufferToRecord) const;
-		void drawSkyboxPass(VkCommandBuffer commandBufferToRecord) const;
 		void recordCommandBuffer(VkCommandBuffer commandBufferToRecord, uint32_t imageIndex) const;
 
 		[[nodiscard]] VkCommandBuffer getCommandBuffer(const int bufferId) const;

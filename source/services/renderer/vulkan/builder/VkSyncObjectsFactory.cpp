@@ -1,10 +1,10 @@
-#include "VkSyncObjectsBuilder.h"
+#include "VkSyncObjectsFactory.h"
 
 #include "services/renderer/vulkan/utils/VulkanUtils.h"
 
 namespace parus::vulkan
 {
-    void VkSyncObjectsBuilder::build(VulkanStorage& storage) const
+    void VkSyncObjectsFactory::build(VulkanStorage& storage) const
     {
         storage.imageAvailableSemaphores.resize(VulkanStorage::MAX_FRAMES_IN_FLIGHT);
         storage.renderFinishedSemaphores.resize(VulkanStorage::MAX_FRAMES_IN_FLIGHT);
