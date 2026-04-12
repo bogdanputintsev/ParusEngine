@@ -1692,9 +1692,9 @@ namespace parus::vulkan
 			directionalLight.light.direction.y,
 			directionalLight.light.direction.z).normalize();
 
-		constexpr float shadowExtent = 120.0f;
+		constexpr float shadowExtent = 500.0f;
 		constexpr float shadowNear = 1.0f;
-		constexpr float shadowFar = 350.0f;
+		constexpr float shadowFar = 1200.0f;
 
 		const math::Vector3 shadowCenter = camera.getPosition();
 		const math::Vector3 lightPos = shadowCenter + lightDir * (shadowFar * 0.5f);
