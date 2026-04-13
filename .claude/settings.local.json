@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -n \"VertexInputBindingDescription\\\\|VertexInputAttributeDescription\" source/services/renderer/vulkan/*.cpp source/services/renderer/vulkan/builder/*.cpp)",
+      "Bash(cmd:*)",
+      "Bash(grep -E \"\\\\.\\(h|cpp\\)$\")",
+      "Bash(find . -type f \\\\\\( -name \"*.cpp\" -o -name \"*.h\" \\\\\\) -exec grep -l \"pointLight\\\\|PointLight\" {} \\\\;)"
+    ]
+  }
+}
