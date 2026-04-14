@@ -1,4 +1,4 @@
-﻿#include "ConsoleGui.h"
+#include "ConsoleGui.h"
 
 #pragma warning(push, 0)
 #include "third-party/imgui/imgui.h"
@@ -16,7 +16,7 @@ namespace parus::imgui
     {
         REGISTER_EVENT(EventType::EVENT_KEY_PRESSED, [&](const KeyButton key)
         {
-           if (key == KeyButton::KEY_GRAVE)
+           if (key == KeyButton::KEY_X)
            {
                isVisible = !isVisible;
            }
@@ -36,7 +36,10 @@ namespace parus::imgui
                 consoleHistory.reserve(1024);
                 
                 ImGui::SetNextItemWidth(-FLT_MIN);
-                ImGui::SetKeyboardFocusHere();
+                if (ImGui::IsWindowAppearing())
+                {
+                    ImGui::SetKeyboardFocusHere();
+                }
                 if (ImGui::InputText("##command", commandLineText.data(), commandLineText.capacity() + 1))
                 {
                     commandLineText.resize(strlen(commandLineText.data()));

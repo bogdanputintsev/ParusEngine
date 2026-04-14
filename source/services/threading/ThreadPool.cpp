@@ -22,27 +22,30 @@ namespace parus
     {
         while (true)
         {
-            std::unique_lock lock(queueMutex);
-            conditionVariable.wait(lock, [&]()
+            std::function<void()> newTask;
+            
             {
-               return isPendingStop || !tasks.empty(); 
-            });
+                std::unique_lock lock(queueMutex);
+                conditionVariable.wait(lock, [&]()
+                {
+                   return isPendingStop || !tasks.empty(); 
+                });
 
-            // Exit condition.
-            if (isPendingStop && tasks.empty())
-            {
-                return;
+                // Exit condition.
+                if (isPendingStop && tasks.empty())
+                {
+                    return;
+                }
+
+                newTask = std::move(tasks.front());
+                tasks.pop();
+                ++activeTasks;
             }
-
-            std::function<void()> newTask = std::move(tasks.front());
-            tasks.pop();
-            ++activeTasks;
-            lock.unlock();
 
             newTask();
 
             {
-                std::lock_guard completionLock(queueMutex);
+                std::scoped_lock completionLock(queueMutex);
                 --activeTasks;
             }
             completionVariable.notify_all();
@@ -67,7 +70,7 @@ namespace parus
     void ThreadPool::enqueue(std::function<void()> task)
     {
         {
-            std::lock_guard lock(queueMutex);
+            std::scoped_lock lock(queueMutex);
             tasks.emplace(std::move(task));
         }
         conditionVariable.notify_all();
@@ -84,7 +87,7 @@ namespace parus
 
     bool ThreadPool::isBusy() const
     {
-        std::lock_guard lock(queueMutex);
+        std::scoped_lock lock(queueMutex);
         return !tasks.empty() || activeTasks > 0;
     }
 }
