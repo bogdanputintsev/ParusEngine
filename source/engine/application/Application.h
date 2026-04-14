@@ -15,6 +15,7 @@ namespace parus
 		void registerEvents();
 		
 		bool isRunning = false;
+		bool isMinimized = false;
 	};
 
 }

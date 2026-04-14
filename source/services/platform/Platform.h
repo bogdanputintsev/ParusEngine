@@ -27,7 +27,7 @@ namespace parus
         void init();
         void clean();
 
-        static void getMessages();
+        void getMessages();
         void processOnResize() const;
 
         [[nodiscard]] PlatformStorage getPlatformStorage() const { return platformStorage; }

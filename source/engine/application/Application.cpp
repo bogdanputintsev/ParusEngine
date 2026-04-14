@@ -54,10 +54,21 @@ namespace parus
 		{
 			isRunning = false;
 		});
+		
+		REGISTER_EVENT(EventType::EVENT_WINDOW_MINIMIZED, [&](const bool newIsMinimized)
+		{
+			isMinimized = newIsMinimized;
+		});
 	}
 
 	void Application::loop()
 	{
+		const auto world = Services::get<World>();
+		const auto platform = Services::get<Platform>();
+		const auto configs = Services::get<Configs>();
+		const auto graphicsLibrary = Services::get<GraphicsLibrary>();
+		const auto renderer = Services::get<Renderer>();
+		
 		auto lastFrameTime = std::chrono::high_resolution_clock::now();
 
 		while (isRunning)
@@ -67,18 +78,17 @@ namespace parus
 			const float deltaTime = deltaTimeDuration.count();
 			lastFrameTime = currentFrameTime;
 
-			Services::get<World>()->tick(deltaTime);
-			Services::get<Platform>()->getMessages();
+			world->tick(deltaTime);
+			platform->getMessages();
 
-			const bool isMinimized = Services::get<Configs>()->getAsBool("Window", "isMinimized").value_or(false);
 			if (!isMinimized)
 			{
-				Services::get<GraphicsLibrary>()->drawFrame();
-				Services::get<Renderer>()->drawFrame();
+				graphicsLibrary->drawFrame();
+				renderer->drawFrame();
 			}
 		}
 
-		Services::get<Renderer>()->deviceWaitIdle();
+		renderer->deviceWaitIdle();
 	}
 
 	void Application::clean()
