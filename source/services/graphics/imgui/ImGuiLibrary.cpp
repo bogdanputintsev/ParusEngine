@@ -20,7 +20,7 @@ namespace parus::imgui
 		const auto vulkanRenderer = dynamic_cast<vulkan::VulkanRenderer*>(renderer.get());
 		ASSERT(vulkanRenderer, "VulkanRenderer type is expected for Renderer service.");
     	
-		const auto& windowsContext = Services::get<Platform>()->platformStorage;
+		const auto windowsContext = Services::get<Platform>()->getPlatformStorage();
 
 		IMGUI_CHECKVERSION();
 		ImGui::CreateContext();
