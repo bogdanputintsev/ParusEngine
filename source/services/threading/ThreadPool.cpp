@@ -1,4 +1,4 @@
-﻿#include "ThreadPool.h"
+#include "ThreadPool.h"
 #include "engine/EngineCore.h"
 
 namespace parus
@@ -22,7 +22,7 @@ namespace parus
     {
         while (true)
         {
-            std::unique_lock lock (queueMutex);
+            std::unique_lock lock(queueMutex);
             conditionVariable.wait(lock, [&]()
             {
                return isPendingStop || !tasks.empty(); 
@@ -36,10 +36,23 @@ namespace parus
 
             std::function<void()> newTask = std::move(tasks.front());
             tasks.pop();
+            ++activeTasks;
             lock.unlock();
 
             newTask();
+
+            {
+                std::lock_guard completionLock(queueMutex);
+                --activeTasks;
+            }
+            completionVariable.notify_all();
         }
+    }
+
+    unsigned int ThreadPool::defaultThreadCount()
+    {
+        const unsigned int cores = std::thread::hardware_concurrency();
+        return cores > 1 ? cores - 1 : 1;
     }
 
     void ThreadPool::init(const unsigned int numberOfThreads)
@@ -51,16 +64,27 @@ namespace parus
         }
     }
 
-    void ThreadPool::enqueue(const std::function<void()>& task)
+    void ThreadPool::enqueue(std::function<void()> task)
     {
-        std::unique_lock lock (queueMutex);
-        tasks.emplace(task);
+        {
+            std::lock_guard lock(queueMutex);
+            tasks.emplace(std::move(task));
+        }
         conditionVariable.notify_all();
+    }
+
+    void ThreadPool::waitUntilDone()
+    {
+        std::unique_lock lock(queueMutex);
+        completionVariable.wait(lock, [&]()
+        {
+            return tasks.empty() && activeTasks == 0;
+        });
     }
 
     bool ThreadPool::isBusy() const
     {
         std::lock_guard lock(queueMutex);
-        return !tasks.empty();
+        return !tasks.empty() || activeTasks > 0;
     }
 }

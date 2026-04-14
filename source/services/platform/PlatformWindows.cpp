@@ -7,14 +7,12 @@
 #include <windows.h>
 #include <windowsx.h>
 #include <vulkan/vulkan_core.h>
-#include <vulkan/vulkan_win32.h>
 
 #include "engine/Event.h"
 #include "engine/EngineCore.h"
 #include "engine/input/Input.h"
 #include "services/Services.h"
 #include "services/config/Configs.h"
-#include "services/renderer/vulkan/builder/VkSurfaceFactory.h"
 #include "services/renderer/vulkan/storage/VulkanStorage.h"
 
 namespace parus
@@ -134,24 +132,25 @@ namespace parus
         RECT borderRect = {0, 0, 0, 0};
         AdjustWindowRectEx(&borderRect, windowStyle, 0, windowExStyle);
 
-        const std::string title = Services::get<Configs>()->get("Window", "title");
+        const auto configsService = Services::get<Configs>();
+        const std::string title = configsService->get("Window", "title");
         
-		int positionX = Services::get<Configs>()->getAsInt("Window", "positionX").value_or(0);
-		int positionY = Services::get<Configs>()->getAsInt("Window", "positionY").value_or(0);
-        int width = Services::get<Configs>()->getAsInt("Window", "width").value_or(0);
-        int height = Services::get<Configs>()->getAsInt("Window", "height").value_or(0);
+		int positionX = configsService->getAsInt("Window", "positionX").value_or(0);
+		int positionY = configsService->getAsInt("Window", "positionY").value_or(0);
+        int width = configsService->getAsInt("Window", "width").value_or(0);
+        int height = configsService->getAsInt("Window", "height").value_or(0);
         
         // In this case, the border rectangle is negative.
         positionX += borderRect.left;
         positionY += borderRect.top;
-        Services::get<Configs>()->write("Window", "positionX", std::to_string(positionX));
-        Services::get<Configs>()->write("Window", "positionY", std::to_string(positionY));
+        configsService->write("Window", "positionX", std::to_string(positionX));
+        configsService->write("Window", "positionY", std::to_string(positionY));
 
         // Grow by the size of the OS border.
         width += borderRect.right - borderRect.left;
         height += borderRect.bottom - borderRect.top;
-        Services::get<Configs>()->write("Window", "width", std::to_string(width));
-        Services::get<Configs>()->write("Window", "height", std::to_string(height));
+        configsService->write("Window", "width", std::to_string(width));
+        configsService->write("Window", "height", std::to_string(height));
 
         const HWND handle = CreateWindowExA(
             windowExStyle, "parus_window_class", title.c_str(),
@@ -198,24 +197,26 @@ namespace parus
         const int newWidth = r.right - r.left;
         const int newHeight = r.bottom - r.top;
 
+        const auto configsService = Services::get<Configs>();
+        
         if (newWidth == 0 || newHeight == 0)
         {
-            Services::get<Configs>()->write("Window", "isMinimized", "true");
+            configsService->write("Window", "isMinimized", "true");
             LOG_INFO("Window has been minimized.");
             FIRE_EVENT(parus::EventType::EVENT_WINDOW_MINIMIZED, true);
             return;
         }
 
-		const bool isMinimized = Services::get<Configs>()->getAsBool("Window", "isMinimized").value_or(false);
+		const bool isMinimized = configsService->getAsBool("Window", "isMinimized").value_or(false);
         if (isMinimized)
         {
-            Services::get<Configs>()->write("Window", "isMinimized", "false");
+            configsService->write("Window", "isMinimized", "false");
             LOG_INFO("Window has been restored.");
             FIRE_EVENT(parus::EventType::EVENT_WINDOW_MINIMIZED, false);
         }
 
-        Services::get<Configs>()->write("Window", "width", std::to_string(newWidth));
-        Services::get<Configs>()->write("Window", "height", std::to_string(newWidth));
+        configsService->write("Window", "width", std::to_string(newWidth));
+        configsService->write("Window", "height", std::to_string(newWidth));
         
         FIRE_EVENT(parus::EventType::EVENT_WINDOW_RESIZED, newWidth, newHeight);
     }

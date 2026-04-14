@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include <functional>
 #include <mutex>
 #include <queue>
@@ -20,23 +20,26 @@ namespace parus
         ThreadPool& operator=(const ThreadPool&) = delete;
         ThreadPool& operator=(const ThreadPool&&) = delete;
 
-        static constexpr unsigned int DEFAULT_NUMBER_OF_THREADS = 3;
-        
-        void init(const unsigned int numberOfThreads = DEFAULT_NUMBER_OF_THREADS);
-        void enqueue(const std::function<void()>& task);
-        
+        static unsigned int defaultThreadCount();
+
+        void init(unsigned int numberOfThreads = defaultThreadCount());
+        void enqueue(std::function<void()> task);
+        void waitUntilDone();
+
         [[nodiscard]] bool isBusy() const;
-    private:
         
+    private:
         void workerJob();
         
         std::vector<std::thread> workers;
         std::queue<std::function<void()>> tasks;
         mutable std::mutex queueMutex;
         std::condition_variable conditionVariable;
+        std::condition_variable completionVariable;
+        unsigned int activeTasks = 0;
         bool isPendingStop = false;
     };
 
-#define RUN_ASYNC(function) Services::get<ThreadPool>()->enqueue([&]{function})
+#define RUN_ASYNC(function) Services::get<ThreadPool>()->enqueue([=]{function})
     
 }

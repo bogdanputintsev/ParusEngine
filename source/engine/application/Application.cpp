@@ -19,12 +19,12 @@ namespace parus
 		registerEvents();
 		
 		Services::get<Configs>()->loadAll();
-		
 		Services::get<Platform>()->init();
 		Services::get<ThreadPool>()->init();
 		Services::get<Renderer>()->init();
 		Services::get<GraphicsLibrary>()->init();
 
+		isMinimized = Services::get<Configs>()->getAsBool("Window", "isMinimized").value_or(false);
 		isRunning = true;
 	}
 
