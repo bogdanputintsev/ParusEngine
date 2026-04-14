@@ -17,7 +17,7 @@ namespace parus::vulkan
 	public:
 		void initialize(VulkanStorage& storage, VulkanDescriptorManager& descriptorManager, const VulkanConfigurator& configurator);
 		void cleanup(VulkanStorage& storage, VulkanDescriptorManager& descriptorManager);
-		void recreateSwapChain(VulkanStorage& storage, const VulkanDescriptorManager& descriptorManager);
+		void recreateSwapChain(VulkanStorage& storage);
 
 	private:
 		VulkanTexture2d colorTexture;

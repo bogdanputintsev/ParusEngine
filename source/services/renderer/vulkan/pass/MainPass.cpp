@@ -9,10 +9,9 @@
 #include "services/renderer/vulkan/utils/VulkanUtils.h"
 #include "services/renderer/vulkan/mesh/MeshInstance.h"
 #include "services/renderer/vulkan/mesh/Mesh.h"
-#include "services/renderer/vulkan/material/Material.h"
+#include "services/renderer/vulkan/material/VulkanMaterial.h"
 #include "engine/utils/math/Math.h"
 #include "services/Services.h"
-#include "services/graphics/imgui/ImGuiLibrary.h"
 #include "services/world/World.h"
 
 
@@ -23,6 +22,11 @@ namespace parus::vulkan
 	{
 		// MainPass uses the shared main render pass and swapchain framebuffers
 		// which are created by VulkanInitializer. Nothing to init here.
+	}
+
+	void MainPass::setOverlay(GraphicsOverlay* graphicsOverlay)
+	{
+		overlay = graphicsOverlay;
 	}
 
 	void MainPass::initPipelines(VulkanStorage& storage, const VulkanDescriptorManager& descriptorManager)
@@ -133,7 +137,10 @@ namespace parus::vulkan
 		vkCmdBeginRenderPass(frame.commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 		drawSkyboxPass(frame, storage);
 		drawMainScenePass(frame, storage, scene);
-		Services::get<imgui::ImGuiLibrary>()->renderDrawData(frame.commandBuffer);
+		if (overlay != nullptr)
+		{
+			overlay->render(frame.commandBuffer);
+		}
 		vkCmdEndRenderPass(frame.commandBuffer);
 	}
 
@@ -258,6 +265,9 @@ namespace parus::vulkan
 
 			for (const auto& meshPart : meshInstance.mesh->meshParts)
 			{
+				const auto* vulkanMaterial = dynamic_cast<const vulkan::VulkanMaterial*>(meshPart.material.get());
+				ASSERT(vulkanMaterial, "Expected vulkan::Material in Vulkan render pass.");
+
 				// Bind the material descriptor set.
 				vkCmdBindDescriptorSets(
 					frame.commandBuffer,
@@ -265,7 +275,7 @@ namespace parus::vulkan
 					pipelineLayout,
 					2,
 					1,
-					&meshPart.material->materialDescriptorSet, 0, nullptr);
+					&vulkanMaterial->materialDescriptorSet, 0, nullptr);
 
 				// Draw mesh part.
 				vkCmdDrawIndexed(frame.commandBuffer,

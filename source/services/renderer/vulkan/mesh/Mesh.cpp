@@ -116,12 +116,12 @@ namespace parus
 			LOG_WARNING(warningMessage);
 		}
 		
-		std::vector<std::shared_ptr<vulkan::Material>> modelMaterials;
+		std::vector<std::shared_ptr<parus::Material>> modelMaterials;
     	modelMaterials.reserve(materials.size());
 
 		for (const auto& material : materials)
 		{
-			std::shared_ptr<vulkan::Material> newModelMaterial
+			std::shared_ptr<parus::Material> newModelMaterial
 				= Services::get<World>()->getStorage()->getOrLoadMaterial(
 					material.name,
 					baseDir + material.diffuse_texname,

@@ -14,7 +14,7 @@
 #include "engine/utils/math/UniformBufferObjects.h"
 #include "services/Services.h"
 #include "services/config/Configs.h"
-#include "services/graphics/imgui/ImGuiLibrary.h"
+#include "services/graphics/GraphicsLibrary.h"
 #include "services/world/World.h"
 #include "utils/VulkanUtils.h"
 #include "VulkanRenderer.h"
@@ -121,10 +121,10 @@ namespace parus::vulkan
 		vkDestroyInstance(storage.instance, nullptr);
 	}
 
-	void VulkanInitializer::recreateSwapChain(VulkanStorage& storage, const VulkanDescriptorManager& descriptorManager)
+	void VulkanInitializer::recreateSwapChain(VulkanStorage& storage)
 	{
-		Services::get<imgui::ImGuiLibrary>()->handleMinimization();
-		Services::get<VulkanRenderer>()->deviceWaitIdle();
+		Services::get<GraphicsLibrary>()->handleMinimization();
+		Services::get<Renderer>()->deviceWaitIdle();
 
 		cleanupSwapChain(storage);
 
@@ -132,8 +132,6 @@ namespace parus::vulkan
 		createColorResources(storage);
 		createDepthResources(storage);
 		createFramebuffers(storage);
-
-		// Resolution-dependent passes are recreated by VulkanRenderer after this method returns
 	}
 
 	void VulkanInitializer::createSwapChain(VulkanStorage& storage)
@@ -229,10 +227,28 @@ namespace parus::vulkan
 	{
 		for (const auto& texture : Services::get<World>()->getStorage()->getAllTextures())
 		{
-			if (texture->sampler)     { vkDestroySampler(storage.logicalDevice, texture->sampler, nullptr);         texture->sampler = nullptr; }
-			if (texture->imageView)   { vkDestroyImageView(storage.logicalDevice, texture->imageView, nullptr);     texture->imageView = nullptr; }
-			if (texture->image)       { vkDestroyImage(storage.logicalDevice, texture->image, nullptr);             texture->image = nullptr; }
-			if (texture->imageMemory) { vkFreeMemory(storage.logicalDevice, texture->imageMemory, nullptr);         texture->imageMemory = nullptr; }
+			auto* vulkanTexture = dynamic_cast<VulkanTexture2d*>(texture.get());
+			ASSERT(vulkanTexture, "Expected VulkanTexture2d in Vulkan renderer cleanup.");
+			if (vulkanTexture->sampler)
+			{
+				vkDestroySampler(storage.logicalDevice, vulkanTexture->sampler, nullptr);
+				vulkanTexture->sampler = nullptr;
+			}
+			if (vulkanTexture->imageView)
+			{
+				vkDestroyImageView(storage.logicalDevice, vulkanTexture->imageView, nullptr);
+				vulkanTexture->imageView = nullptr;
+			}
+			if (vulkanTexture->image)
+			{
+				vkDestroyImage(storage.logicalDevice, vulkanTexture->image, nullptr);
+				vulkanTexture->image = nullptr;
+			}
+			if (vulkanTexture->imageMemory)
+			{
+				vkFreeMemory(storage.logicalDevice, vulkanTexture->imageMemory, nullptr);
+				vulkanTexture->imageMemory = nullptr;
+			}
 		}
 	}
 
@@ -254,7 +270,7 @@ namespace parus::vulkan
 
 	std::vector<const char*> VulkanInitializer::getRequiredExtensions()
 	{
-		std::vector extensions = Services::get<imgui::ImGuiLibrary>()->getRequiredExtensions();
+		std::vector extensions = Services::get<GraphicsLibrary>()->getRequiredExtensions();
 
 		if (VkInstanceBuilder::validationLayersAreEnabled())
 		{

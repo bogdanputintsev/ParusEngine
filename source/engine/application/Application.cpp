@@ -4,6 +4,7 @@
 #include "engine/input/Input.h"
 #include "services/platform/Platform.h"
 #include "services/graphics/imgui/ImGuiLibrary.h"
+#include "services/graphics/GraphicsLibrary.h"
 #include "services/renderer/vulkan/VulkanRenderer.h"
 #include "services/Services.h"
 #include "services/config/Configs.h"
@@ -21,31 +22,22 @@ namespace parus
 		
 		Services::get<Platform>()->init();
 		Services::get<ThreadPool>()->init();
-		Services::get<vulkan::VulkanRenderer>()->init();
-		Services::get<imgui::ImGuiLibrary>()->init();
+		Services::get<Renderer>()->init();
+		Services::get<GraphicsLibrary>()->init();
 
 		isRunning = true;
 	}
 
 	void Application::registerServices()
 	{
-		const auto configs = std::make_shared<Configs>();
-		const auto platform = std::make_shared<Platform>();
-		const auto graphicsLibrary = std::make_shared<imgui::ImGuiLibrary>();
-		const auto renderer = std::make_shared<vulkan::VulkanRenderer>();
-		const auto eventSystem = std::make_shared<EventSystem>();
-		const auto inputSystem = std::make_shared<Input>();
-		const auto world = std::make_shared<World>();
-		const auto threadPool = std::make_shared<ThreadPool>();
-
-		Services::registerService(configs.get(), configs);
-		Services::registerService(platform.get(), platform);
-		Services::registerService(graphicsLibrary.get(), graphicsLibrary);
-		Services::registerService(renderer.get(), renderer);
-		Services::registerService(eventSystem.get(), eventSystem);
-		Services::registerService(inputSystem.get(), inputSystem);
-		Services::registerService(world.get(), world);
-		Services::registerService(threadPool.get(), threadPool);
+		Services::registerService<Configs>(std::make_shared<Configs>());
+		Services::registerService<Platform>(std::make_shared<Platform>());
+		Services::registerService<GraphicsLibrary>(std::make_shared<imgui::ImGuiLibrary>());
+		Services::registerService<Renderer>(std::make_shared<vulkan::VulkanRenderer>());
+		Services::registerService<EventSystem>(std::make_shared<EventSystem>());
+		Services::registerService<Input>(std::make_shared<Input>());
+		Services::registerService<World>(std::make_shared<World>());
+		Services::registerService<ThreadPool>(std::make_shared<ThreadPool>());
 	}
 
 	void Application::registerEvents()
@@ -81,20 +73,20 @@ namespace parus
 			const bool isMinimized = Services::get<Configs>()->getAsBool("Window", "isMinimized").value_or(false);
 			if (!isMinimized)
 			{
-				Services::get<imgui::ImGuiLibrary>()->drawFrame();
-				Services::get<vulkan::VulkanRenderer>()->drawFrame();
+				Services::get<GraphicsLibrary>()->drawFrame();
+				Services::get<Renderer>()->drawFrame();
 			}
 		}
 
-		Services::get<vulkan::VulkanRenderer>()->deviceWaitIdle();
+		Services::get<Renderer>()->deviceWaitIdle();
 	}
 
 	void Application::clean()
 	{
 		isRunning = false;
 		
-		Services::get<imgui::ImGuiLibrary>()->clean();
-		Services::get<vulkan::VulkanRenderer>()->clean();
+		Services::get<GraphicsLibrary>()->clean();
+		Services::get<Renderer>()->clean();
 		Services::get<Platform>()->clean();
 	}
 

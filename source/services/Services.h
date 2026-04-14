@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include <memory>
 #include <stdexcept>
@@ -17,13 +17,13 @@ namespace parus
         /**
          * @brief Method to register a service.
          *
-         * @param servicePointer The shared pointer to the service instance.
-         * @param service
+         * @tparam TKey The type of service to set.
+         * @param service The pointer to the service.
          */
-        template<typename T>
-        static void registerService([[maybe_unused]] const T* servicePointer, const std::shared_ptr<Service>& service)
+        template<typename TKey>
+        static void registerService(const std::shared_ptr<Service>& service)
         {
-            services[&typeid(*servicePointer)] = service;
+            services[&typeid(TKey)] = service;
         }
 
         /**

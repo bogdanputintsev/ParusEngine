@@ -25,11 +25,6 @@
 #include "VulkanInitializer.h"
 
 
-namespace parus::imgui
-{
-	class ImGuiLibrary;
-}
-
 namespace parus::vulkan
 {
 
@@ -43,8 +38,8 @@ namespace parus::vulkan
 		void clean() override;
 		void drawFrame() override;
 		void deviceWaitIdle() override;
+		[[nodiscard]] const VulkanStorage& getStorage() const;
 
-		friend class parus::imgui::ImGuiLibrary;
 		friend VulkanTexture2d VulkanTexture2dBuilder::buildFromFile(const std::string& filePath);
 		friend VulkanTexture2d VulkanTexture2dBuilder::buildFromSolidColor(const math::Vector3& color);
 

@@ -1,12 +1,13 @@
-﻿#pragma once
+#pragma once
 
 #include <vulkan/vulkan_core.h>
 
+#include "services/renderer/Texture.h"
 
 namespace parus::vulkan
 {
-    
-    class VulkanTexture2d final
+
+    class VulkanTexture2d final : public parus::Texture
     {
     public:
         VkImage image = VK_NULL_HANDLE;

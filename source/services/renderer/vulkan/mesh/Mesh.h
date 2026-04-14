@@ -4,7 +4,7 @@
 #include <filesystem>
 
 #include "engine/utils/math/Math.h"
-#include "services/renderer/vulkan/material/Material.h"
+#include "services/renderer/Material.h"
 
 namespace parus
 {
@@ -21,7 +21,7 @@ namespace parus
         size_t vertexCount;
         size_t indexOffset;
         size_t indexCount;
-        std::shared_ptr<vulkan::Material> material;
+        std::shared_ptr<parus::Material> material;
         
         std::vector<math::Vertex> vertices;
         std::vector<uint32_t> indices;

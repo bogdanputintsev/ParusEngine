@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include <vulkan/vulkan_core.h>
 
@@ -8,6 +8,7 @@
 
 #include "services/graphics/GraphicsLibrary.h"
 #include "services/graphics/gui/ConsoleGui.h"
+#include "services/renderer/vulkan/GraphicsOverlay.h"
 
 
 namespace parus
@@ -18,17 +19,18 @@ namespace parus
 
 namespace parus::imgui
 {
-    class ImGuiLibrary final : public GraphicsLibrary
+    class ImGuiLibrary final : public GraphicsLibrary, public parus::vulkan::GraphicsOverlay
     {
     public:
         void init() override;
         void drawFrame() override;
         void draw();
-        static void renderDrawData(VkCommandBuffer cmd);
+        void render(VkCommandBuffer commandBuffer) override;
         void handleMinimization() override;
         [[nodiscard]] std::vector<const char*> getRequiredExtensions() const override;
         void clean() override;
     private:
+        static void renderDrawData(VkCommandBuffer cmd);
         static ImGuiKey getImGuiKeyCode(const ::parus::KeyButton keyTest);
 
         ConsoleGui consoleGui{};

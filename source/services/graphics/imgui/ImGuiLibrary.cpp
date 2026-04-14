@@ -1,4 +1,4 @@
-﻿#include "ImGuiLibrary.h"
+#include "ImGuiLibrary.h"
 
 #include "third-party/imgui/backends/imgui_impl_vulkan.h"
 #include "services/platform/Platform.h"
@@ -16,7 +16,10 @@ namespace parus::imgui
 	
 	void ImGuiLibrary::init()
 	{
-		const auto& vulkanContext = Services::get<vulkan::VulkanRenderer>();
+		const std::shared_ptr<Renderer> renderer = Services::get<Renderer>();
+		const auto vulkanRenderer = dynamic_cast<vulkan::VulkanRenderer*>(renderer.get());
+		ASSERT(vulkanRenderer, "VulkanRenderer type is expected for Renderer service.");
+    	
 		const auto& windowsContext = Services::get<Platform>()->platformStorage;
 
 		IMGUI_CHECKVERSION();
@@ -31,15 +34,15 @@ namespace parus::imgui
 
 		//this initializes imgui for Vulkan
 		ImGui_ImplVulkan_InitInfo initInfo = {};
-		initInfo.Instance = vulkanContext->storage.instance;
-		initInfo.PhysicalDevice = vulkanContext->storage.physicalDevice;
-		initInfo.Device = vulkanContext->storage.logicalDevice;
-		initInfo.Queue = vulkanContext->storage.graphicsQueue;
-		initInfo.DescriptorPool = vulkanContext->storage.descriptorPool;
-		initInfo.RenderPass = vulkanContext->storage.renderPass;
+		initInfo.Instance = vulkanRenderer->getStorage().instance;
+		initInfo.PhysicalDevice = vulkanRenderer->getStorage().physicalDevice;
+		initInfo.Device = vulkanRenderer->getStorage().logicalDevice;
+		initInfo.Queue = vulkanRenderer->getStorage().graphicsQueue;
+		initInfo.DescriptorPool = vulkanRenderer->getStorage().descriptorPool;
+		initInfo.RenderPass = vulkanRenderer->getStorage().renderPass;
 		initInfo.MinImageCount = 2;
 		initInfo.ImageCount = 2;
-		initInfo.MSAASamples = vulkanContext->storage.msaaSamples;
+		initInfo.MSAASamples = vulkanRenderer->getStorage().msaaSamples;
 
 		ImGui_ImplVulkan_Init(&initInfo);
 
@@ -119,6 +122,11 @@ namespace parus::imgui
 	void ImGuiLibrary::renderDrawData(const VkCommandBuffer cmd)
 	{
 		ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
+	}
+
+	void ImGuiLibrary::render(const VkCommandBuffer commandBuffer)
+	{
+		renderDrawData(commandBuffer);
 	}
 
 	void ImGuiLibrary::drawFrame()
@@ -234,7 +242,7 @@ namespace parus::imgui
 		case KeyButton::KEY_T:
 			return ImGuiKey_T;
 		case KeyButton::KEY_U:
-			return ImGuiKey_T;
+			return ImGuiKey_U;
 		case KeyButton::KEY_V:
 			return ImGuiKey_V;
 		case KeyButton::KEY_W:

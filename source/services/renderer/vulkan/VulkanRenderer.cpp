@@ -27,9 +27,10 @@
 #include "services/platform/Platform.h"
 #include "engine/Event.h"
 #include "engine/utils/Utils.h"
-#include "services/graphics/imgui/ImGuiLibrary.h"
+#include "services/graphics/GraphicsLibrary.h"
+#include "services/renderer/vulkan/GraphicsOverlay.h"
 #include "engine/utils/math/UniformBufferObjects.h"
-#include "material/Material.h"
+#include "material/VulkanMaterial.h"
 #include "services/Services.h"
 #include "services/threading/ThreadPool.h"
 #include "services/world/World.h"
@@ -53,10 +54,17 @@ namespace parus::vulkan
 		ssaoBlurPass.initPipeline(storage, depthPrePass, ssaoPass);
 		mainPass.init(storage, configurator);
 		mainPass.initPipelines(storage, descriptorManager);
+		auto* graphicsOverlay = dynamic_cast<GraphicsOverlay*>(Services::get<GraphicsLibrary>().get());
+		mainPass.setOverlay(graphicsOverlay);
 		loadSceneAssets();
 		isRunning = true;
 	}
 	
+	const VulkanStorage& VulkanRenderer::getStorage() const
+	{
+		return storage;
+	}
+
 	void VulkanRenderer::registerEvents()
 	{
 		REGISTER_EVENT(EventType::EVENT_WINDOW_RESIZED, [&](const int newWidth, const int newHeight)
@@ -176,8 +184,8 @@ namespace parus::vulkan
 						{ "Binding 4: Ambient Occlusion", VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT },
 					})
 				.withPoolSizes(
-					{{ .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .descriptorCount = static_cast<uint32_t>(MAX_MESHES) * NUMBER_OF_TEXTURE_TYPES + IMAGE_SAMPLER_POOL }},
-					static_cast<uint32_t>(MAX_MESHES) * NUMBER_OF_TEXTURE_TYPES + IMAGE_SAMPLER_POOL)
+					{{ .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .descriptorCount = static_cast<uint32_t>(MAX_MESHES) * parus::NUMBER_OF_TEXTURE_TYPES + IMAGE_SAMPLER_POOL }},
+					static_cast<uint32_t>(MAX_MESHES) * parus::NUMBER_OF_TEXTURE_TYPES + IMAGE_SAMPLER_POOL)
 				.withAllocator([&](VulkanStorage& s, const VkDescriptorSetLayout layout)
 				{
 					for (const auto& mesh : Services::get<World>()->getStorage()->getAllMeshes())
@@ -185,9 +193,10 @@ namespace parus::vulkan
 						for (auto& meshPart : mesh->meshParts)
 						{
 							ASSERT(meshPart.material, "Material must exist for any mesh part.");
-							const auto& material = meshPart.material;
+							auto* vulkanMaterial = dynamic_cast<vulkan::VulkanMaterial*>(meshPart.material.get());
+							ASSERT(vulkanMaterial, "Expected vulkan::Material in Vulkan renderer path.");
 
-							if (material->materialDescriptorSet != VK_NULL_HANDLE)
+							if (vulkanMaterial->materialDescriptorSet != VK_NULL_HANDLE)
 							{
 								continue;
 							}
@@ -198,12 +207,12 @@ namespace parus::vulkan
 							allocInfo.descriptorSetCount = 1;
 							allocInfo.pSetLayouts = &layout;
 
-							ASSERT(vkAllocateDescriptorSets(s.logicalDevice, &allocInfo, &material->materialDescriptorSet) == VK_SUCCESS,
+							ASSERT(vkAllocateDescriptorSets(s.logicalDevice, &allocInfo, &vulkanMaterial->materialDescriptorSet) == VK_SUCCESS,
 								"Failed to allocate material descriptor sets.");
 
 							std::vector<VkDescriptorImageInfo> imageInfos;
-							imageInfos.reserve(NUMBER_OF_TEXTURE_TYPES);
-							material->iterateAllTextures([&]([[maybe_unused]] const TextureType textureType, const std::shared_ptr<const VulkanTexture2d>& texture)
+							imageInfos.reserve(parus::NUMBER_OF_TEXTURE_TYPES);
+							vulkanMaterial->iterateAllTextures([&]([[maybe_unused]] const parus::TextureType textureType, const std::shared_ptr<const VulkanTexture2d>& texture)
 							{
 								imageInfos.push_back({ .sampler = texture->sampler, .imageView = texture->imageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL });
 							});
@@ -214,7 +223,7 @@ namespace parus::vulkan
 							{
 								writes.push_back({
 									.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, .pNext = nullptr,
-									.dstSet = material->materialDescriptorSet, .dstBinding = i, .dstArrayElement = 0,
+									.dstSet = vulkanMaterial->materialDescriptorSet, .dstBinding = i, .dstArrayElement = 0,
 									.descriptorCount = 1, .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 									.pImageInfo = &imageInfos[i], .pBufferInfo = nullptr, .pTexelBufferView = nullptr
 								});
@@ -376,7 +385,7 @@ namespace parus::vulkan
 		if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebufferResized)
 		{
 			framebufferResized = false;
-			initializer.recreateSwapChain(storage, descriptorManager);
+			initializer.recreateSwapChain(storage);
 			depthPrePass.onSwapchainRecreate(storage, configurator);
 			depthPrePass.initPipeline(storage, descriptorManager);
 			ssaoPass.onSwapchainRecreate(storage, configurator);
@@ -554,7 +563,7 @@ namespace parus::vulkan
 
 		if (result == VK_ERROR_OUT_OF_DATE_KHR)
 		{
-			initializer.recreateSwapChain(storage, descriptorManager);
+			initializer.recreateSwapChain(storage);
 			depthPrePass.onSwapchainRecreate(storage, configurator);
 			depthPrePass.initPipeline(storage, descriptorManager);
 			ssaoPass.onSwapchainRecreate(storage, configurator);
@@ -936,8 +945,7 @@ namespace parus::vulkan
 
 		LOG_INFO("Sky captured to cubemap.");
 	}
-
-
+	
 	void VulkanRenderer::resetCommandBuffer(const int bufferId) const
 	{
 		ASSERT(static_cast<size_t>(bufferId) < storage.commandBuffers.size() && bufferId >= 0, "current frame number is larger than number of fences.");

@@ -75,8 +75,10 @@ namespace parus::vulkan
 
 		ASSERT(pixels, "Failed to load texture image.");
 
-    	const auto& vulkanRenderer = Services::get<VulkanRenderer>();
-
+    	const std::shared_ptr<Renderer> renderer = Services::get<Renderer>();
+    	const auto vulkanRenderer = dynamic_cast<VulkanRenderer*>(renderer.get());
+    	ASSERT(vulkanRenderer, "VulkanRenderer type is expected for Renderer service.");
+    	
     	const VkFormat imageFormat = (format != VK_FORMAT_UNDEFINED) ? format : VK_FORMAT_R8G8B8A8_SRGB;
 
 		auto [stagingBuffer, stagingBufferMemory] = VkBufferBuilder(debugName + " Staging Buffer")
@@ -136,8 +138,10 @@ namespace parus::vulkan
     VulkanTexture2d VulkanTexture2dBuilder::buildFromSolidColor(const math::Vector3& color)
     {
     	VulkanTexture2d newTexture{};
-    	
-    	const auto& vulkanRenderer = Services::get<vulkan::VulkanRenderer>();
+
+	    const std::shared_ptr<Renderer> renderer = Services::get<Renderer>();
+    	const auto vulkanRenderer = dynamic_cast<VulkanRenderer*>(renderer.get());
+    	ASSERT(vulkanRenderer, "VulkanRenderer type is expected for Renderer service.");
     	
 		// 1. Create VkImage
 		newTexture.image = VkImageBuilder(debugName)
