@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "engine/Defines.h"
 #include "services/Service.h"
@@ -8,24 +8,16 @@
 #include <windows.h>
 #endif
 
-namespace parus::imgui
-{
-    class ImGuiLibrary;
-}
-
 namespace parus
 {
     
 #ifdef WITH_WINDOWS_PLATFORM
     struct PlatformStorage
     {
-    public:
         HINSTANCE hinstance;
         HWND hwnd;
         float clockFrequency;
         LARGE_INTEGER startTime;
-
-        friend class parus::imgui::ImGuiLibrary;
     };
 #endif
     
@@ -39,11 +31,9 @@ namespace parus
         void processOnResize() const;
 
         [[nodiscard]] PlatformStorage getPlatformStorage() const { return platformStorage; }
-        
-        friend class parus::imgui::ImGuiLibrary;
-        
+
     private:
-        PlatformStorage platformStorage;
+        PlatformStorage platformStorage{};
         
     };
     
