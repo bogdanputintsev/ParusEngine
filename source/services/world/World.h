@@ -9,8 +9,10 @@ namespace parus
     class World final : public Service
     {
     public:
+        void init();
         void tick(const float deltaTime);
-        
+        void registerConsoleCommands();
+
         [[nodiscard]] SpectatorCamera getMainCamera() const { return mainCamera; }
         [[nodiscard]] std::shared_ptr<Storage> getStorage() const { return storage; }
     private:

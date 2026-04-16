@@ -6,6 +6,7 @@
     <ClCompile Include="source\engine\input\Input.cpp" />
     <ClCompile Include="source\engine\logs\Logs.cpp" />
     <ClCompile Include="source\engine\utils\math\Math.cpp" />
+    <ClCompile Include="source\services\console\Console.cpp" />
     <ClCompile Include="source\services\graphics\gui\ConsoleGui.cpp" />
     <ClCompile Include="source\services\graphics\imgui\ImGuiLibrary.cpp" />
     <ClCompile Include="source\services\graphics\GraphicsLibrary.cpp" />
@@ -45,6 +46,8 @@
     <ClInclude Include="source\engine\Defines.h" />
     <ClInclude Include="source\engine\EngineCore.h" />
     <ClInclude Include="source\engine\Event.h" />
+    <ClInclude Include="source\services\console\Console.h" />
+    <ClInclude Include="source\services\console\Trie.h" />
     <ClInclude Include="source\services\graphics\gui\ConsoleGui.h" />
     <ClInclude Include="source\services\graphics\imgui\ImGuiLibrary.h" />
     <ClInclude Include="source\services\graphics\GraphicsLibrary.h" />

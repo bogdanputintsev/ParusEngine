@@ -8,6 +8,7 @@
 #include "services/renderer/vulkan/VulkanRenderer.h"
 #include "services/Services.h"
 #include "services/config/Configs.h"
+#include "services/console/Console.h"
 #include "services/threading/ThreadPool.h"
 #include "services/world/World.h"
 
@@ -21,9 +22,10 @@ namespace parus
 		Services::get<Configs>()->loadAll();
 		Services::get<Platform>()->init();
 		Services::get<ThreadPool>()->init();
+		Services::get<World>()->init();
 		Services::get<Renderer>()->init();
 		Services::get<GraphicsLibrary>()->init();
-
+		
 		isMinimized = Services::get<Configs>()->getAsBool("Window", "isMinimized").value_or(false);
 		isRunning = true;
 	}
@@ -38,6 +40,7 @@ namespace parus
 		Services::registerService<Input>(std::make_shared<Input>());
 		Services::registerService<World>(std::make_shared<World>());
 		Services::registerService<ThreadPool>(std::make_shared<ThreadPool>());
+		Services::registerService<Console>(std::make_shared<Console>());
 	}
 
 	void Application::registerEvents()

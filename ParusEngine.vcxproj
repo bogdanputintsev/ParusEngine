@@ -160,6 +160,7 @@
     <ClCompile Include="source\engine\logs\Logs.cpp" />
     <ClCompile Include="source\engine\utils\math\Math.cpp" />
     <ClCompile Include="source\Main.cpp" />
+    <ClCompile Include="source\services\console\Console.cpp" />
     <ClCompile Include="source\services\config\Configs.cpp" />
     <ClCompile Include="source\services\graphics\GraphicsLibrary.cpp" />
     <ClCompile Include="source\services\graphics\gui\ConsoleGui.cpp" />
@@ -218,6 +219,8 @@
     <ClInclude Include="source\engine\utils\math\Math.h" />
     <ClInclude Include="source\engine\utils\math\UniformBufferObjects.h" />
     <ClInclude Include="source\engine\utils\Utils.h" />
+    <ClInclude Include="source\services\console\Console.h" />
+    <ClInclude Include="source\services\console\Trie.h" />
     <ClInclude Include="source\services\config\Configs.h" />
     <ClInclude Include="source\services\graphics\GraphicsLibrary.h" />
     <ClInclude Include="source\services\graphics\gui\ConsoleGui.h" />

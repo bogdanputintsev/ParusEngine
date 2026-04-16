@@ -69,7 +69,6 @@ namespace parus::vulkan
 	{
 		REGISTER_EVENT(EventType::EVENT_WINDOW_RESIZED, [&](const int newWidth, const int newHeight)
 		{
-			// FIXME: #19 Crash when resizing or minimizing window in default scene
 			LOG_INFO("Vulkan initiated window resize. New dimensions: " + std::to_string(newWidth) + " " + std::to_string(newHeight));
 			onResize();
 		});
