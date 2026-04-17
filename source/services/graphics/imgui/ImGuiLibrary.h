@@ -29,6 +29,7 @@ namespace parus::imgui
         void handleMinimization() override;
         [[nodiscard]] std::vector<const char*> getRequiredExtensions() const override;
         void clean() override;
+        [[nodiscard]] bool isCapturingInput() const override;
     private:
         static void renderDrawData(VkCommandBuffer cmd);
         static ImGuiKey getImGuiKeyCode(const ::parus::KeyButton keyTest);

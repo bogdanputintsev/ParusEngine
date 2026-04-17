@@ -2,58 +2,140 @@
 
 #pragma warning(push, 0)
 #include "third-party/imgui/imgui.h"
-#include "third-party/imgui/imgui_internal.h"
 #pragma warning(pop)
+
+#include "services/graphics/imgui/Theme.h"
 
 #include "engine/Event.h"
 #include "engine/input/Input.h"
+#include "engine/logs/Logs.h"
 #include "services/Services.h"
 #include "services/console/Console.h"
 
+#include <sstream>
+
 namespace parus::imgui
 {
+    ConsoleGui::ConsoleGui()
+    {
+        commandLineText.reserve(256);
+    }
+
     void ConsoleGui::registerEvents()
     {
         REGISTER_EVENT(EventType::EVENT_KEY_PRESSED, [&](const KeyButton key)
         {
-           if (key == KeyButton::KEY_GRAVE)
+           if (key == KeyButton::KEY_GRAVE || key == KeyButton::KEY_X)
            {
                isVisible = !isVisible;
+               if (isVisible)
+               {
+                   scrollToTop = true;
+               }
            }
         });
     }
 
     void ConsoleGui::draw()
     {
-        if (isVisible)
+        if (!isVisible)
         {
-            ImGui::SetNextWindowBgAlpha(0.1f);
-            ImGui::Begin("Console", nullptr);
+            return;
+        }
+
+        if (consoleFont)
+        {
+            ImGui::PushFont(consoleFont);
+        }
+
+        ImGui::PushStyleColor(ImGuiCol_WindowBg,      theme::COLOR_BACKGROUND);
+        ImGui::PushStyleColor(ImGuiCol_TitleBg,        theme::COLOR_TITLEBAR);
+        ImGui::PushStyleColor(ImGuiCol_TitleBgActive,  theme::COLOR_TITLEBAR);
+        ImGui::PushStyleColor(ImGuiCol_Border,         theme::COLOR_BORDER);
+        ImGui::PushStyleColor(ImGuiCol_FrameBg,        theme::COLOR_TITLEBAR);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 6.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding,  4.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,  ImVec2(10.0f, 8.0f));
+        ImGui::SetNextWindowBgAlpha(0.92f);
+
+        ImGui::Begin("Console", nullptr);
+        {
+            const float historyHeight = ImGui::GetContentRegionAvail().y - ImGui::GetFrameHeightWithSpacing();
+
+            ImGui::BeginChild("##history", ImVec2(-FLT_MIN, historyHeight), false,
+                ImGuiWindowFlags_None);
             {
-                commandLineText.reserve(50);
-                consoleHistory.reserve(1024);
-
-                ImGui::SetNextItemWidth(-FLT_MIN);
-                if (ImGui::IsWindowAppearing())
+                for (const ConsoleEntry& entry : historyEntries)
                 {
-                    ImGui::SetKeyboardFocusHere();
-                }
-                if (ImGui::InputText("##command", commandLineText.data(), commandLineText.capacity() + 1,
-                    ImGuiInputTextFlags_CallbackCompletion, &ConsoleGui::inputTextCallback, this))
-                {
-                    commandLineText.resize(strlen(commandLineText.data()));
+                    switch (entry.type)
+                    {
+                        case ConsoleEntryType::Info:
+                        {
+                            ImGui::TextColored(theme::COLOR_INFO, "%s", entry.text.c_str());
+                            break;
+                        }
+                        case ConsoleEntryType::Command:
+                        {
+                            ImGui::TextColored(theme::COLOR_COMMAND, "%s", entry.text.c_str());
+                            break;
+                        }
+                        case ConsoleEntryType::Reply:
+                        {
+                            const bool isIndented = !entry.text.empty()
+                                && (entry.text[0] == ' ' || entry.text[0] == '\t');
+                            if (isIndented)
+                            {
+                                ImGui::TextColored(theme::COLOR_REPLY_VALUE, "%s", entry.text.c_str());
+                            }
+                            else
+                            {
+                                ImGui::TextColored(theme::COLOR_REPLY_TEXT, "%s", entry.text.c_str());
+                            }
+                            break;
+                        }
+                        default:
+                        {
+                            break;
+                        }
+                    }
                 }
 
-                if (ImGui::IsItemDeactivatedAfterEdit())
+                if (scrollToBottom)
                 {
-                    onNewCommandSent();
+                    ImGui::SetScrollHereY(1.0f);
+                    scrollToBottom = false;
                 }
-
-                ImGui::InputTextMultiline("##console", consoleHistory.data(), consoleHistory.capacity() + 1,
-                    ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 16),
-                    ImGuiInputTextFlags_ReadOnly);
+                else if (scrollToTop)
+                {
+                    ImGui::SetScrollY(0.0f);
+                    scrollToTop = false;
+                }
             }
-            ImGui::End();
+            ImGui::EndChild();
+
+            ImGui::SetNextItemWidth(-FLT_MIN);
+            if (ImGui::IsWindowAppearing())
+            {
+                ImGui::SetKeyboardFocusHere();
+            }
+            if (ImGui::InputText("##command", commandLineText.data(), commandLineText.capacity() + 1,
+                ImGuiInputTextFlags_CallbackCompletion, &ConsoleGui::inputTextCallback, this))
+            {
+                commandLineText.resize(strlen(commandLineText.data()));
+            }
+            if (ImGui::IsItemDeactivatedAfterEdit())
+            {
+                onNewCommandSent();
+            }
+        }
+        ImGui::End();
+
+        ImGui::PopStyleVar(3);
+        ImGui::PopStyleColor(5);
+
+        if (consoleFont)
+        {
+            ImGui::PopFont();
         }
     }
 
@@ -61,11 +143,29 @@ namespace parus::imgui
     {
         if (!commandLineText.empty())
         {
-            consoleHistory += "> " + commandLineText + "\n";
-            consoleHistory += Services::get<Console>()->processCommand(commandLineText) + "\n";
-            consoleHistory.resize(strlen(consoleHistory.data()));
-            commandLineText = "";
+            historyEntries.push_back({ ConsoleEntryType::Command, "> " + commandLineText });
+            LOG_INFO("[Console] > " + commandLineText);
+
+            std::string output = Services::get<Console>()->processCommand(commandLineText);
+            std::istringstream stream(output);
+            std::string line;
+            while (std::getline(stream, line))
+            {
+                if (!line.empty())
+                {
+                    historyEntries.push_back({ ConsoleEntryType::Reply, line });
+                    LOG_INFO("[Console] " + line);
+                }
+            }
+
+            commandLineText.clear();
+            scrollToBottom = true;
         }
+    }
+
+    void ConsoleGui::setFont(ImFont* font)
+    {
+        consoleFont = font;
     }
 
     int ConsoleGui::inputTextCallback(ImGuiInputTextCallbackData* data)

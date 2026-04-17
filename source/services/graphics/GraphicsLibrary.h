@@ -17,6 +17,7 @@ namespace parus
 		virtual void handleMinimization() = 0;
 		[[nodiscard]] virtual std::vector<const char*> getRequiredExtensions() const = 0;
 		virtual void clean() = 0;
+		[[nodiscard]] virtual bool isCapturingInput() const = 0;
 	};
 
 }

@@ -25,6 +25,11 @@ namespace parus::imgui
 		IMGUI_CHECKVERSION();
 		ImGui::CreateContext();
 		ImGuiIO& io = ImGui::GetIO();
+		ImFont* consoleFont = io.Fonts->AddFontFromFileTTF(
+		    "source/third-party/fonts/JetBrains_Mono/static/JetBrainsMono-Regular.ttf",
+		    15.0f);
+		ASSERT(consoleFont, "Failed to load JetBrains Mono font.");
+		consoleGui.setFont(consoleFont);
 		io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
 
 		ImGui::StyleColorsDark();
@@ -152,6 +157,11 @@ namespace parus::imgui
 	std::vector<const char*> ImGuiLibrary::getRequiredExtensions() const
 	{
 		return {"VK_KHR_surface", "VK_KHR_win32_surface"};
+	}
+
+	bool ImGuiLibrary::isCapturingInput() const
+	{
+		return ImGui::GetIO().WantCaptureKeyboard;
 	}
 
 	void ImGuiLibrary::clean()

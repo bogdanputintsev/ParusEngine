@@ -1,14 +1,20 @@
-﻿#include "SpectatorCamera.h"
+#include "SpectatorCamera.h"
 
 #include <algorithm>
 
 #include "engine/input/Input.h"
 #include "services/Services.h"
+#include "services/graphics/GraphicsLibrary.h"
 
 namespace parus
 {
     void SpectatorCamera::updateTransform(const float deltaTime)
     {
+        if (Services::get<GraphicsLibrary>()->isCapturingInput())
+        {
+            return;
+        }
+
         const auto input = Services::get<Input>();
         
         // Process keyboard
