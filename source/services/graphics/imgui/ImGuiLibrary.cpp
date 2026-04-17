@@ -162,7 +162,7 @@ namespace parus::imgui
 
 	bool ImGuiLibrary::isCapturingInput() const
 	{
-		return ImGui::GetIO().WantCaptureKeyboard;
+		return ImGui::GetIO().WantCaptureKeyboard || consoleGui.isFocused();
 	}
 
 	void ImGuiLibrary::clean()

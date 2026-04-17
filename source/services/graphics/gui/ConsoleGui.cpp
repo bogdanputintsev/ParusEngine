@@ -40,6 +40,7 @@ namespace parus::imgui
     {
         if (!isVisible)
         {
+            windowFocused = false;
             return;
         }
 
@@ -60,6 +61,8 @@ namespace parus::imgui
 
         ImGui::Begin("Console", nullptr);
         {
+            windowFocused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
+
             const float historyHeight = ImGui::GetContentRegionAvail().y - ImGui::GetFrameHeightWithSpacing();
 
             ImGui::BeginChild("##history", ImVec2(-FLT_MIN, historyHeight), false,
@@ -113,13 +116,33 @@ namespace parus::imgui
             }
             ImGui::EndChild();
 
+            if (windowFocused && !inputTextActive)
+            {
+                if (ImGui::IsKeyPressed(ImGuiKey_UpArrow))
+                {
+                    moveHistoryUp(commandLineText);
+                    focusInputNextFrame = true;
+                }
+                else if (ImGui::IsKeyPressed(ImGuiKey_DownArrow))
+                {
+                    moveHistoryDown(commandLineText);
+                    focusInputNextFrame = true;
+                }
+                else if (ImGui::IsKeyPressed(ImGuiKey_Tab))
+                {
+                    focusInputNextFrame = true;
+                }
+            }
+
             ImGui::SetNextItemWidth(-FLT_MIN);
-            if (ImGui::IsWindowAppearing())
+            if (ImGui::IsWindowAppearing() || focusInputNextFrame)
             {
                 ImGui::SetKeyboardFocusHere();
+                focusInputNextFrame = false;
             }
             if (ImGui::InputText("##command", commandLineText.data(), commandLineText.capacity() + 1,
-                ImGuiInputTextFlags_CallbackCompletion, &ConsoleGui::inputTextCallback, this))
+                ImGuiInputTextFlags_CallbackCompletion | ImGuiInputTextFlags_CallbackHistory,
+                &ConsoleGui::inputTextCallback, this))
             {
                 commandLineText.resize(strlen(commandLineText.data()));
             }
@@ -127,6 +150,7 @@ namespace parus::imgui
             {
                 onNewCommandSent();
             }
+            inputTextActive = ImGui::IsItemActive();
         }
         ImGui::End();
 
@@ -158,6 +182,14 @@ namespace parus::imgui
                 }
             }
 
+            commandHistory.insert(commandHistory.begin(), commandLineText);
+            if (static_cast<int>(commandHistory.size()) > MAX_COMMAND_HISTORY_SIZE)
+            {
+                commandHistory.resize(MAX_COMMAND_HISTORY_SIZE);
+            }
+            historyIndex = -1;
+            savedCurrentInput.clear();
+
             commandLineText.clear();
             scrollToBottom = true;
         }
@@ -178,8 +210,42 @@ namespace parus::imgui
         consoleFont = font;
     }
 
+    bool ConsoleGui::isFocused() const
+    {
+        return windowFocused;
+    }
+
+    void ConsoleGui::moveHistoryUp(std::string& text)
+    {
+        if (historyIndex == -1)
+        {
+            savedCurrentInput = text;
+        }
+        if (historyIndex < static_cast<int>(commandHistory.size()) - 1)
+        {
+            historyIndex++;
+            text = commandHistory[historyIndex];
+        }
+    }
+
+    void ConsoleGui::moveHistoryDown(std::string& text)
+    {
+        if (historyIndex > 0)
+        {
+            historyIndex--;
+            text = commandHistory[historyIndex];
+        }
+        else if (historyIndex == 0)
+        {
+            historyIndex = -1;
+            text = savedCurrentInput;
+        }
+    }
+
     int ConsoleGui::inputTextCallback(ImGuiInputTextCallbackData* data)
     {
+        auto* self = static_cast<ConsoleGui*>(data->UserData);
+
         if (data->EventFlag == ImGuiInputTextFlags_CallbackCompletion)
         {
             std::string currentInput(data->Buf, data->BufTextLen);
@@ -187,6 +253,22 @@ namespace parus::imgui
 
             data->DeleteChars(0, data->BufTextLen);
             data->InsertChars(0, hint.c_str());
+        }
+        else if (data->EventFlag == ImGuiInputTextFlags_CallbackHistory)
+        {
+            std::string text(data->Buf, data->BufTextLen);
+
+            if (data->EventKey == ImGuiKey_UpArrow)
+            {
+                self->moveHistoryUp(text);
+            }
+            else if (data->EventKey == ImGuiKey_DownArrow)
+            {
+                self->moveHistoryDown(text);
+            }
+
+            data->DeleteChars(0, data->BufTextLen);
+            data->InsertChars(0, text.c_str());
         }
         return 0;
     }
