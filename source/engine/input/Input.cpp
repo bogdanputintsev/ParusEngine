@@ -25,7 +25,7 @@ namespace parus
     void Input::processChar(const char inputChar)
     {
         FIRE_EVENT(parus::EventType::EVENT_CHAR_INPUT, inputChar);
-        LOG_DEBUG("Char entered: " + std::string(1, inputChar));
+        // LOG_DEBUG("Char entered: " + std::string(1, inputChar));
     }
 
     void Input::processButton(const MouseButton button, const bool isPressed)

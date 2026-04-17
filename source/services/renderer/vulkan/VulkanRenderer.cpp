@@ -75,7 +75,7 @@ namespace parus::vulkan
 
 		REGISTER_EVENT(EventType::EVENT_KEY_PRESSED, [&](const KeyButton key)
 		{
-			if (key == KeyButton::KEY_Z)
+			if (key == KeyButton::KEY_Z && !Services::get<GraphicsLibrary>()->isCapturingInput())
 			{
 				debugMode = (debugMode + 1) % 10;
 				LOG_DEBUG("Debug mode: " + std::to_string(debugMode));

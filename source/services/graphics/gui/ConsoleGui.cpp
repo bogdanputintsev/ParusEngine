@@ -27,10 +27,13 @@ namespace parus::imgui
         {
            if (key == KeyButton::KEY_GRAVE || key == KeyButton::KEY_X)
            {
-               isVisible = !isVisible;
-               if (isVisible)
+               if (!inputTextActive)
                {
-                   scrollToTop = true;
+                   isVisible = !isVisible;
+                   if (isVisible)
+                   {
+                       scrollToTop = true;
+                   }
                }
            }
         });
@@ -146,9 +149,10 @@ namespace parus::imgui
             {
                 commandLineText.resize(strlen(commandLineText.data()));
             }
-            if (ImGui::IsItemDeactivatedAfterEdit())
+            if (ImGui::IsItemDeactivatedAfterEdit() && ImGui::IsKeyPressed(ImGuiKey_Enter))
             {
                 onNewCommandSent();
+                focusInputNextFrame = true;
             }
             inputTextActive = ImGui::IsItemActive();
         }
