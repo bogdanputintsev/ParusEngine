@@ -122,6 +122,7 @@ namespace parus::imgui
 		});
 
 		consoleGui.registerEvents();
+		consoleGui.registerConsoleCommands();
 	}
 	
 	void ImGuiLibrary::renderDrawData(const VkCommandBuffer cmd)

@@ -9,9 +9,9 @@ namespace parus::imgui
 {
     enum class ConsoleEntryType
     {
-        Info,
-        Command,
-        Reply
+        INFO,
+        COMMAND,
+        REPLY
     };
 
     struct ConsoleEntry
@@ -25,6 +25,7 @@ namespace parus::imgui
     public:
         ConsoleGui();
         void registerEvents();
+        void registerConsoleCommands();
         void draw();
         void setFont(ImFont* font);
 
@@ -33,7 +34,7 @@ namespace parus::imgui
         static int inputTextCallback(ImGuiInputTextCallbackData* data);
 
         std::string commandLineText;
-        std::vector<ConsoleEntry> historyEntries{ { ConsoleEntryType::Info, "Parus Engine v0.3.0" } };
+        std::vector<ConsoleEntry> historyEntries{ { ConsoleEntryType::INFO, "Parus Engine v0.3.0" } };
         bool scrollToBottom{ false };
         bool scrollToTop{ true };
         ImFont* consoleFont{ nullptr };

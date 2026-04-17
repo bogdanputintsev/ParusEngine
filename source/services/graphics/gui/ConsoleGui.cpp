@@ -69,17 +69,17 @@ namespace parus::imgui
                 {
                     switch (entry.type)
                     {
-                        case ConsoleEntryType::Info:
+                        case ConsoleEntryType::INFO:
                         {
                             ImGui::TextColored(theme::COLOR_INFO, "%s", entry.text.c_str());
                             break;
                         }
-                        case ConsoleEntryType::Command:
+                        case ConsoleEntryType::COMMAND:
                         {
                             ImGui::TextColored(theme::COLOR_COMMAND, "%s", entry.text.c_str());
                             break;
                         }
-                        case ConsoleEntryType::Reply:
+                        case ConsoleEntryType::REPLY:
                         {
                             const bool isIndented = !entry.text.empty()
                                 && (entry.text[0] == ' ' || entry.text[0] == '\t');
@@ -143,7 +143,7 @@ namespace parus::imgui
     {
         if (!commandLineText.empty())
         {
-            historyEntries.push_back({ ConsoleEntryType::Command, "> " + commandLineText });
+            historyEntries.push_back({ ConsoleEntryType::COMMAND, "> " + commandLineText });
             LOG_INFO("[Console] > " + commandLineText);
 
             std::string output = Services::get<Console>()->processCommand(commandLineText);
@@ -153,7 +153,7 @@ namespace parus::imgui
             {
                 if (!line.empty())
                 {
-                    historyEntries.push_back({ ConsoleEntryType::Reply, line });
+                    historyEntries.push_back({ ConsoleEntryType::REPLY, line });
                     LOG_INFO("[Console] " + line);
                 }
             }
@@ -161,6 +161,16 @@ namespace parus::imgui
             commandLineText.clear();
             scrollToBottom = true;
         }
+    }
+
+    void ConsoleGui::registerConsoleCommands()
+    {
+        Services::get<Console>()->registerConsoleCommand("clear", [this](const auto&)
+        {
+            historyEntries.clear();
+            scrollToTop = true;
+            return std::string();
+        });
     }
 
     void ConsoleGui::setFont(ImFont* font)

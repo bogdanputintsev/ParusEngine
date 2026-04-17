@@ -18,6 +18,7 @@ namespace parus
 	{
 		registerServices();
 		registerEvents();
+		registerConsoleCommands();
 		
 		Services::get<Configs>()->loadAll();
 		Services::get<Platform>()->init();
@@ -61,6 +62,17 @@ namespace parus
 		REGISTER_EVENT(EventType::EVENT_WINDOW_MINIMIZED, [&](const bool newIsMinimized)
 		{
 			isMinimized = newIsMinimized;
+		});
+	}
+
+	void Application::registerConsoleCommands()
+	{
+		const auto console = Services::get<Console>();
+
+		console->registerConsoleCommand("exit", [](const auto& /*args*/)
+		{
+			FIRE_EVENT(EventType::EVENT_APPLICATION_QUIT, 0);
+			return std::string();
 		});
 	}
 

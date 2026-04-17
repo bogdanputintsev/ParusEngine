@@ -13,6 +13,7 @@ namespace parus
 	private:
 		static void registerServices();
 		void registerEvents();
+		static void registerConsoleCommands();
 		
 		bool isRunning = false;
 		bool isMinimized = false;
