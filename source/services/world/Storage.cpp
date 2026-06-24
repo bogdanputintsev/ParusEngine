@@ -114,6 +114,8 @@ namespace parus
 
     std::shared_ptr<parus::Texture> Storage::getDefaultTextureOfType(const parus::TextureType textureType)
     {
+        std::scoped_lock lock(texturesMutex);
+
         if (defaultTextures.size() != parus::NUMBER_OF_TEXTURE_TYPES)
         {
             ASSERT(defaultTextures.empty(), "Default textures can be empty or the size of NUMBER_OF_TEXTURE_TYPES.");
@@ -121,7 +123,7 @@ namespace parus
         }
 
         DEBUG_ASSERT(defaultTextures.contains(textureType), "Missing default textures for some types");
-        std::scoped_lock lock(texturesMutex);
+
         return defaultTextures[textureType];
     }
 
@@ -161,6 +163,22 @@ namespace parus
         return textures.contains(path);
     }
 
+    std::vector<std::shared_ptr<parus::Texture>> Storage::getSceneTextures() const
+    {
+        std::vector<std::shared_ptr<parus::Texture>> sceneTextures;
+
+        {
+            std::scoped_lock lock(texturesMutex);
+            sceneTextures.reserve(textures.size());
+            for (const auto& [key, texture] : textures)
+            {
+                sceneTextures.push_back(texture);
+            }
+        }
+
+        return sceneTextures;
+    }
+
     std::vector<std::shared_ptr<parus::Texture>> Storage::getAllTextures() const
     {
         std::vector<std::shared_ptr<parus::Texture>> allTextures;
@@ -194,7 +212,7 @@ namespace parus
     void Storage::addNewMesh(const std::string& path, const std::shared_ptr<Mesh>& newMesh)
     {
         std::scoped_lock lock(meshesMutex);
-        meshes.insert_or_assign(path, newMesh);   
+        meshes.insert_or_assign(path, newMesh);
     }
 
     std::shared_ptr<Mesh> Storage::getMeshByPath(const std::string& path)
@@ -238,39 +256,69 @@ namespace parus
         return allMeshes;
     }
 
+    void Storage::clearSceneAssets()
+    {
+        {
+            std::scoped_lock lock(meshesMutex);
+            for (auto it = meshes.begin(); it != meshes.end();)
+            {
+                if (it->second && it->second->meshType == MeshType::SKY)
+                {
+                    ++it;
+                }
+                else
+                {
+                    it = meshes.erase(it);
+                }
+            }
+        }
+
+        {
+            std::scoped_lock lock(texturesMutex);
+            textures.clear();
+        }
+
+        {
+            std::scoped_lock lock(materialMutex);
+            materials.clear();
+            defaultMaterial.reset();
+        }
+    }
+
     void Storage::fillDefaultTextures()
     {
         ASSERT(defaultTextures.empty(), "Default textures must be empty in the beginning.");
 
         vulkan::VulkanMaterial::iterateAllTextureTypes([&](const parus::TextureType textureType)
         {
-            vulkan::VulkanTexture2d defaultTexture;
-                
             switch (textureType)
             {
             case parus::TextureType::ALBEDO:
-                defaultTexture = vulkan::VulkanTexture2dBuilder("Default Albedo Map")
-                    .buildFromSolidColor(math::Vector3(1.0f, 1.0f, 1.0f));
+                defaultTextures[textureType] = std::make_shared<vulkan::VulkanTexture2d>(
+                    vulkan::VulkanTexture2dBuilder("Default Albedo Map")
+                        .buildFromSolidColor(math::Vector3(1.0f, 1.0f, 1.0f)));
                 break;
             case parus::TextureType::AMBIENT_OCCLUSION:
-                defaultTexture = vulkan::VulkanTexture2dBuilder("Default AO Map")
-                    .buildFromSolidColor(math::Vector3(1.0f, 1.0f, 1.0f));
+                defaultTextures[textureType] = std::make_shared<vulkan::VulkanTexture2d>(
+                    vulkan::VulkanTexture2dBuilder("Default AO Map")
+                        .buildFromSolidColor(math::Vector3(1.0f, 1.0f, 1.0f)));
                 break;
             case parus::TextureType::NORMAL:
-                defaultTexture = vulkan::VulkanTexture2dBuilder("Default Normal Map")
-                    .buildFromSolidColor(math::Vector3(0.5f, 0.5f, 1.0f));
+                defaultTextures[textureType] = std::make_shared<vulkan::VulkanTexture2d>(
+                    vulkan::VulkanTexture2dBuilder("Default Normal Map")
+                        .buildFromSolidColor(math::Vector3(0.5f, 0.5f, 1.0f)));
                 break;
             case parus::TextureType::METALLIC:
-                defaultTexture = vulkan::VulkanTexture2dBuilder("Default Metallic Map")
-                    .buildFromSolidColor(math::Vector3(0.0f, 0.0f, 0.0f));
+                defaultTextures[textureType] = std::make_shared<vulkan::VulkanTexture2d>(
+                    vulkan::VulkanTexture2dBuilder("Default Metallic Map")
+                        .buildFromSolidColor(math::Vector3(0.0f, 0.0f, 0.0f)));
                 break;
             case parus::TextureType::ROUGHNESS:
-                defaultTexture = vulkan::VulkanTexture2dBuilder("Default Roughness Map")
-                    .buildFromSolidColor(math::Vector3(0.8f, 0.8f, 0.8f));
+                defaultTextures[textureType] = std::make_shared<vulkan::VulkanTexture2d>(
+                    vulkan::VulkanTexture2dBuilder("Default Roughness Map")
+                        .buildFromSolidColor(math::Vector3(0.8f, 0.8f, 0.8f)));
                 break;
             }
-                
-            defaultTextures[textureType] = std::make_shared<vulkan::VulkanTexture2d>(defaultTexture);
         });
 
         ASSERT(defaultTextures.size() == parus::NUMBER_OF_TEXTURE_TYPES,

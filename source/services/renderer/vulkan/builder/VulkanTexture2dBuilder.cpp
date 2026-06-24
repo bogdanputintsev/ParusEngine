@@ -1,6 +1,7 @@
 #include "VulkanTexture2dBuilder.h"
 
 #include <filesystem>
+#include <vector>
 
 #include "VkBufferBuilder.h"
 #include "VkDeviceMemoryBuilder.h"
@@ -54,7 +55,7 @@ namespace parus::vulkan
 
     VulkanTexture2d VulkanTexture2dBuilder::buildFromFile(const std::string& filePath)
     {
-    	debugName = debugName = "[" + filePath + "]";
+    	debugName = "[" + filePath + "]";
 
         ASSERT(std::filesystem::exists(filePath),
 			"File " + filePath + " must exist.");
@@ -62,6 +63,7 @@ namespace parus::vulkan
 			"File " + filePath + " must be character file.");
 
 		VulkanTexture2d newTexture{};
+		newTexture.sourcePath = filePath;
 		LOG_INFO("Importing texture: " + filePath);
 
 		int textureWidth;
@@ -209,6 +211,108 @@ namespace parus::vulkan
     		.build(vulkanRenderer->storage);
 
 		return newTexture;
+    }
+
+    VulkanTexture2d VulkanTexture2dBuilder::buildFromPixels(const unsigned char* pixels, const int width, const int height, const int channels)
+    {
+        ASSERT(pixels, "Pixel buffer must not be null.");
+        ASSERT(width > 0 && height > 0, "Texture dimensions must be positive.");
+        ASSERT(channels >= 1 && channels <= 4, "Channel count must be 1-4.");
+
+        debugName = "[pixels " + std::to_string(width) + "x" + std::to_string(height) + "x" + std::to_string(channels) + "]";
+
+        const std::shared_ptr<Renderer> renderer = Services::get<Renderer>();
+        const auto vulkanRenderer = dynamic_cast<VulkanRenderer*>(renderer.get());
+        ASSERT(vulkanRenderer, "VulkanRenderer type is expected for Renderer service.");
+
+        VulkanTexture2d newTexture{};
+        newTexture.maxMipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(width, height)))) + 1;
+
+        // VK_FORMAT_R8G8B8_UNORM lacks BLIT_DST support on most GPUs, which breaks
+        // mip generation. Expand 3-channel pixels to RGBA — same as buildFromFile does
+        // via STBI_rgb_alpha.
+        VkFormat imageFormat = VK_FORMAT_R8G8B8A8_SRGB;
+        const unsigned char* uploadPixels = pixels;
+        int uploadChannels = channels;
+
+        std::vector<unsigned char> expandedPixels;
+        if (channels == 1)
+        {
+            imageFormat = VK_FORMAT_R8_UNORM;
+        }
+        else if (channels == 3)
+        {
+            uploadChannels = 4;
+            const size_t pixelCount = static_cast<size_t>(width) * static_cast<size_t>(height);
+            expandedPixels.resize(pixelCount * 4);
+            for (size_t i = 0; i < pixelCount; ++i)
+            {
+                expandedPixels[i * 4 + 0] = pixels[i * 3 + 0];
+                expandedPixels[i * 4 + 1] = pixels[i * 3 + 1];
+                expandedPixels[i * 4 + 2] = pixels[i * 3 + 2];
+                expandedPixels[i * 4 + 3] = 255;
+            }
+            uploadPixels = expandedPixels.data();
+        }
+
+        const VkDeviceSize imageSize = static_cast<uint64_t>(width) * static_cast<uint64_t>(height) * static_cast<uint64_t>(uploadChannels);
+
+        auto [stagingBuffer, stagingBufferMemory] = VkBufferBuilder(debugName + " Staging Buffer")
+            .setSize(imageSize)
+            .setUsage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT)
+            .setMemoryProperties(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)
+            .build(vulkanRenderer->storage);
+
+        void* data;
+        vkMapMemory(vulkanRenderer->storage.logicalDevice, stagingBufferMemory, 0, imageSize, 0, &data);
+        memcpy(data, uploadPixels, static_cast<size_t>(imageSize));
+        vkUnmapMemory(vulkanRenderer->storage.logicalDevice, stagingBufferMemory);
+
+        newTexture.image = VkImageBuilder(debugName)
+            .setWidth(static_cast<uint32_t>(width))
+            .setHeight(static_cast<uint32_t>(height))
+            .setMipLevels(newTexture.maxMipLevels)
+            .setFormat(imageFormat)
+            .setTiling(VK_IMAGE_TILING_OPTIMAL)
+            .setUsage(VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT)
+            .setSamples(VK_SAMPLE_COUNT_1_BIT)
+            .build(vulkanRenderer->storage);
+
+        newTexture.imageMemory = VkDeviceMemoryBuilder(debugName)
+            .setImage(newTexture.image)
+            .setPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
+            .build(vulkanRenderer->storage);
+
+        vulkanRenderer->transitionImageLayout(
+            newTexture.image, imageFormat,
+            VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            newTexture.maxMipLevels);
+
+        vulkanRenderer->copyBufferToImage(
+            stagingBuffer, newTexture.image,
+            static_cast<uint32_t>(width), static_cast<uint32_t>(height));
+
+        vkDestroyBuffer(vulkanRenderer->storage.logicalDevice, stagingBuffer, nullptr);
+        vkFreeMemory(vulkanRenderer->storage.logicalDevice, stagingBufferMemory, nullptr);
+
+        vulkanRenderer->generateMipmaps(newTexture, imageFormat, width, height);
+
+        newTexture.imageView = VkImageViewBuilder()
+            .setImage(newTexture.image)
+            .setFormat(imageFormat)
+            .setAspectMask(VK_IMAGE_ASPECT_COLOR_BIT)
+            .setLevelCount(newTexture.maxMipLevels)
+            .build(debugName, vulkanRenderer->storage);
+
+        VkPhysicalDeviceProperties deviceProperties{};
+        vkGetPhysicalDeviceProperties(vulkanRenderer->storage.physicalDevice, &deviceProperties);
+
+        newTexture.sampler = VkSamplerBuilder(debugName)
+            .setMaxAnisotropy(deviceProperties.limits.maxSamplerAnisotropy)
+            .setMaxLod(static_cast<float>(newTexture.maxMipLevels))
+            .build(vulkanRenderer->storage);
+
+        return newTexture;
     }
 
     VulkanTexture2dBuilder& VulkanTexture2dBuilder::setImageSize(const uint32_t newWidth, const uint32_t newHeight)

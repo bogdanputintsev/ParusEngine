@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string>
+
 #include "engine/Defines.h"
 #include "services/Service.h"
 
@@ -29,6 +31,7 @@ namespace parus
 
         void getMessages();
         void processOnResize() const;
+        void setWindowTitle(const std::string& title);
 
         [[nodiscard]] PlatformStorage getPlatformStorage() const { return platformStorage; }
 

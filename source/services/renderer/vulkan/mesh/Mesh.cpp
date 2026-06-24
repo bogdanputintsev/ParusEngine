@@ -86,6 +86,7 @@ namespace parus
 			"File " + filePath + " must have OBJ extension");
     	
     	Mesh newMesh{};
+    	newMesh.sourcePath = filePath;
 
 		LOG_INFO("Loading mesh: " + filePath);
 

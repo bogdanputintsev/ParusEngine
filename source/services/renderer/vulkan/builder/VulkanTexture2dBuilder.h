@@ -16,6 +16,7 @@ namespace parus::vulkan
         [[nodiscard]] VulkanTexture2d build(const VulkanStorage& storage) const;
         [[nodiscard]] VulkanTexture2d buildFromFile(const std::string& filePath);
         [[nodiscard]] VulkanTexture2d buildFromSolidColor(const math::Vector3& color);
+        [[nodiscard]] VulkanTexture2d buildFromPixels(const unsigned char* pixels, const int width, const int height, const int channels);
         
         VulkanTexture2dBuilder& setImageSize(const uint32_t newWidth, const uint32_t newHeight);
         VulkanTexture2dBuilder& setWidth(const uint32_t newWidth);

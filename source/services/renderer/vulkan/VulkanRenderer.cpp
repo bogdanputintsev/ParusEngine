@@ -31,6 +31,7 @@
 #include "services/renderer/vulkan/GraphicsOverlay.h"
 #include "engine/utils/math/UniformBufferObjects.h"
 #include "material/VulkanMaterial.h"
+#include "mesh/SkyboxMesh.h"
 #include "services/Services.h"
 #include "services/threading/ThreadPool.h"
 #include "services/world/World.h"
@@ -189,6 +190,11 @@ namespace parus::vulkan
 				{
 					for (const auto& mesh : Services::get<World>()->getStorage()->getAllMeshes())
 					{
+						if (mesh->meshType != MeshType::STATIC_MESH)
+						{
+							continue;
+						}
+
 						for (auto& meshPart : mesh->meshParts)
 						{
 							ASSERT(meshPart.material, "Material must exist for any mesh part.");
@@ -311,6 +317,39 @@ namespace parus::vulkan
 				}));
 	}	
 
+	void VulkanRenderer::cleanupSceneTextures()
+	{
+		for (const auto& texture : Services::get<World>()->getStorage()->getSceneTextures())
+		{
+			auto* vulkanTexture = dynamic_cast<VulkanTexture2d*>(texture.get());
+			ASSERT(vulkanTexture, "Expected VulkanTexture2d in scene texture cleanup.");
+
+			if (vulkanTexture->sampler)
+			{
+				vkDestroySampler(storage.logicalDevice, vulkanTexture->sampler, nullptr);
+				vulkanTexture->sampler = nullptr;
+			}
+
+			if (vulkanTexture->imageView)
+			{
+				vkDestroyImageView(storage.logicalDevice, vulkanTexture->imageView, nullptr);
+				vulkanTexture->imageView = nullptr;
+			}
+
+			if (vulkanTexture->image)
+			{
+				vkDestroyImage(storage.logicalDevice, vulkanTexture->image, nullptr);
+				vulkanTexture->image = nullptr;
+			}
+
+			if (vulkanTexture->imageMemory)
+			{
+				vkFreeMemory(storage.logicalDevice, vulkanTexture->imageMemory, nullptr);
+				vulkanTexture->imageMemory = nullptr;
+			}
+		}
+	}
+
 	void VulkanRenderer::clean()
 	{
 		mainPass.cleanup(storage);
@@ -417,6 +456,54 @@ namespace parus::vulkan
 		modelQueue.emplace(meshPath, std::make_shared<Mesh>(newMesh));
 	}
 
+	void VulkanRenderer::enqueueMesh(const std::string& meshId, const std::shared_ptr<Mesh>& mesh)
+	{
+		std::scoped_lock lock(importModelMutex);
+		modelQueue.emplace(meshId, mesh);
+	}
+
+	void VulkanRenderer::applySceneFromWorld()
+	{
+		// Flush any meshes pending in the model queue (e.g. the skybox enqueued during init)
+		// so they are in Storage before rebuildSceneBuffers reads from it.
+		flushMeshQueue();
+
+		const auto world = Services::get<World>();
+		ASSERT(world, "World service must be available.");
+
+		// Rebuild renderer mesh instance list from World instances (static meshes only).
+		meshInstances.clear();
+		for (const auto& worldInstance : world->getMeshInstances())
+		{
+			if (!worldInstance.mesh || worldInstance.mesh->meshType != MeshType::STATIC_MESH)
+			{
+				continue;
+			}
+
+			meshInstances.push_back({
+				.mesh                   = worldInstance.mesh,
+				.transform              = worldInstance.transform,
+				.instanceDescriptorSets = {}
+			});
+		}
+
+		// Mirror lights from World.
+		directionalLight = VulkanDirectionalLight(world->getDirectionalLight());
+
+		pointLights.clear();
+		for (const auto& pointLight : world->getPointLights())
+		{
+			pointLights.emplace_back(pointLight);
+		}
+
+		// Mirror sky colors from World.
+		skyHorizonColor = world->getSkyHorizonColor();
+		skyZenithColor  = world->getSkyZenithColor();
+
+		rebuildSceneBuffers();
+		rebuildDescriptorSets();
+	}
+
 	void VulkanRenderer::processLoadedMeshes()
 	{
 		if (!flushMeshQueue())
@@ -459,6 +546,10 @@ namespace parus::vulkan
 				.transform = math::Matrix4x4::identity(),
 				.instanceDescriptorSets = {}
 			});
+			Services::get<World>()->addMeshInstance({
+				.mesh      = newMesh,
+				.transform = math::Matrix4x4::identity()
+			});
 		}
 
 		return true;
@@ -475,7 +566,9 @@ namespace parus::vulkan
 			for (auto& meshPart : mesh->meshParts)
 			{
 				meshPart.vertexOffset = allVertices.size();
-				meshPart.indexOffset = allIndices.size();
+				meshPart.indexOffset  = allIndices.size();
+				meshPart.vertexCount  = meshPart.vertices.size();
+				meshPart.indexCount   = meshPart.indices.size();
 				allVertices.insert(allVertices.end(), meshPart.vertices.begin(), meshPart.vertices.end());
 				allIndices.insert(allIndices.end(), meshPart.indices.begin(), meshPart.indices.end());
 			}
@@ -499,7 +592,9 @@ namespace parus::vulkan
 			for (auto& meshPart : mesh->meshParts)
 			{
 				meshPart.vertexOffset = allSkyVertices.size();
-				meshPart.indexOffset = allSkyIndices.size();
+				meshPart.indexOffset  = allSkyIndices.size();
+				meshPart.vertexCount  = meshPart.vertices.size();
+				meshPart.indexCount   = meshPart.indices.size();
 				allSkyVertices.insert(allSkyVertices.end(), meshPart.vertices.begin(), meshPart.vertices.end());
 				allSkyIndices.insert(allSkyIndices.end(), meshPart.indices.begin(), meshPart.indices.end());
 			}
@@ -519,37 +614,41 @@ namespace parus::vulkan
 
 	void VulkanRenderer::loadSceneAssets()
 	{
-		directionalLight =
-			{
-				.light = {
-					.color = math::Vector3(1.0f, 0.95f, 0.85f).trivial(),
-					.direction = math::Vector3(66.0f, 70.0f, 429.0f).trivial()
-					// .direction = math::Vector3(1.0f, 0.4f, 0.3f).trivial()
+		const auto world = Services::get<World>();
+		ASSERT(world, "World service must be registered before renderer initialization.");
 
-				},
-				.descriptorSets = {}
-			};
+		static constexpr math::Vector3 DEFAULT_LIGHT_COLOR     = { 1.0f, 0.95f, 0.85f };
+		static constexpr math::Vector3 DEFAULT_LIGHT_DIRECTION = { 66.0f, 70.0f, 429.0f };
+		static constexpr math::Vector3 DEFAULT_SKY_HORIZON     = { 0.85f, 0.92f, 1.0f };
+		static constexpr math::Vector3 DEFAULT_SKY_ZENITH      = { 0.25f, 0.45f, 0.85f };
+		static constexpr math::Vector3 DEFAULT_POINT_POSITION  = { 62.0f, 57.0f, -33.0f };
+		static constexpr math::Vector3 DEFAULT_POINT_COLOR     = { 1.0f, 0.7f, 0.3f };
+		static constexpr float DEFAULT_POINT_RADIUS    = 80.0f;
+		static constexpr float DEFAULT_POINT_INTENSITY = 4.0f;
 
-		skyHorizonColor = math::Vector3(0.85f, 0.92f, 1.0f);
-		skyZenithColor  = math::Vector3(0.25f, 0.45f, 0.85f);
-
-		// Point lights (e.g., torch inside the tunnel)
-		pointLights.push_back({
-			.position = math::Vector3(62.0f, 57.0f, -33.0f),
-			.color = math::Vector3(1.0f, 0.7f, 0.3f),
-			.radius = 80.0f,
-			.intensity = 4.0f
+		world->setDirectionalLight({ .color = DEFAULT_LIGHT_COLOR, .direction = DEFAULT_LIGHT_DIRECTION });
+		world->setSkyColors(DEFAULT_SKY_HORIZON, DEFAULT_SKY_ZENITH);
+		world->addPointLight({
+			.position  = DEFAULT_POINT_POSITION,
+			.color     = DEFAULT_POINT_COLOR,
+			.radius    = DEFAULT_POINT_RADIUS,
+			.intensity = DEFAULT_POINT_INTENSITY
 		});
+
+		directionalLight = VulkanDirectionalLight(world->getDirectionalLight());
+
+		skyHorizonColor = world->getSkyHorizonColor();
+		skyZenithColor  = world->getSkyZenithColor();
+
+		for (const auto& pointLight : world->getPointLights())
+		{
+			pointLights.emplace_back(pointLight);
+		}
 
 		createCubemapTexture();
 
-		// Load sky mesh
-		importMesh("bin/assets/skybox/dynamic_skybox.obj", MeshType::SKY);
-
-		RUN_ASYNC(importMesh("bin/assets/terrain/floor.obj"););
-		RUN_ASYNC(importMesh("bin/assets/indoor/indoor.obj"););
-		RUN_ASYNC(importMesh("bin/assets/indoor/threshold.obj"););
-		RUN_ASYNC(importMesh("bin/assets/indoor/torch.obj"););
+		const auto skyboxMesh = std::make_shared<Mesh>(SkyboxMesh::create());
+		enqueueMesh("skybox://builtin", skyboxMesh);
 	}
 
 	std::optional<uint32_t> VulkanRenderer::acquireNextImage()
@@ -1306,10 +1405,7 @@ namespace parus::vulkan
 		const SpectatorCamera camera = Services::get<World>()->getMainCamera();
 
 		// Compute light-space matrix for shadow mapping
-		const math::Vector3 lightDir = math::Vector3(
-			directionalLight.light.direction.x,
-			directionalLight.light.direction.y,
-			directionalLight.light.direction.z).normalize();
+		const math::Vector3 lightDir = directionalLight.direction.normalize();
 
 		const float shadowExtent = configurator.shadowExtent;
 		const float shadowNear = configurator.shadowNear;
@@ -1381,8 +1477,8 @@ namespace parus::vulkan
 
 		// Directional Light UBO
 		math::DirectionalLightUbo directionalLightUbo{};
-		directionalLightUbo.color = directionalLight.light.color;
-		directionalLightUbo.direction = directionalLight.light.direction;
+		directionalLightUbo.color = directionalLight.color.trivial();
+		directionalLightUbo.direction = directionalLight.direction.trivial();
 
 		memcpy(storage.directionalLightUboBuffer.mapped[currentFrame], &directionalLightUbo, sizeof(directionalLightUbo));
 

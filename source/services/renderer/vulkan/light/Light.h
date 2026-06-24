@@ -2,22 +2,23 @@
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
-#include "engine/utils/math/Math.h"
-#include "engine/utils/math/UniformBufferObjects.h"
+#include "services/world/SceneLight.h"
 
 namespace parus::vulkan
 {
-    struct VulkanDirectionalLight
+
+    struct VulkanPointLight final : public parus::PointLight
     {
-        math::DirectionalLightUbo light;
+        VulkanPointLight() = default;
+        explicit VulkanPointLight(const parus::PointLight& light) : parus::PointLight(light) {}
+    };
+
+    struct VulkanDirectionalLight final : public parus::DirectionalLight
+    {
+        VulkanDirectionalLight() = default;
+        explicit VulkanDirectionalLight(const parus::DirectionalLight& light) : parus::DirectionalLight(light) {}
+
         std::vector<VkDescriptorSet> descriptorSets;
     };
 
-    struct PointLight
-    {
-        math::Vector3 position;
-        math::Vector3 color;
-        float radius = 50.0f;
-        float intensity = 1.0f;
-    };
 }

@@ -25,7 +25,7 @@ namespace parus::vulkan
 	{
 		const std::vector<MeshInstance>& meshInstances;
 		const VulkanDirectionalLight& directionalLight;
-		const std::vector<PointLight>& pointLights;
+		const std::vector<VulkanPointLight>& pointLights;
 	};
 
 	class VulkanRenderPass

@@ -1,5 +1,7 @@
 #pragma once
 #include <memory>
+#include <optional>
+#include <string>
 #include <vector>
 #include <filesystem>
 
@@ -31,6 +33,8 @@ namespace parus
     {
         MeshType meshType;
         std::vector<MeshPart> meshParts;
+        /** Path to the source asset file. Empty when the mesh has no backing file (e.g. procedural geometry). */
+        std::optional<std::string> sourcePath;
     };
 
     Mesh importMeshFromFile(const std::string& filePath);

@@ -1,4 +1,4 @@
-﻿#include "Platform.h"
+#include "Platform.h"
 #include "engine/Defines.h"
 
 #ifdef WITH_WINDOWS_PLATFORM
@@ -177,6 +177,14 @@ namespace parus
         {
             DestroyWindow(platformStorage.hwnd);
             platformStorage.hwnd = nullptr;
+        }
+    }
+
+    void Platform::setWindowTitle(const std::string& title)
+    {
+        if (platformStorage.hwnd)
+        {
+            SetWindowTextA(platformStorage.hwnd, title.c_str());
         }
     }
 

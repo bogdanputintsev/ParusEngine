@@ -40,8 +40,18 @@ namespace parus::vulkan
 		void deviceWaitIdle() override;
 		[[nodiscard]] const VulkanStorage& getStorage() const;
 
+		/** Reads current World state and rebuilds all renderer buffers and descriptor sets. */
+		void applySceneFromWorld();
+
+		/** Destroys Vulkan handles for all scene textures (not defaults or cubemap). Call before clearing scene assets from Storage. */
+		void cleanupSceneTextures();
+
+		/** Loads an OBJ file from disk and enqueues it for upload on the next frame. */
+		void importMesh(const std::string& meshPath, const MeshType meshType = MeshType::STATIC_MESH);
+
 		friend VulkanTexture2d VulkanTexture2dBuilder::buildFromFile(const std::string& filePath);
 		friend VulkanTexture2d VulkanTexture2dBuilder::buildFromSolidColor(const math::Vector3& color);
+		friend VulkanTexture2d VulkanTexture2dBuilder::buildFromPixels(const unsigned char* pixels, int width, int height, int channels);
 
 	private:
 		VulkanStorage storage;
@@ -59,7 +69,7 @@ namespace parus::vulkan
 
 		std::vector<MeshInstance> meshInstances;
 		VulkanDirectionalLight directionalLight;
-		std::vector<PointLight> pointLights;
+		std::vector<VulkanPointLight> pointLights;
 
 		void cleanupFrameResources();
 
@@ -69,9 +79,7 @@ namespace parus::vulkan
 		VulkanTexture2d cubemap;
 		math::Vector3 skyHorizonColor;
 		math::Vector3 skyZenithColor;
-
-		// Load model
-		void importMesh(const std::string& meshPath, const MeshType meshType = MeshType::STATIC_MESH);
+		void enqueueMesh(const std::string& meshId, const std::shared_ptr<Mesh>& mesh);
 		void processLoadedMeshes();
 		[[nodiscard]] bool flushMeshQueue();
 		void rebuildSceneBuffers();

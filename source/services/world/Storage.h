@@ -36,12 +36,17 @@ namespace parus
         std::shared_ptr<parus::Texture> getOrLoadTexture(const std::string& texturePath, parus::TextureType textureType = parus::TextureType::ALBEDO);
         bool hasTexture(const std::string& path) const;
         std::vector<std::shared_ptr<parus::Texture>> getAllTextures() const;
+        /** Returns only scene-loaded textures, excluding defaults and cubemap. */
+        std::vector<std::shared_ptr<parus::Texture>> getSceneTextures() const;
 
         // --- Meshes ---
         void addNewMesh(const std::string& path, const std::shared_ptr<Mesh>& newMesh);
         std::shared_ptr<Mesh> getMeshByPath(const std::string& path);
         std::vector<std::shared_ptr<Mesh>> getAllMeshes() const;
         std::vector<std::shared_ptr<Mesh>> getAllMeshesByType(const MeshType meshType) const;
+
+        /** Clears scene meshes, textures and materials. Preserves default textures and cubemap. Must call VulkanRenderer::cleanupSceneTextures() first. */
+        void clearSceneAssets();
 
     private:
         std::unordered_map<std::string, std::shared_ptr<parus::Material>> materials;

@@ -59,18 +59,20 @@ namespace parus
             pitch = std::clamp(pitch + offsetY, -90.0f, 90.0f);
         }
         
-        // Calculate new direction vector.
+        recalculateDirections();
+    }
+
+    void SpectatorCamera::recalculateDirections()
+    {
         const math::Vector3 direction {
-            sin(math::radians(yaw) * cos(math::radians(pitch))),
+            sin(math::radians(yaw)) * cos(math::radians(pitch)),
             sin(math::radians(pitch)),
             -cos(math::radians(yaw)) * cos(math::radians(pitch))
         };
 
         forward = direction.normalize();
-        
-        // Recalculate right and up vectors.
-        right = forward.cross(math::Vector3::up()).normalize();
-        up = right.cross(forward).normalize();
+        right   = forward.cross(math::Vector3::up()).normalize();
+        up      = right.cross(forward).normalize();
     }
     
 }

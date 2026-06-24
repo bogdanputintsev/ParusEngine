@@ -23,20 +23,15 @@ namespace parus::math
     {
         float x, y;
 
-        // Default constructor
-        Vector2() : x(0), y(0) {}
+        constexpr Vector2() : x(0), y(0) {}
 
-        // Default destructor
         ~Vector2() = default;
-        
-        // Parameterized constructor
-        Vector2(const float x, const float y) : x(x), y(y) {}
 
-        // Copy constructor
-        Vector2(const Vector2& other) = default;
+        constexpr Vector2(const float x, const float y) : x(x), y(y) {}
 
-        // Move constructor
-        Vector2(Vector2&& other) noexcept : x(other.x), y(other.y) {}
+        constexpr Vector2(const Vector2& other) = default;
+
+        constexpr Vector2(Vector2&& other) noexcept : x(other.x), y(other.y) {}
 
         // Copy assignment operator
         Vector2& operator=(const Vector2& other);
@@ -89,20 +84,15 @@ namespace parus::math
         float y;
         float z;
         
-        // Default constructor
-        Vector3() : x(0), y(0), z(0) {}
+        constexpr Vector3() : x(0), y(0), z(0) {}
 
-        // Default destructor
         ~Vector3() = default;
-        
-        // Parameterized constructor
-        Vector3(const float x, const float y, const float z) : x(x), y(y), z(z) {}
 
-        // Copy constructor
-        Vector3(const Vector3& other) = default;
+        constexpr Vector3(const float x, const float y, const float z) : x(x), y(y), z(z) {}
 
-        // Move constructor
-        Vector3(Vector3&& other) noexcept : x(other.x), y(other.y), z(other.z) {}
+        constexpr Vector3(const Vector3& other) = default;
+
+        constexpr Vector3(Vector3&& other) noexcept : x(other.x), y(other.y), z(other.z) {}
         
         // Copy assignment operator
         Vector3& operator=(const Vector3& other);
@@ -240,7 +230,18 @@ namespace parus::math
         Vector2 textureCoordinates;
 
         [[nodiscard]] TrivialVertex trivial() const noexcept;
-        
+
+        [[nodiscard]] static Vertex fromTrivial(const TrivialVertex& trivial) noexcept
+        {
+            Vertex vertex;
+            vertex.position           = Vector3(trivial.position.x,           trivial.position.y,           trivial.position.z);
+            vertex.normal             = Vector3(trivial.normal.x,             trivial.normal.y,             trivial.normal.z);
+            vertex.tangent            = Vector3(trivial.tangent.x,            trivial.tangent.y,            trivial.tangent.z);
+            vertex.textureCoordinates = Vector2(trivial.textureCoordinates.x, trivial.textureCoordinates.y);
+
+            return vertex;
+        }
+
         bool operator==(const Vertex& other) const;
     };
     

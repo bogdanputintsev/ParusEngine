@@ -26,6 +26,9 @@ namespace parus
         void setSensitivity(const float newSensitivity) { sensitivity = newSensitivity; }
         void setSpeedAccelerationMultiplier(const float newMultiplier) { speedAccelerationMultiplier = newMultiplier; }
         void setSpeed(const float newSpeed) { speed = newSpeed; }
+
+        /** Recomputes forward, right and up from current yaw and pitch. Call after setting yaw/pitch externally. */
+        void recalculateDirections();
     private:
         math::Vector3 position = math::Vector3(65.8f, 55.4f, -45.32f);
         math::Vector3 forward = math::Vector3(0.0f, 0.0f, -1.0f);

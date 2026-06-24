@@ -11,24 +11,35 @@
 #include "services/console/Console.h"
 #include "services/threading/ThreadPool.h"
 #include "services/world/World.h"
+#include "services/serialization/Serialization.h"
 
 namespace parus
 {
-	void Application::init()
+	void Application::init(const int argc, const char* argv[])
 	{
 		registerServices();
 		registerEvents();
 		registerConsoleCommands();
-		
+
 		Services::get<Configs>()->loadAll();
 		Services::get<Platform>()->init();
 		Services::get<ThreadPool>()->init();
 		Services::get<World>()->init();
 		Services::get<Renderer>()->init();
 		Services::get<GraphicsLibrary>()->init();
-		
+
+		processArgs(argc, argv);
+
 		isMinimized = Services::get<Configs>()->getAsBool("Window", "isMinimized").value_or(false);
 		isRunning = true;
+	}
+
+	void Application::processArgs(const int argc, const char* argv[])
+	{
+		if (argc > 1)
+		{
+			Services::get<Serialization>()->importWorld(argv[1]);
+		}
 	}
 
 	void Application::registerServices()
@@ -42,6 +53,7 @@ namespace parus
 		Services::registerService<World>(std::make_shared<World>());
 		Services::registerService<ThreadPool>(std::make_shared<ThreadPool>());
 		Services::registerService<Console>(std::make_shared<Console>());
+		Services::registerService<Serialization>(std::make_shared<Serialization>());
 	}
 
 	void Application::registerEvents()
@@ -74,6 +86,8 @@ namespace parus
 			FIRE_EVENT(EventType::EVENT_APPLICATION_QUIT, 0);
 			return std::string();
 		});
+
+		Services::get<Serialization>()->registerConsoleCommands();
 	}
 
 	void Application::loop()
