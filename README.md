@@ -1,5 +1,7 @@
 # ParusEngine
 
+[![CI](https://github.com/bogdanputintsev/ParusEngine/actions/workflows/ci.yml/badge.svg)](https://github.com/bogdanputintsev/ParusEngine/actions/workflows/ci.yml)
+
 ![alt text](https://github.com/user-attachments/assets/e9e6cb6e-4794-4cc9-8258-982b010c07a9)
 
 
