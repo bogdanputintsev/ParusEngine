@@ -9,8 +9,7 @@ imgui*.ini
 *.spv
 
 # CMake build output
-build-debug/
-build-release/
+build/
 CMakeCache.txt
 CMakeFiles/
 cmake_install.cmake

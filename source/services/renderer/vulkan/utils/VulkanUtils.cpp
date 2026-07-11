@@ -9,20 +9,20 @@ namespace parus::vulkan::utils
 {
     void setDebugName(const VulkanStorage& vulkanStorage, const void* objectHandle, const VkObjectType objectType, const char* name)
     {
-        if (vulkanStorage.vkSetDebugUtilsObjectNameEXT)
+        // Object naming is a debug-only convenience: the function pointer is loaded only when
+        // validation layers are enabled. In release builds it is null, so we silently do nothing.
+        if (!vulkanStorage.vkSetDebugUtilsObjectNameEXT)
         {
-            VkDebugUtilsObjectNameInfoEXT nameInfo{};
-            nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
-            nameInfo.objectType = objectType;
-            nameInfo.objectHandle = reinterpret_cast<uint64_t>(objectHandle);
-            nameInfo.pObjectName = name;
+            return;
+        }
 
-            vulkanStorage.vkSetDebugUtilsObjectNameEXT(vulkanStorage.logicalDevice, &nameInfo);
-        }
-        else
-        {
-            LOG_WARNING("VkDebugUtilsObjectNameInfoEXT is not properly set.");
-        }
+        VkDebugUtilsObjectNameInfoEXT nameInfo{};
+        nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
+        nameInfo.objectType = objectType;
+        nameInfo.objectHandle = reinterpret_cast<uint64_t>(objectHandle);
+        nameInfo.pObjectName = name;
+
+        vulkanStorage.vkSetDebugUtilsObjectNameEXT(vulkanStorage.logicalDevice, &nameInfo);
     }
 
     QueueFamilyIndices findQueueFamilies(
