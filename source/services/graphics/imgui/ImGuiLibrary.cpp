@@ -26,7 +26,7 @@ namespace parus::imgui
 		ImGui::CreateContext();
 		ImGuiIO& io = ImGui::GetIO();
 		ImFont* consoleFont = io.Fonts->AddFontFromFileTTF(
-		    "source/third-party/fonts/JetBrains_Mono/static/JetBrainsMono-Regular.ttf",
+		    "bin/assets/fonts/JetBrains_Mono/static/JetBrainsMono-Regular.ttf",
 		    15.0f);
 		ASSERT(consoleFont, "Failed to load JetBrains Mono font.");
 		consoleGui.setFont(consoleFont);

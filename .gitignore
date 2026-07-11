@@ -15,8 +15,11 @@ CMakeFiles/
 cmake_install.cmake
 compile_commands.json
 
-# Runtime assets/config
-/bin/
+# Runtime assets/config, except the tracked fonts folder.
+/bin/*
+!/bin/assets/
+/bin/assets/*
+!/bin/assets/fonts/
 
 # Visual Studio local cache
 .vs/

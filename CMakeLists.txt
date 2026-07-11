@@ -83,3 +83,15 @@ target_link_libraries(ParusEngine PRIVATE Vulkan::Vulkan)
 
 # C++20, and don't fall back to an older standard if unavailable.
 target_compile_features(ParusEngine PRIVATE cxx_std_20)
+
+# Copy runtime data (config + bin) next to the executable so it can run
+# from its own folder, independent of the repository layout.
+add_custom_command(TARGET ParusEngine POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_SOURCE_DIR}/config"
+        "$<TARGET_FILE_DIR:ParusEngine>/config"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_SOURCE_DIR}/bin"
+        "$<TARGET_FILE_DIR:ParusEngine>/bin"
+        COMMENT "Staging runtime data next to ParusEngine.exe"
+)
