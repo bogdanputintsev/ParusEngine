@@ -4,10 +4,9 @@ project(ParusEngine LANGUAGES CXX)
 
 find_package(Vulkan REQUIRED)
 
-add_executable(ParusEngine)
+add_library(ParusEngineLib STATIC)
 
-target_sources(ParusEngine PRIVATE
-    source/Main.cpp
+target_sources(ParusEngineLib PRIVATE
     source/engine/application/Application.cpp
     source/engine/input/Input.cpp
     source/engine/logs/Logs.cpp
@@ -74,15 +73,18 @@ target_sources(ParusEngine PRIVATE
     source/third-party/imgui/backends/imgui_impl_win32.cpp
 )
 
-target_include_directories(ParusEngine PRIVATE
+target_include_directories(ParusEngineLib PUBLIC
         source
         source/third-party/imgui
 )
 
-target_link_libraries(ParusEngine PRIVATE Vulkan::Vulkan)
+target_link_libraries(ParusEngineLib PUBLIC Vulkan::Vulkan)
 
 # C++20, and don't fall back to an older standard if unavailable.
-target_compile_features(ParusEngine PRIVATE cxx_std_20)
+target_compile_features(ParusEngineLib PUBLIC cxx_std_20)
+
+add_executable(ParusEngine source/Main.cpp)
+target_link_libraries(ParusEngine PRIVATE ParusEngineLib)
 
 # Copy runtime data (config + bin) next to the executable so it can run
 # from its own folder, independent of the repository layout.
