@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include <array>
 #include <numbers>
 
@@ -123,6 +123,9 @@ namespace parus::math
 
         // Inequality operator
         bool operator!=(const Vector3& other) const;
+
+        // Euclidean length (magnitude) of the vector
+        [[nodiscard]] float length() const;
 
         // Normalize the vector
         [[nodiscard]] Vector3 normalize() const;

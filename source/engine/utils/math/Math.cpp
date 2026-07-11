@@ -1,4 +1,4 @@
-﻿#include "Math.h"
+#include "Math.h"
 
 #include <corecrt_math.h>
 #include <cmath>
@@ -170,11 +170,16 @@ namespace parus::math
         return !(*this == other);
     }
 
+    float Vector3::length() const
+    {
+        return std::sqrt(x * x + y * y + z * z);
+    }
+
     Vector3 Vector3::normalize() const
     {
-        const float length = std::sqrt(x * x + y * y + z * z);
-        return (length > MATH_EPSILON)
-            ? Vector3 { x / length, y / length, z / length }
+        const float vectorLength = length();
+        return (vectorLength > MATH_EPSILON)
+            ? Vector3 { x / vectorLength, y / vectorLength, z / vectorLength }
             : Vector3 { 0, 0, 0 };
     }
 

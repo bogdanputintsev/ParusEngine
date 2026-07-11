@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 
+# ---- ParusEngine ----
 project(ParusEngine LANGUAGES CXX)
 
 find_package(Vulkan REQUIRED)
@@ -97,3 +98,32 @@ add_custom_command(TARGET ParusEngine POST_BUILD
         "$<TARGET_FILE_DIR:ParusEngine>/bin"
         COMMENT "Staging runtime data next to ParusEngine.exe"
 )
+
+# ---- Testing ----
+include(FetchContent)
+
+FetchContent_Declare(
+        googletest
+        GIT_REPOSITORY https://github.com/google/googletest.git
+        GIT_TAG v1.15.2
+)
+
+# On Windows, force GoogleTest to use the same runtime library as our targets.                                    
+set(gtest_force_shared_crt ON CACHE BOOL "" FORCE) 
+
+FetchContent_MakeAvailable(googletest)
+
+enable_testing()
+
+add_executable(ParusEngineTests
+    tests/MathTests.cpp
+    tests/SerializationTests.cpp
+)
+
+target_link_libraries(ParusEngineTests PRIVATE
+    ParusEngineLib 
+    GTest::gtest_main
+)
+
+include(GoogleTest)
+gtest_discover_tests(ParusEngineTests)
