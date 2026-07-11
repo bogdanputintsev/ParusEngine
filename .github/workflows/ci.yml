@@ -1,0 +1,42 @@
+name: CI
+
+# Build the engine and run the GPU-free test suite on every push and pull
+# request targeting master.
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Sets up the x64 MSVC toolchain (INCLUDE / LIB / PATH) for the whole job,
+      # so the Ninja-based presets can find cl.exe and the correct libraries.
+      - name: Set up MSVC (x64)
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: amd64
+
+      # Installs Vulkan headers + loader and sets VULKAN_SDK so that
+      # find_package(Vulkan) succeeds. Tests never touch the GPU, but the
+      # engine library links against Vulkan and must compile.
+      - name: Install Vulkan SDK
+        uses: jakoch/install-vulkan-sdk-action@v1
+        with:
+          cache: true
+          install_runtime: false
+
+      - name: Configure
+        run: cmake --preset debug
+
+      - name: Build
+        run: cmake --build --preset debug
+
+      - name: Test
+        run: ctest --preset debug
