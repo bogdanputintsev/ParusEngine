@@ -33,3 +33,6 @@ out/
 *.ilk
 *.obj
 *.pch
+
+# graphify knowledge graph output
+graphify-out/
