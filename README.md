@@ -23,7 +23,7 @@
 
 ## Introduction
 
-ParusEngine is a lightweight real-time rendering engine written in C++20 and built on top of the Vulkan API.  
+ParusEngine is a lightweight real-time rendering engine written in C++23 and built on top of the Vulkan API.  
 The long-term vision of the engine is to support dynamic loading of models, scenes, and complete games directly from the web using a custom binary format, driven by creator-side generative AI.
 
 The project is currently in active development and focuses on authoring tools, scene serialization, and physically based rendering.

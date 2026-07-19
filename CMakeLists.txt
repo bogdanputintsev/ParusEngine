@@ -176,7 +176,7 @@ target_include_directories(ParusEngineLib PUBLIC
 target_link_libraries(ParusEngineLib PUBLIC Vulkan::Vulkan)
 
 # C++20, and don't fall back to an older standard if unavailable.
-target_compile_features(ParusEngineLib PUBLIC cxx_std_20)
+target_compile_features(ParusEngineLib PUBLIC cxx_std_23)
 
 add_executable(ParusEngine source/Main.cpp)
 target_link_libraries(ParusEngine PRIVATE ParusEngineLib)
