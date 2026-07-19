@@ -74,6 +74,100 @@ target_sources(ParusEngineLib PRIVATE
     source/third-party/imgui/backends/imgui_impl_win32.cpp
 )
 
+# Headers are not compiled, but listing them here lets IDEs
+# (Visual Studio, CLion, Rider) show them in the project tree.
+target_sources(ParusEngineLib PRIVATE
+    source/engine/Asserts.h
+    source/engine/Defines.h
+    source/engine/EngineCore.h
+    source/engine/Event.h
+    source/engine/application/Application.h
+    source/engine/input/Input.h
+    source/engine/logs/Logs.h
+    source/engine/utils/Utils.h
+    source/engine/utils/math/Math.h
+    source/engine/utils/math/UniformBufferObjects.h
+    source/services/Service.h
+    source/services/Services.h
+    source/services/config/Configs.h
+    source/services/console/Console.h
+    source/services/console/Trie.h
+    source/services/graphics/GraphicsLibrary.h
+    source/services/graphics/gui/ConsoleGui.h
+    source/services/graphics/imgui/ImGuiLibrary.h
+    source/services/graphics/imgui/Theme.h
+    source/services/platform/Platform.h
+    source/services/renderer/Material.h
+    source/services/renderer/Renderer.h
+    source/services/renderer/Texture.h
+    source/services/renderer/TextureType.h
+    source/services/renderer/vulkan/GraphicsOverlay.h
+    source/services/renderer/vulkan/VulkanConfigurator.h
+    source/services/renderer/vulkan/VulkanDescriptor.h
+    source/services/renderer/vulkan/VulkanDescriptorManager.h
+    source/services/renderer/vulkan/VulkanInitializer.h
+    source/services/renderer/vulkan/VulkanRenderer.h
+    source/services/renderer/vulkan/builder/VkBufferBuilder.h
+    source/services/renderer/vulkan/builder/VkCommandBufferBuilder.h
+    source/services/renderer/vulkan/builder/VkCommandPoolFactory.h
+    source/services/renderer/vulkan/builder/VkDebugUtilsBuilder.h
+    source/services/renderer/vulkan/builder/VkDescriptorPoolBuilder.h
+    source/services/renderer/vulkan/builder/VkDescriptorSetLayoutBuilder.h
+    source/services/renderer/vulkan/builder/VkDeviceFactory.h
+    source/services/renderer/vulkan/builder/VkDeviceMemoryBuilder.h
+    source/services/renderer/vulkan/builder/VkFramebufferBuilder.h
+    source/services/renderer/vulkan/builder/VkImageBuilder.h
+    source/services/renderer/vulkan/builder/VkImageViewBuilder.h
+    source/services/renderer/vulkan/builder/VkInstanceBuilder.h
+    source/services/renderer/vulkan/builder/VkPipelineBuilder.h
+    source/services/renderer/vulkan/builder/VkQueuesFactory.h
+    source/services/renderer/vulkan/builder/VkRenderPassFactory.h
+    source/services/renderer/vulkan/builder/VkSamplerBuilder.h
+    source/services/renderer/vulkan/builder/VkSurfaceFactory.h
+    source/services/renderer/vulkan/builder/VkSwapChainFactory.h
+    source/services/renderer/vulkan/builder/VkSyncObjectsFactory.h
+    source/services/renderer/vulkan/builder/VkUboBuilder.h
+    source/services/renderer/vulkan/builder/VulkanTexture2dBuilder.h
+    source/services/renderer/vulkan/light/Light.h
+    source/services/renderer/vulkan/material/VulkanMaterial.h
+    source/services/renderer/vulkan/mesh/Mesh.h
+    source/services/renderer/vulkan/mesh/MeshInstance.h
+    source/services/renderer/vulkan/mesh/SkyboxMesh.h
+    source/services/renderer/vulkan/pass/DepthPrePass.h
+    source/services/renderer/vulkan/pass/MainPass.h
+    source/services/renderer/vulkan/pass/SSAOBlurPass.h
+    source/services/renderer/vulkan/pass/SSAOPass.h
+    source/services/renderer/vulkan/pass/ShadowPass.h
+    source/services/renderer/vulkan/pass/VulkanRenderPass.h
+    source/services/renderer/vulkan/storage/VulkanStorage.h
+    source/services/renderer/vulkan/texture/VulkanTexture2d.h
+    source/services/renderer/vulkan/utils/VulkanUtils.h
+    source/services/serialization/BinaryStream.h
+    source/services/serialization/FormatHeader.h
+    source/services/serialization/MeshFormat.h
+    source/services/serialization/SceneData.h
+    source/services/serialization/Serialization.h
+    source/services/serialization/TextureFormat.h
+    source/services/serialization/WorldFormat.h
+    source/services/threading/ThreadPool.h
+    source/services/world/SceneLight.h
+    source/services/world/Storage.h
+    source/services/world/World.h
+    source/services/world/WorldMeshInstance.h
+    source/services/world/camera/SpectatorCamera.h
+    source/third-party/imgui/backends/imgui_impl_vulkan.h
+    source/third-party/imgui/backends/imgui_impl_win32.h
+    source/third-party/imgui/imconfig.h
+    source/third-party/imgui/imgui.h
+    source/third-party/imgui/imgui_internal.h
+    source/third-party/imgui/imstb_rectpack.h
+    source/third-party/imgui/imstb_textedit.h
+    source/third-party/imgui/imstb_truetype.h
+    source/third-party/stb_image.h
+    source/third-party/stb_image_write.h
+    source/third-party/tiny_obj_loader.h
+)
+
 target_include_directories(ParusEngineLib PUBLIC
         source
         source/third-party/imgui
