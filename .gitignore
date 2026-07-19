@@ -3,7 +3,7 @@ imgui.ini
 imgui*.ini
 
 # Local Claude Code settings
-*.local.json
+.claude/
 
 # Shader binary files
 *.spv
@@ -27,6 +27,7 @@ out/
 
 # Rider
 .idea/
+*.DotSettings.user
 
 # Compiler/linker byproducts that can land outside the build folder
 *.pdb
