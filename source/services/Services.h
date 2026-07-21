@@ -5,48 +5,37 @@
 #include <unordered_map>
 
 #include "Service.h"
+#include "engine/Asserts.h"
 
 namespace parus
 {
-    /**
-     * @brief Service Locator class for managing dependencies.
-     */
-    class Services
-    {
-    public:
-        /**
-         * @brief Method to register a service.
-         *
-         * @tparam TKey The type of service to set.
-         * @param service The pointer to the service.
-         */
-        template<typename TKey>
-        static void registerService(const std::shared_ptr<Service>& service)
-        {
-            services[&typeid(TKey)] = service;
-        }
+	/**
+	 * Service locator for dependency injection and service discovery.
+	 * Provides type-safe registration and retrieval of core engine services.
+	 */
+	class Services final
+	{
+	public:
+		/** Register a service instance by its type for later retrieval. */
+		template<typename TKey>
+		static void registerService(const std::shared_ptr<Service>& service)
+		{
+			services[&typeid(TKey)] = service;
+		}
 
-        /**
-         * @brief Method to get a service.
-         *
-         * @tparam T The type of service to retrieve.
-         * @return std::shared_ptr<T> The shared pointer to the service instance.
-         */
-        template<typename T>
-        static std::shared_ptr<T> get()
-        {
-            const auto it = services.find(&typeid(T));
+		/** Retrieve a registered service by type; throws if not found. */
+		template<typename T>
+		static std::shared_ptr<T> get()
+		{
+			const auto& serviceIterator = services.find(&typeid(T));
+			ASSERT(serviceIterator != services.end(), std::string("Failed to get instance of service ") + typeid(T).name());
 
-            if (it == services.end())
-            {
-                throw std::runtime_error(std::string("ServiceLocator: failed to get instance of service ") + typeid(T).name());
-            }
+			return std::static_pointer_cast<T>(serviceIterator->second);
+		}
 
-            return std::static_pointer_cast<T>(it->second);
-        }
-
-    private:
-        static std::unordered_map<const std::type_info*, std::shared_ptr<Service>> services; /**< Static member variable to store services. */
-    };
+	private:
+		/** Type-indexed map holding all registered service instances. */
+		static std::unordered_map<const std::type_info*, std::shared_ptr<Service>> services;
+	};
 
 }
