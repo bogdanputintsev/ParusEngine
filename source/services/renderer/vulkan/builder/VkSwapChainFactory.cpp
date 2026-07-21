@@ -130,8 +130,8 @@ namespace parus::vulkan
     		return capabilities.currentExtent;
     	}
 
-    	const int width = Services::get<Configs>()->getAsBool("Window", "width").value_or(0);
-    	const int height = Services::get<Configs>()->getAsBool("Window", "width").value_or(0);
+    	const int width = Services::get<Configs>()->get<int>("Window", "width");
+    	const int height = Services::get<Configs>()->get<int>("Window", "height");
 
     	ASSERT(width != 0 && height != 0, "Failed to get window width and height.");
 		

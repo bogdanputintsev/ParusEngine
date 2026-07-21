@@ -26,7 +26,7 @@ namespace parus
 
     static void updateWindowTitle(const std::string& sceneName)
     {
-        const std::string baseTitle = Services::get<Configs>()->get("Window", "title");
+        const std::string baseTitle = Services::get<Configs>()->getOrDefault<std::string>("Window", "title", "");
         if (baseTitle.empty())
         {
             return;

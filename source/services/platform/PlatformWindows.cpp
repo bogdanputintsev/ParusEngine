@@ -133,12 +133,12 @@ namespace parus
         AdjustWindowRectEx(&borderRect, windowStyle, 0, windowExStyle);
 
         const auto configsService = Services::get<Configs>();
-        const std::string title = configsService->get("Window", "title");
-        
-		int positionX = configsService->getAsInt("Window", "positionX").value_or(0);
-		int positionY = configsService->getAsInt("Window", "positionY").value_or(0);
-        int width = configsService->getAsInt("Window", "width").value_or(0);
-        int height = configsService->getAsInt("Window", "height").value_or(0);
+        const std::string title = configsService->getOrDefault<std::string>("Window", "title", "");
+
+		int positionX = configsService->get<int>("Window", "positionX");
+		int positionY = configsService->get<int>("Window", "positionY");
+        int width = configsService->get<int>("Window", "width");
+        int height = configsService->get<int>("Window", "height");
         
         // In this case, the border rectangle is negative.
         positionX += borderRect.left;
@@ -215,7 +215,7 @@ namespace parus
             return;
         }
 
-		const bool isMinimized = configsService->getAsBool("Window", "isMinimized").value_or(false);
+		const bool isMinimized = configsService->getOrDefault<bool>("Window", "isMinimized", false);
         if (isMinimized)
         {
             configsService->write("Window", "isMinimized", "false");

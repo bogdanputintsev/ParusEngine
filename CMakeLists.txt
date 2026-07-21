@@ -89,6 +89,8 @@ target_sources(ParusEngineLib PRIVATE
     source/engine/utils/math/UniformBufferObjects.h
     source/services/Service.h
     source/services/Services.h
+    source/services/config/ConfigError.h
+    source/services/config/ConfigParser.h
     source/services/config/Configs.h
     source/services/console/Console.h
     source/services/console/Trie.h

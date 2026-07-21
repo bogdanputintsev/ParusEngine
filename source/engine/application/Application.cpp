@@ -30,7 +30,7 @@ namespace parus
 
 		processArgs(argc, argv);
 
-		isMinimized = Services::get<Configs>()->getAsBool("Window", "isMinimized").value_or(false);
+		isMinimized = Services::get<Configs>()->getOrDefault<bool>("Window", "isMinimized", false);
 		isRunning = true;
 	}
 

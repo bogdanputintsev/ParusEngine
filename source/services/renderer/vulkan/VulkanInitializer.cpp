@@ -28,11 +28,11 @@ namespace parus::vulkan
 	void VulkanInitializer::initialize(VulkanStorage& storage, VulkanDescriptorManager& descriptorManager, const VulkanConfigurator& configurator)
 	{
 		VkInstanceBuilder()
-			.setApplicationName(Services::get<Configs>()->get("Engine", "applicationName"))
+			.setApplicationName(Services::get<Configs>()->get<std::string>("Engine", "applicationName"))
 			.setVersion(
-				Services::get<Configs>()->getAsInt("Engine", "versionMajor").value_or(0),
-				Services::get<Configs>()->getAsInt("Engine", "versionMinor").value_or(0),
-				Services::get<Configs>()->getAsInt("Engine", "versionPatch").value_or(0))
+				Services::get<Configs>()->get<int>("Engine", "versionMajor"),
+				Services::get<Configs>()->get<int>("Engine", "versionMinor"),
+				Services::get<Configs>()->get<int>("Engine", "versionPatch"))
 			.setDebugCallback(VkDebugUtilsBuilder::debugCallback)
 			.setRequiredExtensions(getRequiredExtensions())
 			.setValidationLayers({"VK_LAYER_KHRONOS_validation"})

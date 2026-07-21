@@ -1,7 +1,9 @@
-﻿#include "Configs.h"
+#include "Configs.h"
 
 #include <filesystem>
+#include <typeinfo>
 
+#include "ConfigParser.h"
 #include "engine/EngineCore.h"
 #include "engine/utils/Utils.h"
 
@@ -21,20 +23,29 @@ namespace parus
         }
     }
 
-    std::string Configs::get(const std::string& group, const std::string& key, const std::string& defaultValue)
+    template <typename T>
+    T Configs::get(const std::string& group, const std::string& key)
     {
-        const auto& groupPosition = configData.find(group);
-        if (groupPosition != configData.end())
-        {
-            const auto keyPosition = groupPosition->second.find(key);
-            if (keyPosition != groupPosition->second.end())
-            {
-                return keyPosition->second;
-            }
-        }
-        
-        return defaultValue;
+        const std::expected<T, ConfigError> result = getRawValue(group, key).and_then(ConfigParser<T>::parse);
+        ASSERT(result.has_value(),
+            "Failed to read config value [" + group + "] " + key + " as " + typeid(T).name());
+
+        return result.value();
     }
+
+    template <typename T>
+    T Configs::getOrDefault(const std::string& group, const std::string& key, T defaultValue)
+    {
+        return getRawValue(group, key).and_then(ConfigParser<T>::parse).value_or(std::move(defaultValue));
+    }
+
+    template bool Configs::get<bool>(const std::string& group, const std::string& key);
+    template int Configs::get<int>(const std::string& group, const std::string& key);
+    template std::string Configs::get<std::string>(const std::string& group, const std::string& key);
+
+    template bool Configs::getOrDefault<bool>(const std::string& group, const std::string& key, bool defaultValue);
+    template int Configs::getOrDefault<int>(const std::string& group, const std::string& key, int defaultValue);
+    template std::string Configs::getOrDefault<std::string>(const std::string& group, const std::string& key, std::string defaultValue);
 
     void Configs::write(const std::string& group, const std::string& key, const std::string& newValue)
     {
@@ -46,29 +57,21 @@ namespace parus
         return configData[group];
     }
 
-    std::optional<bool> Configs::getAsBool(const std::string& group, const std::string& key)
+    std::expected<std::string, ConfigError> Configs::getRawValue(const std::string& group, const std::string& key)
     {
-        const std::string result = get(group, key);
-        if (result == "true" || result == "false")
+        const auto& groupPosition = configData.find(group);
+        if (groupPosition == configData.end())
         {
-            return result == "true";
+            return std::unexpected(ConfigError::GroupNotFound);
         }
 
-        return std::nullopt;
-    }
+        const auto keyPosition = groupPosition->second.find(key);
+        if (keyPosition == groupPosition->second.end())
+        {
+            return std::unexpected(ConfigError::KeyNotFound);
+        }
 
-    std::optional<int> Configs::getAsInt(const std::string& group, const std::string& key)
-    {
-        const std::string resultString = get(group, key);
-        
-        try
-        {
-            return std::stoi(resultString);
-        }
-        catch ([[maybe_unused]] std::exception& exception)
-        {
-            return std::nullopt;
-        }
+        return keyPosition->second;
     }
 
     void Configs::loadConfigFile(const std::filesystem::path& configFilename)
@@ -111,11 +114,10 @@ namespace parus
                     {
                         currentGroup = "common";
                     }
-                    
+
                     configData[currentGroup][key] = value;
                 }
             }
         });
     }
 }
-
