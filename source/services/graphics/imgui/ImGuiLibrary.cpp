@@ -1,8 +1,15 @@
 #include "ImGuiLibrary.h"
 
+#include "engine/Defines.h"
+
+#ifdef WITH_WINDOWS_PLATFORM
+#define NOMINMAX
+#include <windows.h>
+#include "third-party/imgui/backends/imgui_impl_win32.h"
+#endif
+
 #include "third-party/imgui/backends/imgui_impl_vulkan.h"
 #include "services/platform/Platform.h"
-#include "third-party/imgui/backends/imgui_impl_win32.h"
 #include "engine/input/Input.h"
 #include "services/renderer/vulkan/VulkanRenderer.h"
 #include "services/Services.h"
@@ -20,8 +27,6 @@ namespace parus::imgui
 		const auto vulkanRenderer = dynamic_cast<vulkan::VulkanRenderer*>(renderer.get());
 		ASSERT(vulkanRenderer, "VulkanRenderer type is expected for Renderer service.");
     	
-		const auto windowsContext = Services::get<Platform>()->getPlatformStorage();
-
 		IMGUI_CHECKVERSION();
 		ImGui::CreateContext();
 		ImGuiIO& io = ImGui::GetIO();
@@ -33,9 +38,11 @@ namespace parus::imgui
 		io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
 
 		ImGui::StyleColorsDark();
-		
-		//this initializes imgui for SDL
-		ImGui_ImplWin32_Init(windowsContext.hwnd);
+
+#ifdef WITH_WINDOWS_PLATFORM
+		const HWND windowHandle = static_cast<HWND>(Services::get<Platform>()->getWindowHandle());
+		ImGui_ImplWin32_Init(windowHandle);
+#endif
 
 		//this initializes imgui for Vulkan
 		ImGui_ImplVulkan_InitInfo initInfo = {};
@@ -138,7 +145,9 @@ namespace parus::imgui
 	void ImGuiLibrary::drawFrame()
 	{
 		ImGui_ImplVulkan_NewFrame();
+#ifdef WITH_WINDOWS_PLATFORM
 		ImGui_ImplWin32_NewFrame();
+#endif
 		ImGui::NewFrame();
 
 		draw();
@@ -168,7 +177,9 @@ namespace parus::imgui
 	void ImGuiLibrary::clean()
 	{
 		ImGui_ImplVulkan_Shutdown();
+#ifdef WITH_WINDOWS_PLATFORM
 		ImGui_ImplWin32_Shutdown();
+#endif
 		ImGui::DestroyContext();
 	}
 

@@ -1,4 +1,4 @@
-#include "Platform.h"
+#include "PlatformWindows.h"
 #include "engine/Defines.h"
 
 #ifdef WITH_WINDOWS_PLATFORM
@@ -102,7 +102,7 @@ namespace parus
         return DefWindowProcA(hwnd, msg, wParam, lParam);
     }
     
-    void Platform::init()
+    void PlatformWindows::init()
     {
         platformStorage.hinstance = GetModuleHandleA(nullptr);
 
@@ -171,7 +171,7 @@ namespace parus
         QueryPerformanceCounter(&platformStorage.startTime);
     }
 
-    void Platform::clean()
+    void PlatformWindows::clean()
     {
         if (platformStorage.hwnd)
         {
@@ -180,7 +180,7 @@ namespace parus
         }
     }
 
-    void Platform::setWindowTitle(const std::string& title)
+    void PlatformWindows::setWindowTitle(const std::string& title)
     {
         if (platformStorage.hwnd)
         {
@@ -188,7 +188,7 @@ namespace parus
         }
     }
 
-    void Platform::getMessages()
+    void PlatformWindows::getMessages()
     {
         MSG message;
         while (PeekMessageA(&message, nullptr, 0, 0, PM_REMOVE))
@@ -198,7 +198,7 @@ namespace parus
         }
     }
 
-    void Platform::processOnResize() const
+    void PlatformWindows::processOnResize() const
     {
         RECT r;
         GetClientRect(platformStorage.hwnd, &r);

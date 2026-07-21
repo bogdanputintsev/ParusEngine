@@ -2,44 +2,32 @@
 
 #include <string>
 
-#include "engine/Defines.h"
 #include "services/Service.h"
-
-#ifdef WITH_WINDOWS_PLATFORM
-#define NOMINMAX
-#include <windows.h>
-#endif
 
 namespace parus
 {
-    
-#ifdef WITH_WINDOWS_PLATFORM
-    struct PlatformStorage
-    {
-        HINSTANCE hinstance;
-        HWND hwnd;
-        float clockFrequency;
-        LARGE_INTEGER startTime;
-    };
-#endif
-    
-    class Platform final : public Service
+
+    /**
+     * Abstract window/OS interface. Concrete implementations (e.g. PlatformWindows)
+     * own the native handles and platform-specific message loop.
+     */
+    class Platform : public Service
     {
     public:
-        void init();
-        void clean();
+        virtual ~Platform() = default;
 
-        void getMessages();
-        void processOnResize() const;
-        void setWindowTitle(const std::string& title);
+        virtual void init() = 0;
+        virtual void clean() = 0;
 
-        [[nodiscard]] PlatformStorage getPlatformStorage() const { return platformStorage; }
+        virtual void getMessages() = 0;
+        virtual void processOnResize() const = 0;
+        virtual void setWindowTitle(const std::string& title) = 0;
 
-    private:
-        PlatformStorage platformStorage{};
-        
+        /** Native window handle (HWND on Windows), for renderer surface creation and GUI backends. */
+        [[nodiscard]] virtual void* getWindowHandle() const = 0;
+
+        /** Native module/instance handle (HINSTANCE on Windows), for renderer surface creation. */
+        [[nodiscard]] virtual void* getInstanceHandle() const = 0;
     };
-    
+
 }
-
-

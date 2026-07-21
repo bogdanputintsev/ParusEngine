@@ -99,6 +99,7 @@ target_sources(ParusEngineLib PRIVATE
     source/services/graphics/imgui/ImGuiLibrary.h
     source/services/graphics/imgui/Theme.h
     source/services/platform/Platform.h
+    source/services/platform/PlatformWindows.h
     source/services/renderer/Material.h
     source/services/renderer/Renderer.h
     source/services/renderer/Texture.h

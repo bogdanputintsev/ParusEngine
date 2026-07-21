@@ -1,8 +1,10 @@
 #include "Application.h"
 
+#include "engine/EngineCore.h"
 #include "engine/Event.h"
 #include "engine/input/Input.h"
 #include "services/platform/Platform.h"
+#include "services/platform/PlatformWindows.h"
 #include "services/graphics/imgui/ImGuiLibrary.h"
 #include "services/graphics/GraphicsLibrary.h"
 #include "services/renderer/vulkan/VulkanRenderer.h"
@@ -45,7 +47,11 @@ namespace parus
 	void Application::registerServices()
 	{
 		Services::registerService<Configs>(std::make_shared<Configs>());
-		Services::registerService<Platform>(std::make_shared<Platform>());
+#ifdef WITH_WINDOWS_PLATFORM
+		Services::registerService<Platform>(std::make_shared<PlatformWindows>());
+#else
+		FATAL_ERROR("No Platform implementation for this platform.");
+#endif
 		Services::registerService<GraphicsLibrary>(std::make_shared<imgui::ImGuiLibrary>());
 		Services::registerService<Renderer>(std::make_shared<vulkan::VulkanRenderer>());
 		Services::registerService<EventSystem>(std::make_shared<EventSystem>());
