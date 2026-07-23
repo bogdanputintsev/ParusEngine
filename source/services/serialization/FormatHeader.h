@@ -6,7 +6,7 @@
 namespace parus::serialization
 {
 
-    inline constexpr uint32_t FORMAT_VERSION = 1;
+    inline constexpr uint32_t FORMAT_VERSION = 2;
     inline constexpr std::array<char, 4> MAGIC_PWORLD = { 'P', 'W', 'L', 'D' };
     inline constexpr std::array<char, 4> MAGIC_PMESH  = { 'P', 'M', 'S', 'H' };
     inline constexpr std::array<char, 4> MAGIC_PTEX   = { 'P', 'T', 'E', 'X' };

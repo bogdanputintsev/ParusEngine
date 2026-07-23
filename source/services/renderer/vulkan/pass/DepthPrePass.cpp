@@ -217,7 +217,7 @@ namespace parus::vulkan
 
 		for (const MeshInstance& meshInstance : scene.meshInstances)
 		{
-			if (meshInstance.mesh->meshType != MeshType::STATIC_MESH)
+			if (meshInstance.mesh->meshType != MeshType::GEOMETRY)
 			{
 				continue;
 			}

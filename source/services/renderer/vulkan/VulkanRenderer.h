@@ -47,7 +47,7 @@ namespace parus::vulkan
 		void cleanupSceneTextures();
 
 		/** Loads an OBJ file from disk and enqueues it for upload on the next frame. */
-		void importMesh(const std::string& meshPath, const MeshType meshType = MeshType::STATIC_MESH);
+		void importMesh(const std::string& meshPath, const MeshType meshType = MeshType::GEOMETRY);
 
 		friend VulkanTexture2d VulkanTexture2dBuilder::buildFromFile(const std::string& filePath);
 		friend VulkanTexture2d VulkanTexture2dBuilder::buildFromSolidColor(const math::Vector3& color);

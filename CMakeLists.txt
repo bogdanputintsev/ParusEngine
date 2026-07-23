@@ -63,6 +63,7 @@ target_sources(ParusEngineLib PRIVATE
     source/services/serialization/TextureFormat.cpp
     source/services/serialization/WorldFormat.cpp
     source/services/threading/ThreadPool.cpp
+    source/services/world/entity/EntityManager.cpp
     source/services/world/Storage.cpp
     source/services/world/World.cpp
     source/services/world/camera/SpectatorCamera.cpp
@@ -153,10 +154,11 @@ target_sources(ParusEngineLib PRIVATE
     source/services/serialization/TextureFormat.h
     source/services/serialization/WorldFormat.h
     source/services/threading/ThreadPool.h
-    source/services/world/SceneLight.h
+    source/services/world/entity/Components.h
+    source/services/world/entity/Entity.h
+    source/services/world/entity/EntityManager.h
     source/services/world/Storage.h
     source/services/world/World.h
-    source/services/world/WorldMeshInstance.h
     source/services/world/camera/SpectatorCamera.h
     source/third-party/imgui/backends/imgui_impl_vulkan.h
     source/third-party/imgui/backends/imgui_impl_win32.h
@@ -213,8 +215,10 @@ FetchContent_MakeAvailable(googletest)
 enable_testing()
 
 add_executable(ParusEngineTests
+    tests/EntityManagerTests.cpp
     tests/MathTests.cpp
     tests/SerializationTests.cpp
+    tests/WorldFormatTests.cpp
 )
 
 target_link_libraries(ParusEngineTests PRIVATE

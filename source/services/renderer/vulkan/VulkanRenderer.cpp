@@ -35,6 +35,8 @@
 #include "services/Services.h"
 #include "services/threading/ThreadPool.h"
 #include "services/world/World.h"
+#include "services/world/entity/Components.h"
+#include "services/world/entity/EntityManager.h"
 #include "utils/VulkanUtils.h"
 
 
@@ -190,7 +192,7 @@ namespace parus::vulkan
 				{
 					for (const auto& mesh : Services::get<World>()->getStorage()->getAllMeshes())
 					{
-						if (mesh->meshType != MeshType::STATIC_MESH)
+						if (mesh->meshType != MeshType::GEOMETRY)
 						{
 							continue;
 						}
@@ -471,34 +473,44 @@ namespace parus::vulkan
 		const auto world = Services::get<World>();
 		ASSERT(world, "World service must be available.");
 
-		// Rebuild renderer mesh instance list from World instances (static meshes only).
+		const auto entityManager = world->getEntityManager();
+
+		// Rebuild renderer mesh instance list from mesh-component entities (geometry meshes only).
 		meshInstances.clear();
-		for (const auto& worldInstance : world->getMeshInstances())
+		for (const auto& [entity, meshComponent] : entityManager->getMeshEntities())
 		{
-			if (!worldInstance.mesh || worldInstance.mesh->meshType != MeshType::STATIC_MESH)
+			if (!meshComponent->mesh || meshComponent->mesh->meshType != MeshType::GEOMETRY)
 			{
 				continue;
 			}
 
 			meshInstances.push_back({
-				.mesh                   = worldInstance.mesh,
-				.transform              = worldInstance.transform,
+				.mesh                   = meshComponent->mesh,
+				.transform              = entity->transform,
 				.instanceDescriptorSets = {}
 			});
 		}
 
-		// Mirror lights from World.
-		directionalLight = VulkanDirectionalLight(world->getDirectionalLight());
-
-		pointLights.clear();
-		for (const auto& pointLight : world->getPointLights())
+		// Mirror lights from the entity system.
+		if (const auto* directionalLightComponent = entityManager->getDirectionalLightComponent())
 		{
-			pointLights.emplace_back(pointLight);
+			directionalLight = VulkanDirectionalLight(*directionalLightComponent);
 		}
 
-		// Mirror sky colors from World.
-		skyHorizonColor = world->getSkyHorizonColor();
-		skyZenithColor  = world->getSkyZenithColor();
+		pointLights.clear();
+		for (const auto& [entity, pointLightComponent] : entityManager->getPointLightEntities())
+		{
+			const auto& translationValues = entity->transform.trivial().values[3];
+			const math::Vector3 lightPosition(translationValues[0], translationValues[1], translationValues[2]);
+			pointLights.emplace_back(*pointLightComponent, lightPosition);
+		}
+
+		// Mirror sky colors from the skybox entity.
+		if (const auto* skyboxComponent = entityManager->getSkyboxComponent())
+		{
+			skyHorizonColor = skyboxComponent->horizonColor;
+			skyZenithColor  = skyboxComponent->zenithColor;
+		}
 
 		rebuildSceneBuffers();
 		rebuildDescriptorSets();
@@ -540,16 +552,17 @@ namespace parus::vulkan
 
 		for (auto& [meshPath, newMesh] : pendingMeshes)
 		{
-			Services::get<World>()->getStorage()->addNewMesh(meshPath, newMesh);
+			const auto world = Services::get<World>();
+			world->getStorage()->addNewMesh(meshPath, newMesh);
 			meshInstances.push_back({
 				.mesh = newMesh,
 				.transform = math::Matrix4x4::identity(),
 				.instanceDescriptorSets = {}
 			});
-			Services::get<World>()->addMeshInstance({
-				.mesh      = newMesh,
-				.transform = math::Matrix4x4::identity()
-			});
+
+			const auto entityManager = world->getEntityManager();
+			const EntityId newEntityId = entityManager->spawn(meshPath);
+			entityManager->addMeshComponent(newEntityId, MeshComponent{ newMesh });
 		}
 
 		return true;
@@ -561,7 +574,7 @@ namespace parus::vulkan
 		std::vector<math::Vertex> allVertices;
 		std::vector<uint32_t> allIndices;
 
-		for (const auto& mesh : Services::get<World>()->getStorage()->getAllMeshesByType(MeshType::STATIC_MESH))
+		for (const auto& mesh : Services::get<World>()->getStorage()->getAllMeshesByType(MeshType::GEOMETRY))
 		{
 			for (auto& meshPart : mesh->meshParts)
 			{
@@ -626,29 +639,49 @@ namespace parus::vulkan
 		static constexpr float DEFAULT_POINT_RADIUS    = 80.0f;
 		static constexpr float DEFAULT_POINT_INTENSITY = 4.0f;
 
-		world->setDirectionalLight({ .color = DEFAULT_LIGHT_COLOR, .direction = DEFAULT_LIGHT_DIRECTION });
-		world->setSkyColors(DEFAULT_SKY_HORIZON, DEFAULT_SKY_ZENITH);
-		world->addPointLight({
-			.position  = DEFAULT_POINT_POSITION,
+		const auto entityManager = world->getEntityManager();
+
+		const EntityId sunId = entityManager->spawn("Sun");
+		entityManager->addDirectionalLightComponent(sunId, DirectionalLightComponent{
+			.color     = DEFAULT_LIGHT_COLOR,
+			.direction = DEFAULT_LIGHT_DIRECTION
+		});
+		directionalLight = VulkanDirectionalLight(*entityManager->getDirectionalLightComponent());
+
+		const EntityId lampId = entityManager->spawn("Lamp");
+		entityManager->setMobility(lampId, Mobility::Movable);
+		entityManager->setTransform(lampId, math::Matrix4x4::translation(
+			DEFAULT_POINT_POSITION.x, DEFAULT_POINT_POSITION.y, DEFAULT_POINT_POSITION.z));
+		entityManager->addPointLightComponent(lampId, PointLightComponent{
 			.color     = DEFAULT_POINT_COLOR,
 			.radius    = DEFAULT_POINT_RADIUS,
 			.intensity = DEFAULT_POINT_INTENSITY
 		});
 
-		directionalLight = VulkanDirectionalLight(world->getDirectionalLight());
-
-		skyHorizonColor = world->getSkyHorizonColor();
-		skyZenithColor  = world->getSkyZenithColor();
-
-		for (const auto& pointLight : world->getPointLights())
+		for (const auto& [entity, pointLightComponent] : entityManager->getPointLightEntities())
 		{
-			pointLights.emplace_back(pointLight);
+			const auto& translationValues = entity->transform.trivial().values[3];
+			const math::Vector3 lightPosition(translationValues[0], translationValues[1], translationValues[2]);
+			pointLights.emplace_back(*pointLightComponent, lightPosition);
 		}
 
 		createCubemapTexture();
 
 		const auto skyboxMesh = std::make_shared<Mesh>(SkyboxMesh::create());
-		enqueueMesh("skybox://builtin", skyboxMesh);
+		world->getStorage()->addNewMesh("skybox://builtin", skyboxMesh);
+
+		const EntityId skyboxEntityId = entityManager->spawn("Skybox");
+		entityManager->addSkyboxComponent(skyboxEntityId, SkyboxComponent{
+			.mesh         = skyboxMesh,
+			.horizonColor = DEFAULT_SKY_HORIZON,
+			.zenithColor  = DEFAULT_SKY_ZENITH
+		});
+
+		skyHorizonColor = DEFAULT_SKY_HORIZON;
+		skyZenithColor  = DEFAULT_SKY_ZENITH;
+
+		rebuildSceneBuffers();
+		rebuildDescriptorSets();
 	}
 
 	std::optional<uint32_t> VulkanRenderer::acquireNextImage()

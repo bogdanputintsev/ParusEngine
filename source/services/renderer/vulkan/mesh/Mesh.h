@@ -13,7 +13,7 @@ namespace parus
 
     enum class MeshType : uint8_t
     {
-        STATIC_MESH,
+        GEOMETRY,
         SKY
     };
     
