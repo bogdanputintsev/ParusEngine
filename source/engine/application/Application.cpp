@@ -23,43 +23,54 @@ namespace parus
 		registerEvents();
 		registerConsoleCommands();
 
-		Services::get<Configs>()->loadAll();
-		Services::get<Platform>()->init();
-		Services::get<ThreadPool>()->init();
-		Services::get<World>()->init();
-		Services::get<Renderer>()->init();
-		Services::get<GraphicsLibrary>()->init();
+		configs->loadAll();
+		platform->init();
+		threadPool->init();
+		world->init();
+		renderer->init();
+		graphicsLibrary->init();
 
 		processArgs(argc, argv);
 
-		isMinimized = Services::get<Configs>()->getOrDefault<bool>("Window", "isMinimized", false);
+		isMinimized = configs->getOrDefault<bool>("Window", "isMinimized", false);
 		isRunning = true;
-	}
-
-	void Application::processArgs(const int argc, const char* argv[])
-	{
-		if (argc > 1)
-		{
-			Services::get<Serialization>()->importWorld(argv[1]);
-		}
 	}
 
 	void Application::registerServices()
 	{
-		Services::registerService<Configs>(std::make_shared<Configs>());
+		configs = std::make_shared<Configs>();
+		Services::registerService<Configs>(configs);
+
 #ifdef WITH_WINDOWS_PLATFORM
-		Services::registerService<Platform>(std::make_shared<PlatformWindows>());
+		platform = std::make_shared<PlatformWindows>();
 #else
 		FATAL_ERROR("No Platform implementation for this platform.");
 #endif
-		Services::registerService<GraphicsLibrary>(std::make_shared<imgui::ImGuiLibrary>());
-		Services::registerService<Renderer>(std::make_shared<vulkan::VulkanRenderer>());
-		Services::registerService<EventSystem>(std::make_shared<EventSystem>());
-		Services::registerService<Input>(std::make_shared<Input>());
-		Services::registerService<World>(std::make_shared<World>());
-		Services::registerService<ThreadPool>(std::make_shared<ThreadPool>());
-		Services::registerService<Console>(std::make_shared<Console>());
-		Services::registerService<Serialization>(std::make_shared<Serialization>());
+		Services::registerService<Platform>(platform);
+
+		graphicsLibrary = std::make_shared<imgui::ImGuiLibrary>();
+		Services::registerService<GraphicsLibrary>(graphicsLibrary);
+
+		renderer = std::make_shared<vulkan::VulkanRenderer>();
+		Services::registerService<Renderer>(renderer);
+
+		eventSystem = std::make_shared<EventSystem>();
+		Services::registerService<EventSystem>(eventSystem);
+
+		input = std::make_shared<Input>();
+		Services::registerService<Input>(input);
+
+		world = std::make_shared<World>();
+		Services::registerService<World>(world);
+
+		threadPool = std::make_shared<ThreadPool>();
+		Services::registerService<ThreadPool>(threadPool);
+
+		console = std::make_shared<Console>();
+		Services::registerService<Console>(console);
+
+		serialization = std::make_shared<Serialization>();
+		Services::registerService<Serialization>(serialization);
 	}
 
 	void Application::registerEvents()
@@ -85,25 +96,25 @@ namespace parus
 
 	void Application::registerConsoleCommands()
 	{
-		const auto console = Services::get<Console>();
-
 		console->registerConsoleCommand("exit", [](const auto& /*args*/)
 		{
 			FIRE_EVENT(EventType::EVENT_APPLICATION_QUIT, 0);
 			return std::string();
 		});
 
-		Services::get<Serialization>()->registerConsoleCommands();
+		serialization->registerConsoleCommands();
+	}
+	
+	void Application::processArgs(const int argc, const char* argv[])
+	{
+		if (argc > 1)
+		{
+			serialization->importWorld(argv[1]);
+		}
 	}
 
 	void Application::loop()
 	{
-		const auto world = Services::get<World>();
-		const auto platform = Services::get<Platform>();
-		const auto configs = Services::get<Configs>();
-		const auto graphicsLibrary = Services::get<GraphicsLibrary>();
-		const auto renderer = Services::get<Renderer>();
-		
 		auto lastFrameTime = std::chrono::high_resolution_clock::now();
 
 		while (isRunning)
@@ -129,10 +140,10 @@ namespace parus
 	void Application::clean()
 	{
 		isRunning = false;
-		
-		Services::get<GraphicsLibrary>()->clean();
-		Services::get<Renderer>()->clean();
-		Services::get<Platform>()->clean();
+
+		graphicsLibrary->clean();
+		renderer->clean();
+		platform->clean();
 	}
 
 }
