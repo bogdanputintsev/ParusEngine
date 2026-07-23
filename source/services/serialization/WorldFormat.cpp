@@ -10,7 +10,7 @@
 #include "SceneData.h"
 #include "engine/EngineCore.h"
 #include "services/renderer/vulkan/mesh/Mesh.h"
-#include "services/world/WorldMeshInstance.h"
+#include "services/world/entity/EntityManager.h"
 
 namespace parus::serialization
 {
@@ -21,44 +21,39 @@ namespace parus::serialization
         const std::filesystem::path& outputPath)
     {
         const auto camera = world.getMainCamera();
-        const auto directionalLight = world.getDirectionalLight();
-        const auto pointLights = world.getPointLights();
-        const auto meshInstances = world.getMeshInstances();
+        const auto entityManager = world.getEntityManager();
+        const auto allEntities = entityManager->getAllEntities();
 
-        // Build deduplicated mesh stem table (STATIC_MESH only; sky is in sky_section)
+        // Build deduplicated mesh stem table (GEOMETRY only; sky is written separately below).
         std::vector<std::string> meshStems;
         std::unordered_map<Mesh*, uint32_t> meshIndexMap;
 
-        for (const auto& instance : meshInstances)
+        for (const auto* entity : allEntities)
         {
-            if (!instance.mesh || instance.mesh->meshType != MeshType::STATIC_MESH)
+            const auto* meshComponent = entityManager->getMeshComponent(entity->id);
+            if (!meshComponent || !meshComponent->mesh || meshComponent->mesh->meshType != MeshType::GEOMETRY)
             {
                 continue;
             }
 
-            auto* meshPtr = instance.mesh.get();
+            auto* meshPtr = meshComponent->mesh.get();
 
             if (meshIndexMap.contains(meshPtr))
             {
                 continue;
             }
 
-            const std::string stem = std::filesystem::path(*instance.mesh->sourcePath).stem().string();
+            const std::string stem = std::filesystem::path(*meshComponent->mesh->sourcePath).stem().string();
             meshIndexMap[meshPtr] = static_cast<uint32_t>(meshStems.size());
             meshStems.push_back(stem);
         }
 
-        // Determine sky mesh stem
+        // Determine sky mesh stem from the skybox entity.
         std::string skyMeshStem;
-        const auto storage = world.getStorage();
-
-        for (const auto& mesh : storage->getAllMeshesByType(MeshType::SKY))
+        if (const auto* skyboxComponent = entityManager->getSkyboxComponent();
+            skyboxComponent && skyboxComponent->mesh && skyboxComponent->mesh->sourcePath.has_value())
         {
-            if (mesh->sourcePath.has_value())
-            {
-                skyMeshStem = std::filesystem::path(*mesh->sourcePath).stem().string();
-                break;
-            }
+            skyMeshStem = std::filesystem::path(*skyboxComponent->mesh->sourcePath).stem().string();
         }
 
         std::ostringstream payload(std::ios::binary);
@@ -69,24 +64,16 @@ namespace parus::serialization
         writeFloat(payload, camera.getPitch());
 
         // sky_section
+        const auto* skyboxComponent = entityManager->getSkyboxComponent();
         writeString(payload, skyMeshStem);
-        writeVector3(payload, world.getSkyHorizonColor());
-        writeVector3(payload, world.getSkyZenithColor());
+        writeVector3(payload, skyboxComponent ? skyboxComponent->horizonColor : math::Vector3());
+        writeVector3(payload, skyboxComponent ? skyboxComponent->zenithColor : math::Vector3());
         writeUInt32(payload, 0); // skybox_settings_size: reserved
 
         // directional_light_section
-        writeVector3(payload, directionalLight.color);
-        writeVector3(payload, directionalLight.direction);
-
-        // point_lights_section
-        writeUInt32(payload, static_cast<uint32_t>(pointLights.size()));
-        for (const auto& light : pointLights)
-        {
-            writeVector3(payload, light.position);
-            writeVector3(payload, light.color);
-            writeFloat(payload, light.radius);
-            writeFloat(payload, light.intensity);
-        }
+        const auto* directionalLightComponent = entityManager->getDirectionalLightComponent();
+        writeVector3(payload, directionalLightComponent ? directionalLightComponent->color : math::Vector3());
+        writeVector3(payload, directionalLightComponent ? directionalLightComponent->direction : math::Vector3());
 
         // mesh_table_section
         writeUInt32(payload, static_cast<uint32_t>(meshStems.size()));
@@ -95,22 +82,42 @@ namespace parus::serialization
             writeString(payload, stem);
         }
 
-        // mesh_instances_section (exclude SKY instances — sky is in sky_section)
-        std::vector<const WorldMeshInstance*> staticInstances;
-        for (const auto& instance : meshInstances)
+        // entity_table_section (excludes the directional-light entity and the skybox entity - those are
+        // written directly in their own sections above, not as generic rows)
+        std::vector<const Entity*> exportedEntities;
+        for (const auto* entity : allEntities)
         {
-            if (instance.mesh && instance.mesh->meshType == MeshType::STATIC_MESH)
+            if (entityManager->getDirectionalLightEntity() == entity || entityManager->getSkyboxEntity() == entity)
             {
-                staticInstances.push_back(&instance);
+                continue;
             }
+
+            exportedEntities.push_back(entity);
         }
 
-        writeUInt32(payload, static_cast<uint32_t>(staticInstances.size()));
-        for (const auto* instance : staticInstances)
+        writeUInt32(payload, static_cast<uint32_t>(exportedEntities.size()));
+        for (const auto* entity : exportedEntities)
         {
-            const uint32_t meshIndex = meshIndexMap.at(instance->mesh.get());
-            writeUInt32(payload, meshIndex);
-            writeMatrix4x4(payload, instance->transform);
+            writeString(payload, entity->name);
+            writeUInt8(payload, static_cast<uint8_t>(entity->mobility));
+            writeMatrix4x4(payload, entity->transform);
+
+            const auto* meshComponent = entityManager->getMeshComponent(entity->id);
+            const bool hasMesh = meshComponent && meshComponent->mesh && meshComponent->mesh->meshType == MeshType::GEOMETRY;
+            writeUInt8(payload, hasMesh ? 1 : 0);
+            if (hasMesh)
+            {
+                writeUInt32(payload, meshIndexMap.at(meshComponent->mesh.get()));
+            }
+
+            const auto* pointLightComponent = entityManager->getPointLightComponent(entity->id);
+            writeUInt8(payload, pointLightComponent ? 1 : 0);
+            if (pointLightComponent)
+            {
+                writeVector3(payload, pointLightComponent->color);
+                writeFloat(payload, pointLightComponent->radius);
+                writeFloat(payload, pointLightComponent->intensity);
+            }
         }
 
         std::ofstream file(outputPath, std::ios::binary);
@@ -179,28 +186,14 @@ namespace parus::serialization
         sceneData.cameraPitch    = readFloat(file);
 
         // sky_section
-        sceneData.skyMeshStem     = readString(file);
-        sceneData.skyHorizonColor = readVector3(file);
-        sceneData.skyZenithColor  = readVector3(file);
+        sceneData.skybox.meshStem     = readString(file);
+        sceneData.skybox.horizonColor = readVector3(file);
+        sceneData.skybox.zenithColor  = readVector3(file);
         readUInt32(file); // skyboxSettingsSize: reserved
 
         // directional_light_section
         sceneData.directionalLight.color     = readVector3(file);
         sceneData.directionalLight.direction = readVector3(file);
-
-        // point_lights_section
-        const uint32_t pointLightCount = readUInt32(file);
-        sceneData.pointLights.reserve(pointLightCount);
-
-        for (uint32_t lightIndex = 0; lightIndex < pointLightCount; ++lightIndex)
-        {
-            PointLight light{};
-            light.position  = readVector3(file);
-            light.color     = readVector3(file);
-            light.radius    = readFloat(file);
-            light.intensity = readFloat(file);
-            sceneData.pointLights.push_back(light);
-        }
 
         // mesh_table_section
         const uint32_t meshCount = readUInt32(file);
@@ -211,16 +204,36 @@ namespace parus::serialization
             sceneData.meshStems.push_back(readString(file));
         }
 
-        // mesh_instances_section
-        const uint32_t instanceCount = readUInt32(file);
-        sceneData.meshInstances.reserve(instanceCount);
+        // entity_table_section
+        const uint32_t entityCount = readUInt32(file);
+        sceneData.entities.reserve(entityCount);
 
-        for (uint32_t instanceIndex = 0; instanceIndex < instanceCount; ++instanceIndex)
+        for (uint32_t entityIndex = 0; entityIndex < entityCount; ++entityIndex)
         {
-            MeshInstanceEntry entry{};
-            entry.meshIndex = readUInt32(file);
+            EntityEntry entry{};
+            entry.name      = readString(file);
+            entry.mobility  = static_cast<parus::Mobility>(readUInt8(file));
             entry.transform = readMatrix4x4(file);
-            sceneData.meshInstances.push_back(entry);
+
+            const bool hasMesh = readUInt8(file) != 0;
+            if (hasMesh)
+            {
+                EntityMeshEntry meshEntry{};
+                meshEntry.meshIndex = readUInt32(file);
+                entry.meshComponent = meshEntry;
+            }
+
+            const bool hasPointLight = readUInt8(file) != 0;
+            if (hasPointLight)
+            {
+                EntityPointLightEntry pointLightEntry{};
+                pointLightEntry.color     = readVector3(file);
+                pointLightEntry.radius    = readFloat(file);
+                pointLightEntry.intensity = readFloat(file);
+                entry.pointLightComponent = pointLightEntry;
+            }
+
+            sceneData.entities.push_back(entry);
         }
 
         if (!file.good())

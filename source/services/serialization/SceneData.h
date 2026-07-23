@@ -1,17 +1,48 @@
 #pragma once
+#include <optional>
 #include <string>
 #include <vector>
 
 #include "engine/utils/math/Math.h"
-#include "services/world/SceneLight.h"
+#include "services/world/entity/Entity.h"
 
 namespace parus::serialization
 {
 
-    struct MeshInstanceEntry
+    struct EntityMeshEntry
     {
-        uint32_t        meshIndex = 0;
+        uint32_t meshIndex = 0;
+    };
+
+    struct EntityPointLightEntry
+    {
+        math::Vector3 color;
+        float radius = 50.0f;
+        float intensity = 1.0f;
+    };
+
+    /** One row of the entity table: every entity's core fields, plus whichever optional components it has. */
+    struct EntityEntry
+    {
+        std::string name;
+        parus::Mobility mobility = parus::Mobility::Static;
         math::Matrix4x4 transform;
+
+        std::optional<EntityMeshEntry> meshComponent;
+        std::optional<EntityPointLightEntry> pointLightComponent;
+    };
+
+    struct DirectionalLightEntry
+    {
+        math::Vector3 color;
+        math::Vector3 direction;
+    };
+
+    struct SkyboxEntry
+    {
+        std::string meshStem;
+        math::Vector3 horizonColor;
+        math::Vector3 zenithColor;
     };
 
     /** Parsed contents of a .pworld file - no Vulkan types. */
@@ -21,17 +52,12 @@ namespace parus::serialization
         float         cameraYaw   = 0.0f;
         float         cameraPitch = 0.0f;
 
-        /** Reserved: stem of a custom sky mesh. Not acted on in iteration 2. */
-        std::string   skyMeshStem;
-        math::Vector3 skyHorizonColor;
-        math::Vector3 skyZenithColor;
+        DirectionalLightEntry directionalLight;
+        SkyboxEntry           skybox;
 
-        DirectionalLight        directionalLight;
-        std::vector<PointLight> pointLights;
-
-        /** Ordered list of mesh stems; MeshInstanceEntry.meshIndex indexes this. */
-        std::vector<std::string>       meshStems;
-        std::vector<MeshInstanceEntry> meshInstances;
+        /** Ordered list of mesh stems; EntityMeshEntry.meshIndex indexes this. */
+        std::vector<std::string> meshStems;
+        std::vector<EntityEntry> entities;
     };
 
 }

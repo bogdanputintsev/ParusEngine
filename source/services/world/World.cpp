@@ -17,6 +17,14 @@ namespace parus
         mainCamera.updateTransform(deltaTime);
     }
 
+    void World::setCameraTransform(const math::Vector3& position, float yaw, float pitch)
+    {
+        mainCamera.setPosition(position);
+        mainCamera.setYaw(yaw);
+        mainCamera.setPitch(pitch);
+        mainCamera.recalculateDirections();
+    }
+
     void World::registerConsoleCommands()
     {
         auto console = Services::get<Console>();

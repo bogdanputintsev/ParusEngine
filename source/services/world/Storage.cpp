@@ -218,7 +218,13 @@ namespace parus
     std::shared_ptr<Mesh> Storage::getMeshByPath(const std::string& path)
     {
         std::scoped_lock lock(meshesMutex);
-        return meshes[path];
+        const auto meshIterator = meshes.find(path);
+        if (meshIterator == meshes.end())
+        {
+            return nullptr;
+        }
+
+        return meshIterator->second;
     }
 
     std::vector<std::shared_ptr<Mesh>> Storage::getAllMeshes() const

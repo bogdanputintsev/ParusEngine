@@ -16,6 +16,8 @@
 #include "services/renderer/vulkan/VulkanRenderer.h"
 #include "services/threading/ThreadPool.h"
 #include "services/world/World.h"
+#include "services/world/entity/Components.h"
+#include "services/world/entity/EntityManager.h"
 
 namespace parus
 {
@@ -153,7 +155,7 @@ namespace parus
                 return mesh && mesh->sourcePath.has_value();
             }));
         const uint32_t textureCount  = static_cast<uint32_t>(storage->getAllTextures().size());
-        const uint32_t instanceCount = static_cast<uint32_t>(world->getMeshInstances().size());
+        const uint32_t instanceCount = static_cast<uint32_t>(world->getEntityManager()->getMeshEntities().size());
 
         world->setCurrentSceneName(sceneName);
         updateWindowTitle(sceneName);
@@ -186,7 +188,7 @@ namespace parus
         auto* vulkanRenderer = dynamic_cast<parus::vulkan::VulkanRenderer*>(renderer.get());
         ASSERT(vulkanRenderer, "VulkanRenderer type is expected.");
 
-        world->clearMeshInstances();
+        world->getEntityManager()->clearSceneEntities();
         vulkanRenderer->deviceWaitIdle();
         vulkanRenderer->cleanupSceneTextures();
         storage->clearSceneAssets();
@@ -206,34 +208,64 @@ namespace parus
 
         world->setCameraTransform(sceneData->cameraPosition, sceneData->cameraYaw, sceneData->cameraPitch);
 
-        world->setDirectionalLight(sceneData->directionalLight);
+        const auto entityManager = world->getEntityManager();
 
-        world->clearPointLights();
-        for (const PointLight& light : sceneData->pointLights)
+        const EntityId sunId = entityManager->spawn("Sun");
+        entityManager->addDirectionalLightComponent(sunId, DirectionalLightComponent{
+            .color     = sceneData->directionalLight.color,
+            .direction = sceneData->directionalLight.direction
+        });
+
+        // The built-in sky mesh has no sourcePath, so its stem is always empty; it survives
+        // Storage::clearSceneAssets() (which preserves MeshType::SKY meshes), so it is looked up
+        // by type rather than by the (empty) stem written for it.
+        const auto skyMeshes = storage->getAllMeshesByType(MeshType::SKY);
+        if (!skyMeshes.empty())
         {
-            world->addPointLight(light);
+            const EntityId skyId = entityManager->spawn("Skybox");
+            entityManager->addSkyboxComponent(skyId, SkyboxComponent{
+                .mesh         = skyMeshes.front(),
+                .horizonColor = sceneData->skybox.horizonColor,
+                .zenithColor  = sceneData->skybox.zenithColor
+            });
         }
 
-        world->setSkyColors(sceneData->skyHorizonColor, sceneData->skyZenithColor);
-
-        for (const serialization::MeshInstanceEntry& entry : sceneData->meshInstances)
+        for (const serialization::EntityEntry& entry : sceneData->entities)
         {
-            if (entry.meshIndex >= sceneData->meshStems.size())
+            const EntityId entityId = entityManager->spawn(entry.name);
+            entityManager->setMobility(entityId, entry.mobility);
+            entityManager->setTransform(entityId, entry.transform);
+
+            if (entry.meshComponent)
             {
-                LOG_WARNING("Skipping instance with out-of-range mesh index: " + std::to_string(entry.meshIndex));
-                continue;
+                if (entry.meshComponent->meshIndex >= sceneData->meshStems.size())
+                {
+                    LOG_WARNING("Skipping mesh component with out-of-range mesh index: " + std::to_string(entry.meshComponent->meshIndex));
+                }
+                else
+                {
+                    const std::string& meshStem = sceneData->meshStems[entry.meshComponent->meshIndex];
+                    const std::shared_ptr<Mesh> mesh = storage->getMeshByPath(meshStem);
+
+                    if (mesh)
+                    {
+                        entityManager->addMeshComponent(entityId, MeshComponent{ mesh });
+                    }
+                    else
+                    {
+                        LOG_WARNING("Skipping mesh component - mesh not loaded: " + meshStem);
+                    }
+                }
             }
 
-            const std::string& meshStem = sceneData->meshStems[entry.meshIndex];
-            const std::shared_ptr<Mesh> mesh = storage->getMeshByPath(meshStem);
-
-            if (!mesh)
+            if (entry.pointLightComponent)
             {
-                LOG_WARNING("Skipping instance - mesh not loaded: " + meshStem);
-                continue;
+                entityManager->addPointLightComponent(entityId, PointLightComponent{
+                    .color     = entry.pointLightComponent->color,
+                    .radius    = entry.pointLightComponent->radius,
+                    .intensity = entry.pointLightComponent->intensity
+                });
             }
-
-            world->addMeshInstance({ .mesh = mesh, .transform = entry.transform });
         }
 
         vulkanRenderer->applySceneFromWorld();
@@ -242,8 +274,8 @@ namespace parus
         updateWindowTitle(sceneName);
 
         const uint32_t loadedMeshCount     = static_cast<uint32_t>(sceneData->meshStems.size());
-        const uint32_t loadedInstanceCount = static_cast<uint32_t>(world->getMeshInstances().size());
-        const uint32_t pointLightCount     = static_cast<uint32_t>(sceneData->pointLights.size());
+        const uint32_t loadedInstanceCount = static_cast<uint32_t>(entityManager->getMeshEntities().size());
+        const uint32_t pointLightCount     = static_cast<uint32_t>(entityManager->getPointLightEntities().size());
 
         const math::Vector3& camPos = sceneData->cameraPosition;
 
