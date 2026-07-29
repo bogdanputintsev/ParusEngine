@@ -1,7 +1,6 @@
 #include "ConsoleReflection.h"
 
 #include <algorithm>
-#include <sstream>
 #include <stdexcept>
 
 #include "services/console/CommandContext.h"
@@ -15,6 +14,9 @@ namespace parus
     namespace
     {
         constexpr char ID_PREFIX = '#';
+
+        /** Separates the segments of an address: "Lamp.PointLight.intensity". */
+        constexpr char SEGMENT_SEPARATOR = '.';
 
         /** Special target name that routes to the world's camera instead of an entity. */
         constexpr const char* CAMERA_TARGET_NAME = "camera";
@@ -290,14 +292,29 @@ namespace parus
 
     std::vector<std::string> ConsoleReflection::splitAddress(const std::string& address)
     {
+        // Empty segments are preserved: "camera." yields { "camera", "" }, which is what
+        // tab-completion needs to offer every property of a target the user just dotted into.
         std::vector<std::string> segments;
-        std::stringstream stream(address);
         std::string segment;
-        while (std::getline(stream, segment, '.'))
+        for (const char character : address)
         {
-            segments.push_back(segment);
+            if (character == SEGMENT_SEPARATOR)
+            {
+                segments.push_back(segment);
+                segment.clear();
+                continue;
+            }
+
+            segment += character;
         }
+        segments.push_back(segment);
+
         return segments;
+    }
+
+    bool ConsoleReflection::hasEmptySegment(const std::vector<std::string>& address)
+    {
+        return std::any_of(address.begin(), address.end(), [](const std::string& segment) { return segment.empty(); });
     }
 
     std::optional<std::string> ConsoleReflection::completeAddress(const std::string& input) const
@@ -314,7 +331,7 @@ namespace parus
         const std::string linePrefix = input.substr(0, lastSpace + 1);
         const std::string lastToken = input.substr(lastSpace + 1);
 
-        if (lastToken.find('.') == std::string::npos)
+        if (lastToken.find(SEGMENT_SEPARATOR) == std::string::npos)
         {
             std::vector<std::string> candidates;
             for (const Entity* entity : entityManager->getAllEntities())
@@ -336,12 +353,8 @@ namespace parus
             return linePrefix + *completed;
         }
 
+        // splitAddress always yields at least one segment, so indexing here is safe.
         const std::vector<std::string> segments = splitAddress(lastToken);
-        if (segments.empty())
-        {
-            return std::nullopt;
-        }
-
         const std::string& targetName = segments[0];
         const std::string& lastSegment = segments.back();
         const std::string fixedPart = lastToken.substr(0, lastToken.size() - lastSegment.size());
@@ -687,7 +700,7 @@ namespace parus
         }
 
         const std::vector<std::string> address = splitAddress(args[0]);
-        if (address.size() < 2 || address.size() > 3)
+        if (address.size() < 2 || address.size() > 3 || hasEmptySegment(address))
         {
             out.write("Invalid address: " + args[0]);
             return;
@@ -769,7 +782,7 @@ namespace parus
 
         const std::vector<std::string> address = splitAddress(args[0]);
         const std::vector<std::string> values(args.begin() + 1, args.end());
-        if (address.size() < 2 || address.size() > 3)
+        if (address.size() < 2 || address.size() > 3 || hasEmptySegment(address))
         {
             out.write("Invalid address: " + args[0]);
             return;

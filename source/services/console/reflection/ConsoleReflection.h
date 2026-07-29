@@ -34,8 +34,14 @@ namespace parus
         void buildSkyboxSchema();
         void buildMeshSchema();
 
-        /** Splits "Door.PointLight.intensity" into { "Door", "PointLight", "intensity" }. */
+        /**
+         * Splits "Door.PointLight.intensity" into { "Door", "PointLight", "intensity" }.
+         * Empty segments are kept, so "Door." yields { "Door", "" }.
+         */
         static std::vector<std::string> splitAddress(const std::string& address);
+
+        /** True if any segment is empty, which makes an address invalid for get/set. */
+        [[nodiscard]] static bool hasEmptySegment(const std::vector<std::string>& address);
 
         /**
          * Completion provider registered with Console: completes the dotted address after

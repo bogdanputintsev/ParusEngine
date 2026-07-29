@@ -121,6 +121,52 @@ namespace parus
         EXPECT_EQ(hint, "set Door.position");
     }
 
+    TEST(ConsoleReflection, CompletesCameraPropertyAfterTrailingDot)
+    {
+        auto entityManager = makeWorldWithConsole();
+        auto console = Services::get<Console>();
+        SpectatorCamera camera;
+        ConsoleReflection reflection(console, entityManager, &camera);
+
+        const std::string hint = console->hintNext("get camera.");
+        EXPECT_EQ(hint, "get camera.acceleration");
+    }
+
+    TEST(ConsoleReflection, CompletesEntityPropertyAfterTrailingDot)
+    {
+        auto entityManager = makeWorldWithConsole();
+        auto console = Services::get<Console>();
+        ConsoleReflection reflection(console, entityManager);
+        const EntityId id = entityManager->spawn("Lamp");
+        entityManager->addPointLightComponent(id, PointLightComponent{});
+
+        // Component names sort before lower-case property names, so PointLight comes first.
+        const std::string hint = console->hintNext("set Lamp.");
+        EXPECT_EQ(hint, "set Lamp.PointLight");
+    }
+
+    TEST(ConsoleReflection, CompletesComponentPropertyAfterTrailingDot)
+    {
+        auto entityManager = makeWorldWithConsole();
+        auto console = Services::get<Console>();
+        ConsoleReflection reflection(console, entityManager);
+        const EntityId id = entityManager->spawn("Lamp");
+        entityManager->addPointLightComponent(id, PointLightComponent{});
+
+        const std::string hint = console->hintNext("set Lamp.PointLight.");
+        EXPECT_EQ(hint, "set Lamp.PointLight.color");
+    }
+
+    TEST(ConsoleReflection, TrailingDotIsRejectedByGet)
+    {
+        auto entityManager = makeWorldWithConsole();
+        auto console = Services::get<Console>();
+        SpectatorCamera camera;
+        ConsoleReflection reflection(console, entityManager, &camera);
+
+        EXPECT_EQ(console->submitCommand("get camera."), "Invalid address: camera.");
+    }
+
     TEST(ConsoleReflection, CameraPositionRoundTrips)
     {
         auto entityManager = makeWorldWithConsole();
