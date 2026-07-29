@@ -28,7 +28,7 @@ namespace parus
         void clearSceneEntities();
 
         /** Silently no-ops if no such entity exists. */
-        void setTransform(EntityId id, const math::Matrix4x4& transform);
+        void setTransform(EntityId id, const math::Transform& transform);
         /** Silently no-ops if no such entity exists. */
         void setMobility(EntityId id, Mobility mobility);
         /** Renames an entity; fails (returns false) if newName is already taken by a different entity. */

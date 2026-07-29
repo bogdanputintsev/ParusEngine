@@ -2,6 +2,9 @@
 
 #include <sstream>
 
+#include "engine/Event.h"
+#include "services/Services.h"
+
 namespace parus
 {
     void Console::registerConsoleCommand(const std::string& command, CommandCallback callback)
@@ -10,8 +13,10 @@ namespace parus
         trie.insert(command);
     }
 
-    std::string Console::processCommand(const std::string& command) const
+    std::string Console::submitCommand(const std::string& command)
     {
+        FIRE_EVENT(EventType::EVENT_CONSOLE_COMMAND_SUBMITTED, command);
+
         std::vector<std::string> tokens;
         std::istringstream tokenStream(command);
         std::string token;
@@ -35,16 +40,40 @@ namespace parus
             const auto it = commands.find(commandName);
             if (it != commands.end())
             {
-                std::vector<std::string> args(tokens.begin() + tokenCount, tokens.end());
-                return it->second(args);
+                [[maybe_unused]] const auto& [foundCommandName, commandCallback] = *it;
+
+                const std::vector<std::string> args(tokens.begin() + tokenCount, tokens.end());
+                CommandContext context(command);
+                commandCallback(args, context);
+
+                const std::string result(context.output());
+                FIRE_EVENT(EventType::EVENT_CONSOLE_COMMAND_FINISHED, command, result);
+
+                return result;
             }
         }
 
-        return "Unknown command: '" + command + "'.";
+        const std::string result = "Unknown command: '" + command + "'.";
+        FIRE_EVENT(EventType::EVENT_CONSOLE_COMMAND_FINISHED, command, result);
+
+        return result;
+    }
+
+    void Console::registerCompletionProvider(CompletionProvider provider)
+    {
+        completionProviders.push_back(std::move(provider));
     }
 
     std::string Console::hintNext(const std::string& input) const
     {
+        for (const CompletionProvider& provider : completionProviders)
+        {
+            if (const std::optional<std::string> hint = provider(input))
+            {
+                return *hint;
+            }
+        }
+
         return trie.hintNext(input);
     }
 }

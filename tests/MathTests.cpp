@@ -39,4 +39,44 @@ namespace parus::math
 
         EXPECT_EQ(normalized, (Vector3{ 0.0f, 0.0f, 0.0f }));
     }
+
+    TEST(Matrix4x4Transform, ScaleScalesAPoint)
+    {
+        const math::Matrix4x4 matrix = math::Matrix4x4::scale(2.0f, 3.0f, 4.0f);
+        const math::Vector3 result = matrix.transformPoint({ 1.0f, 1.0f, 1.0f });
+
+        EXPECT_NEAR(result.x, 2.0f, 1e-4f);
+        EXPECT_NEAR(result.y, 3.0f, 1e-4f);
+        EXPECT_NEAR(result.z, 4.0f, 1e-4f);
+    }
+
+    TEST(Matrix4x4Transform, IdentityRotationLeavesPointUnchanged)
+    {
+        const math::Matrix4x4 matrix = math::Matrix4x4::rotation(0.0f, 0.0f, 0.0f);
+        const math::Vector3 result = matrix.transformPoint({ 1.0f, 2.0f, 3.0f });
+
+        EXPECT_NEAR(result.x, 1.0f, 1e-4f);
+        EXPECT_NEAR(result.y, 2.0f, 1e-4f);
+        EXPECT_NEAR(result.z, 3.0f, 1e-4f);
+    }
+
+    TEST(Matrix4x4Transform, YawNinetyDegreesSendsPlusXToMinusZ)
+    {
+        const math::Matrix4x4 matrix = math::Matrix4x4::rotation(0.0f, 90.0f, 0.0f);
+        const math::Vector3 result = matrix.transformPoint({ 1.0f, 0.0f, 0.0f });
+
+        EXPECT_NEAR(result.x,  0.0f, 1e-4f);
+        EXPECT_NEAR(result.y,  0.0f, 1e-4f);
+        EXPECT_NEAR(result.z, -1.0f, 1e-4f);
+    }
+
+    TEST(Matrix4x4Transform, TransformPointAppliesTranslation)
+    {
+        const math::Matrix4x4 matrix = math::Matrix4x4::translation(5.0f, 6.0f, 7.0f);
+        const math::Vector3 result = matrix.transformPoint({ 1.0f, 1.0f, 1.0f });
+
+        EXPECT_NEAR(result.x, 6.0f, 1e-4f);
+        EXPECT_NEAR(result.y, 7.0f, 1e-4f);
+        EXPECT_NEAR(result.z, 8.0f, 1e-4f);
+    }
 }

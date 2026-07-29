@@ -81,7 +81,7 @@ namespace parus
         skyboxComponents.clear();
     }
 
-    void EntityManager::setTransform(EntityId id, const math::Matrix4x4& transform)
+    void EntityManager::setTransform(EntityId id, const math::Transform& transform)
     {
         const auto entityIterator = entities.find(id);
         if (entityIterator == entities.end())

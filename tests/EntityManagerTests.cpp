@@ -123,10 +123,43 @@ namespace parus
         EntityManager entityManager;
 
         const EntityId id = entityManager.spawn("Cube");
-        const math::Matrix4x4 newTransform = math::Matrix4x4::translation(1.0f, 2.0f, 3.0f);
+        math::Transform newTransform;
+        newTransform.position = { 1.0f, 2.0f, 3.0f };
         entityManager.setTransform(id, newTransform);
 
-        EXPECT_EQ(entityManager.getEntity(id)->transform, newTransform);
+        EXPECT_EQ(entityManager.getEntity(id)->transform.position, newTransform.position);
+    }
+
+    TEST(EntityManager, SetTransformRoundTrips)
+    {
+        EntityManager entityManager;
+        const EntityId id = entityManager.spawn("Cube");
+
+        math::Transform transform;
+        transform.position     = { 1.0f, 2.0f, 3.0f };
+        transform.rotationEuler = { 0.0f, 90.0f, 0.0f };
+        transform.scale        = { 2.0f, 2.0f, 2.0f };
+        entityManager.setTransform(id, transform);
+
+        const Entity* entity = entityManager.getEntity(id);
+        ASSERT_NE(entity, nullptr);
+        EXPECT_FLOAT_EQ(entity->transform.position.x, 1.0f);
+        EXPECT_FLOAT_EQ(entity->transform.position.z, 3.0f);
+        EXPECT_FLOAT_EQ(entity->transform.rotationEuler.y, 90.0f);
+        EXPECT_FLOAT_EQ(entity->transform.scale.x, 2.0f);
+    }
+
+    TEST(EntityManager, DefaultTransformIsIdentity)
+    {
+        EntityManager entityManager;
+        const EntityId id = entityManager.spawn("Cube");
+        const Entity* entity = entityManager.getEntity(id);
+
+        ASSERT_NE(entity, nullptr);
+        EXPECT_FLOAT_EQ(entity->transform.scale.x, 1.0f);
+        EXPECT_FLOAT_EQ(entity->transform.scale.y, 1.0f);
+        EXPECT_FLOAT_EQ(entity->transform.scale.z, 1.0f);
+        EXPECT_FLOAT_EQ(entity->transform.position.x, 0.0f);
     }
 
     TEST(EntityManager, SetMobilityUpdatesEntity)

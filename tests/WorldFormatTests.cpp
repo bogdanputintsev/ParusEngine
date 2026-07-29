@@ -32,7 +32,9 @@ namespace parus::serialization
 
         const EntityId cubeId = entityManager->spawn("Cube");
         entityManager->setMobility(cubeId, Mobility::Movable);
-        entityManager->setTransform(cubeId, math::Matrix4x4::translation(1.0f, 2.0f, 3.0f));
+        math::Transform cubeTransform;
+        cubeTransform.position = { 1.0f, 2.0f, 3.0f };
+        entityManager->setTransform(cubeId, cubeTransform);
         entityManager->addMeshComponent(cubeId, MeshComponent{ cubeMesh });
 
         const EntityId lampId = entityManager->spawn("Lamp");
@@ -96,7 +98,9 @@ namespace parus::serialization
         const EntityEntry* cubeEntry = findEntry("Cube");
         ASSERT_NE(cubeEntry, nullptr);
         EXPECT_EQ(cubeEntry->mobility, Mobility::Movable);
-        EXPECT_EQ(cubeEntry->transform, math::Matrix4x4::translation(1.0f, 2.0f, 3.0f));
+        EXPECT_EQ(cubeEntry->transform.position, math::Vector3(1.0f, 2.0f, 3.0f));
+        EXPECT_EQ(cubeEntry->transform.rotationEuler, math::Vector3(0.0f, 0.0f, 0.0f));
+        EXPECT_EQ(cubeEntry->transform.scale, math::Vector3(1.0f, 1.0f, 1.0f));
         ASSERT_TRUE(cubeEntry->meshComponent.has_value());
         EXPECT_EQ(cubeEntry->meshComponent->meshIndex, 0u);
         EXPECT_FALSE(cubeEntry->pointLightComponent.has_value());

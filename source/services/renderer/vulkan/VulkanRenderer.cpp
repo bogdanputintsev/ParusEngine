@@ -486,7 +486,7 @@ namespace parus::vulkan
 
 			meshInstances.push_back({
 				.mesh                   = meshComponent->mesh,
-				.transform              = entity->transform,
+				.transform              = entity->transform.toMatrix(),
 				.instanceDescriptorSets = {}
 			});
 		}
@@ -500,9 +500,7 @@ namespace parus::vulkan
 		pointLights.clear();
 		for (const auto& [entity, pointLightComponent] : entityManager->getPointLightEntities())
 		{
-			const auto& translationValues = entity->transform.trivial().values[3];
-			const math::Vector3 lightPosition(translationValues[0], translationValues[1], translationValues[2]);
-			pointLights.emplace_back(*pointLightComponent, lightPosition);
+			pointLights.emplace_back(*pointLightComponent, entity->transform.position);
 		}
 
 		// Mirror sky colors from the skybox entity.
@@ -556,7 +554,7 @@ namespace parus::vulkan
 			world->getStorage()->addNewMesh(meshPath, newMesh);
 			meshInstances.push_back({
 				.mesh = newMesh,
-				.transform = math::Matrix4x4::identity(),
+				.transform = parus::math::Transform{}.toMatrix(),
 				.instanceDescriptorSets = {}
 			});
 
@@ -650,8 +648,9 @@ namespace parus::vulkan
 
 		const EntityId lampId = entityManager->spawn("Lamp");
 		entityManager->setMobility(lampId, Mobility::Movable);
-		entityManager->setTransform(lampId, math::Matrix4x4::translation(
-			DEFAULT_POINT_POSITION.x, DEFAULT_POINT_POSITION.y, DEFAULT_POINT_POSITION.z));
+		parus::math::Transform lampTransform;
+		lampTransform.position = { DEFAULT_POINT_POSITION.x, DEFAULT_POINT_POSITION.y, DEFAULT_POINT_POSITION.z };
+		entityManager->setTransform(lampId, lampTransform);
 		entityManager->addPointLightComponent(lampId, PointLightComponent{
 			.color     = DEFAULT_POINT_COLOR,
 			.radius    = DEFAULT_POINT_RADIUS,
@@ -660,9 +659,7 @@ namespace parus::vulkan
 
 		for (const auto& [entity, pointLightComponent] : entityManager->getPointLightEntities())
 		{
-			const auto& translationValues = entity->transform.trivial().values[3];
-			const math::Vector3 lightPosition(translationValues[0], translationValues[1], translationValues[2]);
-			pointLights.emplace_back(*pointLightComponent, lightPosition);
+			pointLights.emplace_back(*pointLightComponent, entity->transform.position);
 		}
 
 		createCubemapTexture();
