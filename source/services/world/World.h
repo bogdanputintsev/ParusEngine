@@ -7,6 +7,7 @@
 #include "camera/SpectatorCamera.h"
 #include "entity/EntityManager.h"
 #include "services/Service.h"
+#include "services/console/reflection/ConsoleReflection.h"
 
 namespace parus
 {
@@ -17,7 +18,6 @@ namespace parus
     public:
         void init();
         void tick(const float deltaTime);
-        void registerConsoleCommands();
 
         [[nodiscard]] SpectatorCamera getMainCamera() const { return mainCamera; }
 
@@ -35,6 +35,9 @@ namespace parus
         std::shared_ptr<Storage> storage = std::make_shared<Storage>();
         std::shared_ptr<EntityManager> entityManager = std::make_shared<EntityManager>();
         std::string currentSceneName;
+
+        /** Binds the generic get/set/list console commands to entities, components and the camera. */
+        std::unique_ptr<ConsoleReflection> consoleReflection;
     };
 
 }

@@ -100,7 +100,9 @@ namespace parus::serialization
         {
             writeString(payload, entity->name);
             writeUInt8(payload, static_cast<uint8_t>(entity->mobility));
-            writeMatrix4x4(payload, entity->transform);
+            writeVector3(payload, entity->transform.position);
+            writeVector3(payload, entity->transform.rotationEuler);
+            writeVector3(payload, entity->transform.scale);
 
             const auto* meshComponent = entityManager->getMeshComponent(entity->id);
             const bool hasMesh = meshComponent && meshComponent->mesh && meshComponent->mesh->meshType == MeshType::GEOMETRY;
@@ -213,7 +215,9 @@ namespace parus::serialization
             EntityEntry entry{};
             entry.name      = readString(file);
             entry.mobility  = static_cast<parus::Mobility>(readUInt8(file));
-            entry.transform = readMatrix4x4(file);
+            entry.transform.position      = readVector3(file);
+            entry.transform.rotationEuler = readVector3(file);
+            entry.transform.scale         = readVector3(file);
 
             const bool hasMesh = readUInt8(file) != 0;
             if (hasMesh)

@@ -14,7 +14,10 @@ target_sources(ParusEngineLib PRIVATE
     source/engine/utils/math/Math.cpp
     source/services/Services.cpp
     source/services/config/Configs.cpp
+    source/services/console/CommandContext.cpp
     source/services/console/Console.cpp
+    source/services/console/reflection/ConsoleReflection.cpp
+    source/services/console/reflection/PropertyRegistry.cpp
     source/services/graphics/GraphicsLibrary.cpp
     source/services/graphics/gui/ConsoleGui.cpp
     source/services/graphics/imgui/ImGuiLibrary.cpp
@@ -93,8 +96,11 @@ target_sources(ParusEngineLib PRIVATE
     source/services/config/ConfigError.h
     source/services/config/ConfigParser.h
     source/services/config/Configs.h
+    source/services/console/CommandContext.h
     source/services/console/Console.h
     source/services/console/Trie.h
+    source/services/console/reflection/ConsoleReflection.h
+    source/services/console/reflection/PropertyRegistry.h
     source/services/graphics/GraphicsLibrary.h
     source/services/graphics/gui/ConsoleGui.h
     source/services/graphics/imgui/ImGuiLibrary.h
@@ -215,8 +221,11 @@ FetchContent_MakeAvailable(googletest)
 enable_testing()
 
 add_executable(ParusEngineTests
+    tests/CommandContextTests.cpp
+    tests/ConsoleReflectionTests.cpp
     tests/EntityManagerTests.cpp
     tests/MathTests.cpp
+    tests/PropertyRegistryTests.cpp
     tests/SerializationTests.cpp
     tests/WorldFormatTests.cpp
 )

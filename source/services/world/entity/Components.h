@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 #include <memory>
 
 #include "engine/utils/math/Math.h"
@@ -6,6 +7,13 @@
 
 namespace parus
 {
+
+    /** Whether an entity can be moved and ticked, or is fixed for the lifetime of the scene. */
+    enum class Mobility : uint8_t
+    {
+        Static,
+        Movable
+    };
 
     /** Attaches renderable geometry to an entity. */
     struct MeshComponent final

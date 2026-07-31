@@ -361,6 +361,53 @@ namespace parus::math
         return result;
     }
 
+    Matrix4x4 Matrix4x4::scale(const float x, const float y, const float z)
+    {
+        Matrix4x4 result;
+        result.values[0][0] = x;
+        result.values[1][1] = y;
+        result.values[2][2] = z;
+
+        return result;
+    }
+
+    Matrix4x4 Matrix4x4::rotation(const float pitchDegrees, const float yawDegrees, const float rollDegrees)
+    {
+        const float pitch = radians(pitchDegrees);
+        const float yaw   = radians(yawDegrees);
+        const float roll  = radians(rollDegrees);
+
+        // Row-vector rotations (v' = v * M).
+        Matrix4x4 rotationX;
+        rotationX.values[1][1] = std::cos(pitch);
+        rotationX.values[1][2] = std::sin(pitch);
+        rotationX.values[2][1] = -std::sin(pitch);
+        rotationX.values[2][2] = std::cos(pitch);
+
+        Matrix4x4 rotationY;
+        rotationY.values[0][0] = std::cos(yaw);
+        rotationY.values[0][2] = -std::sin(yaw);
+        rotationY.values[2][0] = std::sin(yaw);
+        rotationY.values[2][2] = std::cos(yaw);
+
+        Matrix4x4 rotationZ;
+        rotationZ.values[0][0] = std::cos(roll);
+        rotationZ.values[0][1] = std::sin(roll);
+        rotationZ.values[1][0] = -std::sin(roll);
+        rotationZ.values[1][1] = std::cos(roll);
+
+        return rotationX * rotationY * rotationZ;
+    }
+
+    Vector3 Matrix4x4::transformPoint(const Vector3& point) const
+    {
+        const float x = point.x * values[0][0] + point.y * values[1][0] + point.z * values[2][0] + values[3][0];
+        const float y = point.x * values[0][1] + point.y * values[1][1] + point.z * values[2][1] + values[3][1];
+        const float z = point.x * values[0][2] + point.y * values[1][2] + point.z * values[2][2] + values[3][2];
+
+        return { x, y, z };
+    }
+
     Matrix4x4 Matrix4x4::lookAt(const Vector3& eye, const Vector3& target, const Vector3& up)
     {
         const Vector3 forward = (eye - target).normalize();  // Camera direction (negative Z)

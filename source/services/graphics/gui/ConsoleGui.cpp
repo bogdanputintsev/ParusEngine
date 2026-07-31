@@ -174,7 +174,7 @@ namespace parus::imgui
             historyEntries.push_back({ ConsoleEntryType::COMMAND, "> " + commandLineText });
             LOG_INFO("[Console] > " + commandLineText);
 
-            std::string output = Services::get<Console>()->processCommand(commandLineText);
+            std::string output = Services::get<Console>()->submitCommand(commandLineText);
             std::istringstream stream(output);
             std::string line;
             while (std::getline(stream, line))
@@ -201,11 +201,10 @@ namespace parus::imgui
 
     void ConsoleGui::registerConsoleCommands()
     {
-        Services::get<Console>()->registerConsoleCommand("clear", [this](const auto&)
+        Services::get<Console>()->registerConsoleCommand("clear", [this](const auto&, CommandContext&)
         {
             historyEntries.clear();
             scrollToTop = true;
-            return std::string();
         });
     }
 

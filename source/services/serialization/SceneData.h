@@ -26,7 +26,7 @@ namespace parus::serialization
     {
         std::string name;
         parus::Mobility mobility = parus::Mobility::Static;
-        math::Matrix4x4 transform;
+        parus::math::Transform transform;
 
         std::optional<EntityMeshEntry> meshComponent;
         std::optional<EntityPointLightEntry> pointLightComponent;

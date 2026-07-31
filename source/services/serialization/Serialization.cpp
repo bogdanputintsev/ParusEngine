@@ -42,37 +42,41 @@ namespace parus
     {
         const auto console = Services::get<Console>();
 
-        console->registerConsoleCommand("save", [](const std::vector<std::string>& args) -> std::string
+        console->registerConsoleCommand("save", [](const std::vector<std::string>& args, CommandContext& out)
         {
             if (args.empty())
             {
                 const std::string_view currentName = Services::get<World>()->getCurrentSceneName();
                 if (currentName.empty())
                 {
-                    return "No scene is currently open. Usage: save <scene_name>";
+                    out.write("No scene is currently open. Usage: save <scene_name>");
+                    return;
                 }
 
-                return Services::get<Serialization>()->saveCurrentWorld(std::string(currentName));
+                out.write(Services::get<Serialization>()->saveCurrentWorld(std::string(currentName)));
+                return;
             }
 
-            return Services::get<Serialization>()->saveCurrentWorld(args[0]);
+            out.write(Services::get<Serialization>()->saveCurrentWorld(args[0]));
         });
 
-        console->registerConsoleCommand("open", [](const std::vector<std::string>& args) -> std::string
+        console->registerConsoleCommand("open", [](const std::vector<std::string>& args, CommandContext& out)
         {
             if (args.empty())
             {
-                return "Usage: open <scene_name>";
+                out.write("Usage: open <scene_name>");
+                return;
             }
 
-            return Services::get<Serialization>()->importWorld(args[0]);
+            out.write(Services::get<Serialization>()->importWorld(args[0]));
         });
 
-        console->registerConsoleCommand("import", [](const std::vector<std::string>& args) -> std::string
+        console->registerConsoleCommand("import", [](const std::vector<std::string>& args, CommandContext& out)
         {
             if (args.empty())
             {
-                return "Usage: import <relative_path>  (relative to bin/, e.g. terrain/floor.obj)";
+                out.write("Usage: import <relative_path>  (relative to bin/, e.g. terrain/floor.obj)");
+                return;
             }
 
             std::string relativePath;
@@ -90,13 +94,15 @@ namespace parus
 
             if (!std::filesystem::exists(filePath))
             {
-                return "File not found: " + filePath;
+                out.write("File not found: " + filePath);
+                return;
             }
 
             const std::string extension = std::filesystem::path(filePath).extension().string();
             if (!utils::string::equalsIgnoreCase(extension, ".obj"))
             {
-                return "Unsupported format: " + extension + ". Only .obj files are supported.";
+                out.write("Unsupported format: " + extension + ". Only .obj files are supported.");
+                return;
             }
 
             const auto renderer = Services::get<Renderer>();
@@ -105,7 +111,7 @@ namespace parus
 
             RUN_ASYNC(vulkanRenderer->importMesh(filePath););
 
-            return "Importing: " + filePath;
+            out.write("Importing: " + filePath);
         });
     }
 

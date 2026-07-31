@@ -3,16 +3,10 @@
 #include <string>
 
 #include "engine/utils/math/Math.h"
+#include "services/world/entity/Components.h"
 
 namespace parus
 {
-
-    /** Whether an entity can be moved and ticked, or is fixed for the lifetime of the scene. */
-    enum class Mobility : uint8_t
-    {
-        Static,
-        Movable
-    };
 
     using EntityId = uint32_t;
 
@@ -22,7 +16,7 @@ namespace parus
         EntityId id = 0;
         std::string name;
         Mobility mobility = Mobility::Static;
-        math::Matrix4x4 transform = math::Matrix4x4::identity();
+        math::Transform transform;
     };
 
 }

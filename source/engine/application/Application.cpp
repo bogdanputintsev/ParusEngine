@@ -96,10 +96,9 @@ namespace parus
 
 	void Application::registerConsoleCommands()
 	{
-		console->registerConsoleCommand("exit", [](const auto& /*args*/)
+		console->registerConsoleCommand("exit", [](const auto& /*args*/, CommandContext&)
 		{
 			FIRE_EVENT(EventType::EVENT_APPLICATION_QUIT, 0);
-			return std::string();
 		});
 
 		serialization->registerConsoleCommands();

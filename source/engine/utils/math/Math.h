@@ -208,10 +208,38 @@ namespace parus::math
 
         static Matrix4x4 translation(const float x, const float y, const float z);
 
+        /** Non-uniform scale matrix. */
+        static Matrix4x4 scale(const float x, const float y, const float z);
+
+        /** Euler rotation in degrees: pitch about X, yaw about Y, roll about Z, composed Rx*Ry*Rz. */
+        static Matrix4x4 rotation(const float pitchDegrees, const float yawDegrees, const float rollDegrees);
+
+        /** Transforms a point (row vector, implicit w=1) by this matrix. */
+        [[nodiscard]] Vector3 transformPoint(const Vector3& point) const;
+
         static Matrix4x4 identity() { return {}; }
 
     private:
         std::array<std::array<float, 4>, 4> values;
+    };
+
+    /*==================================
+     * Transform
+     *==================================*/
+    /** Position, Euler rotation (degrees), and scale of an object; a world matrix is derived from it. */
+    struct Transform final
+    {
+        Vector3 position { 0.0f, 0.0f, 0.0f };
+        Vector3 rotationEuler { 0.0f, 0.0f, 0.0f };
+        Vector3 scale { 1.0f, 1.0f, 1.0f };
+
+        /** Builds the world matrix: scale, then rotate, then translate. */
+        [[nodiscard]] Matrix4x4 toMatrix() const
+        {
+            return Matrix4x4::scale(scale.x, scale.y, scale.z)
+                * Matrix4x4::rotation(rotationEuler.x, rotationEuler.y, rotationEuler.z)
+                * Matrix4x4::translation(position.x, position.y, position.z);
+        }
     };
 
     /*==================================
